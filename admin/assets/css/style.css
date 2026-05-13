@@ -1,0 +1,87 @@
+/* Firefox */
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+.nav-link {
+  color: #c6c9c9;
+
+  font-size: 14px;
+}
+
+.nav-link:hover {
+  border-left: 3px solid #fd8501;
+
+  color: white;
+}
+
+.nav-link:focus {
+  color: white;
+}
+
+.nav-link.active {
+  border-left: 4px solid #fd8501 !important;
+
+  color: white !important;
+}
+
+.btn-theme {
+  --bs-btn-bg: #06163a;
+  --bs-btn-color: #ffffff;
+}
+
+.bg-submenu {
+  color: #afb9b9;
+  background-color: #124b76;
+}
+
+.list-group-item.active {
+  z-index: 2;
+  color: var(--bs-list-group-active-color);
+  background-color: #1690ca;
+  border-color: #0e5262;
+}
+
+.nice-select {
+  height: auto !important;
+
+  line-height: normal !important;
+}
+
+table th {
+  font-size: small;
+
+  font-weight: 600;
+}
+
+table td {
+  font-size: small;
+}
+
+label {
+  font-size: small;
+}
+
+.form-control:focus {
+  box-shadow: 0 0 0 0.25rem rgb(13 110 253 / 5%);
+}
+
+@media (min-width: 1200px) {
+  legend {
+    font-weight: 500;
+
+    font-size: 20px;
+  }
+}
+
+.mystyle {
+  font-size: 12px;
+}
+
+.hover-p:hover {
+  background-color: #9c27b0 !important;
+}
+.card-header {
+  background: linear-gradient(292deg, #124069, #169cd8) !important;
+}
