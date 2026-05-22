@@ -117,7 +117,7 @@ $crit = " and billdate between '$fromdate' and '$todate'";
                                             LEFT JOIN account a 
                                                 ON a.account_id = t.account_id
                                             LEFT JOIN company_setting c 
-                                                ON c.company_id = t.company_id
+                                                ON c.company_id = t.companyid
                                             WHERE t.type = '$type' $crit
                                             ORDER BY t.transaction_id DESC
                                         ");

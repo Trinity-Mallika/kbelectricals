@@ -31,7 +31,7 @@ class DataOperation extends Database
 	}
 
 
-	public function getRouteDashboardData($loginid, $companyid)
+	public function getRouteDashboardData(int $loginid, int $companyid)
 	{
 		$weekday = date('l');
 		$day = date('j');
@@ -194,6 +194,252 @@ class DataOperation extends Database
 		];
 	}
 
+
+	public function processMonthlyKRA($emp_id, $month, $year)
+	{
+		$start = date("$year-$month-01");
+		$end   = date("Y-m-t", strtotime($start));
+
+		$visit_avg = $this->getvalfield(
+			"daily_productivity",
+			"AVG(visit_count)",
+			"emp_id='$emp_id' AND date BETWEEN '$start' AND '$end'"
+		);
+
+		$total_counters = $this->getvalfield(
+			"route_counter rc 
+     JOIN route r ON rc.batch_no = r.batch_no
+     JOIN route_plan rp ON rp.batch_no = r.batch_no",
+			"COUNT(DISTINCT rc.account_id)",
+			"rp.sales_executive_id='$emp_id'"
+		);
+
+		$accounts = $this->executequery("
+        SELECT a.account_id, a.class, SUM(t.grand_total) as sales
+        FROM transaction_entry t
+        JOIN account a ON a.account_id = t.account_id
+        WHERE t.type='order'
+        AND t.createdby='$emp_id'
+        AND t.billdate BETWEEN '$start' AND '$end'
+        GROUP BY a.account_id");
+
+		$active = 0;
+
+		foreach ($accounts as $acc) {
+			$sales = $acc['sales'];
+			$class = $acc['class'];
+
+			if ($class == 'A' && $sales >= 50000) $active++;
+			elseif ($class == 'B' && $sales >= 25000) $active++;
+			elseif ($class == 'C' && $sales >= 12000) $active++;
+		}
+
+		$productivity = ($total_counters > 0)
+			? ($active / $total_counters) * 100
+			: 0;
+
+		$product_mix = $this->getvalfield(
+			"
+        transaction_details td
+        JOIN transaction_entry t ON td.transaction_id = t.transaction_id",
+			"COUNT(DISTINCT td.product_id)",
+			"t.createdby='$emp_id'
+        AND t.type='order'
+        AND t.billdate BETWEEN '$start' AND '$end'"
+		);
+
+		$business = $this->getvalfield(
+			"transaction_entry",
+			"SUM(grand_total)",
+			"createdby='$emp_id'
+        AND type='order'
+        AND billdate BETWEEN '$start' AND '$end'"
+		);
+
+
+		$behaviour = $this->getvalfield(
+			"kra_behaviour_score",
+			"SUM(score)",
+			"emp_id='$emp_id'
+        AND month='$month'
+        AND year='$year'"
+		);
+
+		$visit_avg = $visit_avg ?: 0;
+		$product_mix = $product_mix ?: 0;
+		$business = $business ?: 0;
+		$behaviour = $behaviour ?: 0;
+		$behaviour = min($behaviour, 4);
+
+		$visit_pts    = $this->getKraPoints('visit', $visit_avg) ?: 0;
+		$prod_pts     = $this->getKraPoints('productivity', $productivity) ?: 0;
+		$mix_pts      = $this->getKraPoints('product_mix', $product_mix) ?: 0;
+		$business_pts = $this->getKraPoints('business', $business) ?: 0;
+
+		$total =
+			($visit_pts * 20) +
+			($prod_pts * 20) +
+			($mix_pts * 20) +
+			($business_pts * 30) +
+			($behaviour * 10);
+
+		$exists = $this->getvalfield(
+			"monthly_kra",
+			"COUNT(*)",
+			"emp_id='$emp_id' AND month='$month' AND year='$year'"
+		);
+
+		$max_score = 220;
+		$achievement = ($total / $max_score) * 100;
+		$arr = [
+			"emp_id" => $emp_id,
+			"month" => $month,
+			"year" => $year,
+			"visit_value" => $visit_avg,
+			"productivity_value" => $productivity,
+			"product_mix_value" => $product_mix,
+			"business_value" => $business,
+			"behaviour_value" => $behaviour,
+			"visit_points" => $visit_pts,
+			"productivity_points" => $prod_pts,
+			"product_mix_points" => $mix_pts,
+			"business_points" => $business_pts,
+			"behaviour_points" => $behaviour,
+			"total_score" => $total,
+			"achievement_pct" => $achievement,
+			"company_id" => 1
+		];
+
+		if ($exists > 0) {
+			$this->update_record(
+				"monthly_kra",
+				["emp_id" => $emp_id, "month" => $month, "year" => $year],
+				$arr
+			);
+		} else {
+			$this->insert_record("monthly_kra", $arr);
+		}
+	}
+
+
+	public function getKraPoints($key, $value)
+	{
+		return $this->getvalfield(
+			"kra_config",
+			"points",
+			"kra_key='$key'
+        AND $value > min_value
+        AND ($value <= max_value OR max_value IS NULL)
+        ORDER BY min_value DESC"
+		);
+	}
+
+
+	public function processMonthlyIncentive($emp_id, $month, $year)
+	{
+		$start = date("$year-$month-01");
+		$end   = date("Y-m-t", strtotime($start));
+
+		$routes = $this->executequery("SELECT DISTINCT r.batch_no
+    FROM route r
+    JOIN route_plan rp ON rp.batch_no = r.batch_no
+    WHERE rp.sales_executive_id='$emp_id'
+");
+
+		foreach ($routes as $r) {
+
+			$batch_no = $r['batch_no'];
+
+			$visit_avg = $this->getvalfield(
+				"daily_productivity",
+				"AVG(visit_count)",
+				"emp_id='$emp_id'
+            AND date BETWEEN '$start' AND '$end'"
+			) ?: 0;
+
+			$sales = $this->getvalfield(
+				"transaction_entry",
+				"SUM(grand_total)",
+				"createdby='$emp_id'
+            AND account_id IN (
+    SELECT account_id 
+    FROM route_counter 
+    WHERE batch_no='$batch_no'
+	)
+            AND type='order'
+            AND billdate BETWEEN '$start' AND '$end'"
+			) ?: 0;
+
+
+			$product_mix = $this->getvalfield(
+				"transaction_details td
+             JOIN transaction_entry t ON td.transaction_id = t.transaction_id",
+				"COUNT(DISTINCT td.product_id)",
+				"t.createdby='$emp_id'
+           AND t.account_id IN (
+    SELECT account_id 
+    FROM route_counter 
+    WHERE batch_no='$batch_no'
+)
+            AND t.type='order'
+            AND t.billdate BETWEEN '$start' AND '$end'"
+			) ?: 0;
+
+
+			$collection_days = $this->getvalfield(
+				"transaction_entry",
+				"AVG(DATEDIFF(billdate, billdate))",
+				"createdby='$emp_id'
+           AND account_id IN (
+    SELECT account_id 
+    FROM route_counter 
+    WHERE batch_no='$batch_no')
+            AND type='payment'
+            AND billdate BETWEEN '$start' AND '$end'"
+			) ?: 0;
+
+			$visit_amt = $this->getIncentive('visit', $visit_avg);
+			$sales_amt = $this->getIncentive('sales', $sales);
+			$mix_amt   = $this->getIncentive('product_mix', $product_mix);
+			$coll_amt  = $this->getIncentive('collection', $collection_days);
+			$total = $visit_amt + $sales_amt + $mix_amt + $coll_amt;
+			$exists = $this->getvalfield("monthly_incentive","COUNT(*)","sales_executive_id='$emp_id' AND route_id='$batch_no' AND month_name='$month' AND year='$year'");
+
+			$arr = [
+				"route_id" => $batch_no,
+				"month_name" => $month,
+				"year" => $year,
+				"visit_incentive" => $visit_amt,
+				"sales_incentive" => $sales_amt,
+				"product_mix_incentive" => $mix_amt,
+				"collection_incentive" => $coll_amt,
+				"total_incentive" => $total
+			];
+
+			if ($exists > 0) {
+				$this->update_record(
+					"monthly_incentive",
+					["sales_executive_id" => $emp_id, "route_id" => $batch_no, "month_name" => $month, "year" => $year],
+					$arr
+				);
+			} else {
+				$arr['sales_executive_id'] = $emp_id;
+				$this->insert_record("monthly_incentive", $arr);
+			}
+		}
+	}
+
+	public function getIncentive($type, $value)
+	{
+		return $this->getvalfield(
+			"incentive_slabs",
+			"amount",
+			"type='$type'
+        AND $value >= min_value
+        AND ($value <= max_value OR max_value IS NULL)
+        ORDER BY min_value DESC"
+		) ?: 0;
+	}
 
 	public function count_method(string $table, array $where): int
 	{
@@ -378,7 +624,20 @@ class DataOperation extends Database
 		return $row ?: null;
 	}
 
+	public function get_ledger_balance(int $account_id): float
+	{
+		$sql = "
+        SELECT 
+            IFNULL(SUM(CASE WHEN type='order' THEN grand_total END),0) AS total_order,
+            IFNULL(SUM(CASE WHEN type='payment' THEN grand_total END),0) AS total_payment
+        FROM transaction_entry
+        WHERE account_id = '$account_id'
+    ";
 
+		$row = $this->db->query($sql)->fetch(PDO::FETCH_ASSOC);
+
+		return (float)$row['total_order'] - (float)$row['total_payment'];
+	}
 
 	public function getcode(string $table, string $tablepkey, string $cond = "1=1"): string
 	{
@@ -390,6 +649,8 @@ class DataOperation extends Database
 
 		return str_pad((string) $num, 5, '0', STR_PAD_LEFT);
 	}
+
+
 	public function getquocode(string $table, string $tablepkey, string $prefix = 'KBE', string $cond = "1=1"): string
 	{
 		// Current month name

@@ -2,19 +2,26 @@
     <div class="container">
         <div class="row">
             <div class="col-3 col-lg-3 col-mg-3">
-
-                <?php if ($title == "Dashboard") { ?>
+                <a href="dashboard.php">
+                    <h5 class="text-white text-start mt-1 mb-0  text-start">
+                        <i class="bi bi-house-door text-white"></i>
+                    </h5>
+                </a>
+                <!-- <?php //if ($title == "Dashboard") { 
+                        ?>
                     <a href="dashboard.php">
                         <h5 class="text-white text-start mt-1 mb-0  text-start">
                             <i class="bi bi-house-door text-white"></i>
                         </h5>
                     </a>
-                <?php  } else { ?>
+                <?php  //} else { 
+                ?>
                     <h5 class="text-white text-start mt-1 mb-0  text-start" onclick="window.history.back();">
                         <i class="bi-arrow-left-circle text-white"></i>
                     </h5>
 
-                <?php  } ?>
+                <?php  //} 
+                ?> -->
 
             </div>
             <div class="col-6 col-lg-6 col-mg-6">

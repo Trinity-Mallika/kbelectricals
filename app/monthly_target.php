@@ -268,7 +268,7 @@ if (!empty($_GET['week_day'])) {
                         </div>
                         <div class="col-12 mb-3">
                             <label for="">Target</label>
-                            <input type="text" class="form-control" id="target" placeholder="Enter Traget">
+                            <input type="number" class="form-control" id="target" placeholder="Enter Traget">
                         </div>
                         <div class="col-12 mb-3">
                             <button type="button" class="btn btn-sm w-100" onclick="add_target_row()">Add</button>

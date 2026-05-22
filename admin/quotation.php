@@ -1,9 +1,6 @@
 <?php
 include("../adminsession.php");
-// session_start();
-// print_r($_SESSION);
-// echo $companyid;
-// exit;
+
 $title = "Quotation Entry";
 $pagename = "quotation.php";
 $module = "Quotation Entry";
@@ -45,7 +42,6 @@ if (isset($_POST['submit'])) {
     $grand_total = $obj->test_input($_POST['grand_total']);
     $net_total_amt = $obj->test_input($_POST['net_total_amt']);
     $form_data = array(
-        // "company_id" => $company_id,
         "account_id" => $account_id,
         "type" => $type,
         "net_total_amt" => $net_total_amt,
@@ -62,7 +58,7 @@ if (isset($_POST['submit'])) {
         "billno" => $billno,
         "billdate" => $billdate,
         "createdby" => $loginid,
-        "company_id" => $companyid,
+        "companyid" => $companyid,
         'createdate' => $createdate,
         "ipaddress" => $ipaddress,
     );

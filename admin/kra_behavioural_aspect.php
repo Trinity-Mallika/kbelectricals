@@ -1,19 +1,19 @@
 <?php
 include("../adminsession.php");
-$title = "Unit Master";
-$pagename = "unit_master.php";
-$module = "Unit Master";
-$submodule = "Unit Master List";
+$title = "KRA Behavioural Aspect";
+$pagename = "kra_behavioural_aspect.php";
+$module = "KRA Behavioural Aspect";
+$submodule = "KRA Behavioural Aspect List";
 $btn_name = "Save";
-$tblname = "category_master";
-$tblpkey = "cat_id";
-$keyvalue = (isset($_GET["cat_id"])) ? $obj->test_input($_GET["cat_id"]) : 0;
+$tblname = "kra_behavioural_aspect";
+$tblpkey = "kra_behaviour_id";
+$keyvalue = (isset($_GET["kra_behaviour_id"])) ? $obj->test_input($_GET["kra_behaviour_id"]) : 0;
 $action = (isset($_GET["action"])) ? $obj->test_input($_GET["action"]) : "";
-$type = "unit";
+
 
 if (isset($_POST['submit'])) {
-    $cat_name = $obj->test_input($_POST['cat_name']);
-    $dup = $obj->getvalfield("$tblname", "count(*)", "cat_name= '$cat_name' and type='$type' AND  $tblpkey != '$keyvalue'");
+    $kra_behaviour_name = $obj->test_input($_POST['kra_behaviour_name']);
+    $dup = $obj->getvalfield("$tblname", "count(*)", "kra_behaviour_name= '$kra_behaviour_name' AND  $tblpkey != '$keyvalue'");
 
     if ($dup > 0) {
         $action = 4;
@@ -21,8 +21,7 @@ if (isset($_POST['submit'])) {
     } else {
 
         $form_data = array(
-            "cat_name" => $cat_name,
-            "type" => $type,
+            "kra_behaviour_name" => $kra_behaviour_name,
             "createdby" => $loginid,
             'createdate' => $createdate,
             "ipaddress" => $ipaddress,
@@ -50,9 +49,9 @@ if ($keyvalue > 0) {
     $btn_name = "Update";
     $where = array($tblpkey => $keyvalue);
     $sqledit = $obj->select_record($tblname, $where);
-    $cat_name = $sqledit['cat_name'];
+    $kra_behaviour_name = $sqledit['kra_behaviour_name'];
 } else {
-    $cat_name = "";
+    $kra_behaviour_name = "";
 }
 ?>
 <!DOCTYPE html>
@@ -104,11 +103,11 @@ if ($keyvalue > 0) {
                                 <div class="card-body">
                                     <div class="row">
                                         <div class="col-md-4 mb-2">
-                                            <strong><label for="cat_name" class="form-label"> Unit Name <span class="text-danger">*</span></label></strong>
-                                            <input type="text" class="form-control form-control-sm" placeholder="Enter Unit Name" id="cat_name" name="cat_name" value="<?php echo $cat_name ?>" autocomplete="off" />
+                                            <strong><label for="kra_behaviour_name" class="form-label"> KRA Behavioural Aspect Name <span class="text-danger">*</span></label></strong>
+                                            <input type="text" class="form-control form-control-sm" placeholder="Enter KRA Behavioural Aspect Name" id="kra_behaviour_name" name="kra_behaviour_name" value="<?php echo $kra_behaviour_name ?>" autocomplete="off" />
                                         </div>
                                         <div class="col-md mt-2 "><br />
-                                            <input type="submit" name="submit" class="btn btn-theme btn-sm" value="<?php echo $btn_name; ?>" onClick="return checkinputmaster('cat_name')">
+                                            <input type="submit" name="submit" class="btn btn-theme btn-sm" value="<?php echo $btn_name; ?>" onClick="return checkinputmaster('kra_behaviour_name')">
                                             <a href="<?php echo $pagename; ?>" class="btn btn-danger btn-sm"> Reset </a>
                                             <input type="hidden" name="<?php echo $tblpkey; ?>" id="<?php echo $tblpkey; ?>" value="<?php echo $keyvalue; ?>">
                                         </div>
@@ -131,23 +130,24 @@ if ($keyvalue > 0) {
                                 <table id="example" class="table table-bordered table-sm table-hover">
                                     <thead class="text-center">
                                         <th class="text-center">S. No.</th>
-                                        <th>Unit Name</th>
+                                        <th>KRA Behavioural Aspect Name</th>
                                         <th class="text-center">Action</th>
                                     </thead>
                                     <tbody>
                                         <?php
                                         $i = 1;
-                                        $sql = $obj->executequery("SELECT * FROM $tblname where type='$type' ORDER BY cat_id desc");
+                                        $sql = $obj->executequery("SELECT * FROM $tblname ORDER BY kra_behaviour_id desc");
                                         foreach ($sql as $key) {
                                         ?>
                                             <tr>
                                                 <td class="text-center"><?php echo $i++; ?></td>
-                                                <td><?php echo ucfirst($key['cat_name']); ?> </td>
+                                                <td><?php echo ucfirst($key['kra_behaviour_name']); ?> </td>
                                                 <td class="text-center">
-                                                    <a href="<?php echo $pagename . "?" . $tblpkey . "=" . $key['cat_id']; ?>" title="Edit" class="btn btn-sm btn-outline-success"><i class="bi bi-pencil-square"></i></a>
-                                                    <button type="button" title="Delete" class="btn btn-sm btn-danger" onclick="funDel('<?php echo $key['cat_id']; ?>');">
+                                                    <a href="<?php echo $pagename . "?" . $tblpkey . "=" . $key['kra_behaviour_id']; ?>" title="Edit" class="btn btn-sm btn-outline-success"><i class="bi bi-pencil-square"></i></a>
+                                                    <!-- <button type="button" title="Delete" class="btn btn-sm btn-danger" onclick="funDel('<?php //echo $key['kra_behaviour_id']; 
+                                                                                                                                                ?>');">
                                                         <i class="bi bi-trash3-fill"></i>
-                                                    </button>
+                                                    </button> -->
                                                 </td>
                                             </tr>
                                         <?php } ?>

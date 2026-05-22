@@ -353,8 +353,8 @@ header {
 }
 .icon-badge-red,
 .icon-badge-green {
-  width: 45px;
-  height: 45px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   display: flex;
   justify-content: center;
@@ -375,4 +375,19 @@ header {
 }
 .icon-badge-green i {
   color: #023e07;
+}
+.scheme-box {
+  background-color: #d5effb;
+  padding: 5px 4px;
+  margin-bottom: 10px;
+  border-radius: 10px;
+  text-align: center;
+}
+.payment-row {
+  padding: 4px 6px;
+  border: 1px dashed #3d4856;
+  border-radius: 10px;
+  margin-bottom: 5px;
+  font-size: 14px;
+  font-weight: 700;
 }

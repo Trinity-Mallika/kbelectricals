@@ -192,22 +192,48 @@ $visit_id = (isset($_GET["visit_id"])) ? $obj->test_input($_GET["visit_id"]) : 0
 
         function funDel(id, imgname) {
 
-            tblname = 'daily_entries';
-            tblpkey = 'entry_id';
-            imgpath = 'uploads/daily_entry/';
-            if (confirm("Are you sure! You want to delete this record.")) {
+            let tblname = 'daily_entries';
+            let tblpkey = 'entry_id';
+            let imgpath = 'uploads/daily_entry/';
 
-                jQuery.ajax({
-                    type: 'POST',
-                    url: 'ajax/delete_daily_entry.php',
-                    data: 'id=' + id + '&tblname=' + tblname + '&tblpkey=' + tblpkey + '&imgname=' + imgname + '&imgpath=' + imgpath,
-                    dataType: 'html',
-                    success: function(data) {
-                        location.reload();
-                    }
-                }); //ajax close
-            } //confirm close
-        } //fun close
+            Swal.fire({
+                title: "Are you sure?",
+                text: "You want to delete this record.",
+                icon: "warning",
+                showCancelButton: true,
+                confirmButtonText: "Yes, delete it!",
+                cancelButtonText: "Cancel"
+            }).then((result) => {
+
+                if (result.isConfirmed) {
+
+                    $.ajax({
+                        type: 'POST',
+                        url: 'ajax/delete_daily_entry.php',
+                        data: {
+                            id: id,
+                            tblname: tblname,
+                            tblpkey: tblpkey,
+                            imgname: imgname,
+                            imgpath: imgpath
+                        },
+                        success: function(data) {
+
+                            Swal.fire("Deleted!", "Record deleted successfully.", "success")
+                                .then(() => location.reload());
+
+                        },
+                        error: function() {
+                            Swal.fire("Error!", "Something went wrong.", "error");
+                        }
+
+                    });
+
+                }
+
+            });
+
+        }
 
 
         let start = 0;

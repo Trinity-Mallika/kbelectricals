@@ -67,26 +67,11 @@ foreach ($res as $key) {
                 <td width="40" class="text-end">
                     <div class="btn-group">
                         <?php if ($key['follow_up_date'] == date('Y-m-d')) { ?>
-                            <a data-bs-toggle="dropdown" class="menu-btn">
-                                <i class="bi bi-three-dots-vertical"></i>
+                            <a class="text-danger"
+                                onclick="funDel('<?php echo $key['entry_id']; ?>','<?php echo $key['imgname']; ?>');">
+                                <i class="bi bi-trash me-2"></i>
                             </a>
                         <?php } ?>
-
-                        <ul class="dropdown-menu dropdown-menu-end shadow border-0 rounded-3">
-                            <li>
-                                <a class="dropdown-item"
-                                    href="add-daily-entry.php?entry_id=<?php echo $key['entry_id']; ?>">
-                                    <i class="bi bi-pencil-square me-2"></i>Edit
-                                </a>
-                            </li>
-
-                            <li>
-                                <a class="dropdown-item text-danger"
-                                    onclick="funDel('<?php echo $key['entry_id']; ?>','<?php echo $key['imgname']; ?>');">
-                                    <i class="bi bi-trash me-2"></i>Delete
-                                </a>
-                            </li>
-                        </ul>
                     </div>
                 </td>
             </tr>

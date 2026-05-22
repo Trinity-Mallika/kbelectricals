@@ -43,16 +43,19 @@ foreach ($res as $key) {
                     </th>
                     <td class="border-start">
                         <a onclick="EditProduct(
-                    '<?php echo $key['category_id'] ?>',
-                    '<?php echo $key['product_id'] ?>',
-                    '<?php echo $key['brand_id'] ?>',
-                    '<?php echo $key['unit_id'] ?>',
-                    '<?php echo $key['unit_name'] ?>',
-                    '<?php echo $key['qty'] ?>',
-                    '<?php echo $key['rate'] ?>',
-                    '<?php echo $key['total_amt'] ?>',
-                    '<?php echo $key['tran_detail_id'] ?>'
-                );" class="btn btn-sm btn-green"><i class="bi bi-pencil-square"></i></a>
+        '<?php echo $key['category_id'] ?>',
+        '<?php echo $key['product_id'] ?>',
+        '<?php echo $key['brand_id'] ?>',
+        '<?php echo $key['unit_id'] ?>',
+        '<?php echo $key['unit_name'] ?>',
+        '<?php echo $key['qty'] ?>',
+        '<?php echo $key['rate'] ?>',
+        '<?php echo $key['discount'] ?>',
+        '<?php echo $key['gst_id'] ?>',
+        '<?php echo $key['tran_detail_id'] ?>'
+    );" class="btn btn-sm btn-green">
+                            <i class="bi bi-pencil-square"></i>
+                        </a>
                     </td>
                     <td>
                         <a onclick="delete_record('<?php echo $key['tran_detail_id'] ?>');" class="btn btn-sm btn-red"><i class="bi bi-trash-fill"></i></a>

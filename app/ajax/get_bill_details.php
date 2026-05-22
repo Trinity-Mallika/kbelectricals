@@ -20,48 +20,27 @@ $sql = "
 
 $res = $obj->executequery($sql);
 
-// Data Available
-if ($res && count($res) > 0) {
+$html = '<div class="payment-list">';
 
-    $html = '
-    <div class="card p-2 bg-light">
-        <table class="table table-bordered mb-0 table-sm">
+foreach ($res as $key) {
 
-            <tr>
-                <th>Payment Date</th>
-                <th>Paymode</th>
-                <th>Amount</th>
-            </tr>
-    ';
-
-    foreach ($res as $key) {
-
-        $html .= '
-            <tr>
-
-                <td class="bg-light">
-                    ' . $obj->dateformatindia($key['billdate']) . '
-                </td>
-
-                <td class="bg-light">
-                    ' . $key['paymode'] . '
-                </td>
-
-                <td class="bg-light">
-                    ' . $key['grand_total'] . '
-                </td>
-
-            </tr>
-        ';
-    }
+    $badgeClass = ($key['paymode'] == 'Cash') ? 'bg-success' : (($key['paymode'] == 'Online') ? 'bg-primary' : 'bg-warning');
 
     $html .= '
-        </table>
+    <div class="payment-row d-flex justify-content-between align-items-center">
+
+        <div class="left">
+            <div class="date">' . $obj->dateformatindia($key['billdate']) . '</div>
+        </div>
+        <div class="mode badge ' . $badgeClass . '">' . $key['paymode'] . '</div>
+        <div class="amount text-end">
+            ₹ ' . number_format($key['grand_total'], 2) . '
+        </div>
+
     </div>
     ';
-
-    echo $html;
-} else {
-
-    echo "";
 }
+
+$html .= '</div>';
+
+echo $html;

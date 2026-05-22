@@ -14,8 +14,6 @@ $todate   = isset($_GET['todate'])   ? $_GET['todate']   : date('Y-m-d');
 $from = $fromdate . " 00:00:00";
 $to   = $todate . " 23:59:59";
 
-// $crit = "WHERE t.billdate BETWEEN '$from' AND '$to' and t.type='order' and t.companyid='$companyid'";
-
 $createdby = isset($_GET['createdby']) ? $_GET['createdby'] : '';
 $account_id = isset($_GET['account_id']) ? $_GET['account_id'] : '';
 
@@ -133,8 +131,7 @@ if (isset($_REQUEST['order_trans_id'])) {
                                 <table id="example" class="table table-bordered table-sm table-hover">
                                     <thead>
                                         <tr class="table-primary">
-                                            <th width="20"></th>
-                                            <th width="50">Sr No.</th>
+                                            <th>Sr No.</th>
                                             <th>Order recived By</th>
                                             <th>Counter Name</th>
                                             <th>Order No.</th>
@@ -149,47 +146,72 @@ if (isset($_REQUEST['order_trans_id'])) {
                                         <?php
                                         $slno = 1;
                                         $qry = $obj->executequery("
-    SELECT t.*, a.account_name, a.mobile_no, u.fullname, SUM(td.qty) AS total_qty
+    SELECT 
+        t.*,
+        a.account_name,
+        u.fullname,
+        COALESCE(td.total_qty, 0) AS total_qty
     FROM $tblname t
-    LEFT JOIN transaction_details td ON t.transaction_id = td.transaction_id
+    LEFT JOIN (
+        SELECT transaction_id, SUM(qty) AS total_qty
+        FROM transaction_details
+        GROUP BY transaction_id
+    ) td ON t.transaction_id = td.transaction_id
     LEFT JOIN account a ON a.account_id = t.account_id
     LEFT JOIN user u ON u.userid = t.createdby
-    $crit 
-    GROUP BY t.transaction_id
+    $crit
     ORDER BY t.$tblpkey DESC
 ");
-
                                         foreach ($qry as $rowget) {
+
+                                            $statusHtml = '';
+                                            if ($rowget['is_approved'] == 0) {
+                                                $statusHtml = '<span class="badge bg-danger">Pending</span>';
+                                            } else {
+                                                $statusHtml = '<span class="badge bg-success">Approved</span>';
+                                            }
+
+                                            // Invoice Status
+                                            $invoiceHtml = '';
+                                            if (!empty($rowget['invoice_no'])) {
+                                                $invoiceHtml = '<span class="badge bg-info">Inv: ' . $rowget['invoice_no'] . '</span>';
+                                            } else if ($rowget['is_approved'] == 1) {
+                                                $invoiceHtml = '<span 
+    class="badge bg-primary add-invoice-btn" 
+    style="cursor:pointer;"
+    data-id="' . $rowget['transaction_id'] . '"
+    data-order="' . $rowget['billno'] . '">
+    Add Invoice +
+</span>';
+                                            }
+
+                                            // Location
+                                            $mapBtn = '';
+                                            if (!empty($rowget['latitude'])) {
+                                                $mapBtn = '<br><a class="btn btn-sm btn-secondary" target="_blank"
+        href="https://www.google.com/maps?q=' . $rowget['latitude'] . ',' . $rowget['longitude'] . '">Map</a>';
+                                            }
+
+                                            $location = !empty($rowget['address'])
+                                                ? nl2br(htmlspecialchars($rowget['address'])) . $mapBtn
+                                                : '<span class="text-muted">N/A</span>';
                                         ?>
-                                            <tr data-id="<?php echo $rowget['transaction_id']; ?>">
-                                                <td class="details-control text-center">
-                                                    <span class="badge bg-primary toggle-row" style="cursor:pointer;">
-                                                        <i class="bi bi-plus"></i>
-                                                    </span>
-                                                </td>
-                                                <td><?php echo $slno++; ?></td>
-                                                <td><strong><?php echo $rowget['fullname']; ?></strong></td>
-                                                <td><?php echo ucfirst($rowget['account_name']); ?></td>
-                                                <td><?php echo $rowget['billno']; ?></td>
-                                                <td><?php echo $obj->dateformatindia($rowget['billdate']); ?></td>
-                                                <td><?php echo $rowget['total_qty']; ?></td>
-                                                <td><?php echo nl2br($rowget['address']); ?>
-                                                    <?php if ($rowget['latitude'] != '') { ?>
-                                                        <br>
-                                                        <a class="btn btn-sm btn-primary" target="_blank"
-                                                            href="https://www.google.com/maps?q=<?php echo $rowget['latitude']; ?>,<?php echo $rowget['longitude']; ?>">
-                                                            Map
-                                                        </a>
-                                                    <?php } ?>
+                                            <tr>
+                                                <td class="text-center"><?= $slno++; ?></td>
+                                                <td><?= htmlspecialchars($rowget['fullname']); ?></td>
+                                                <td><?= htmlspecialchars($rowget['account_name']); ?></td>
+                                                <td><?= $rowget['billno']; ?></td>
+                                                <td><?= $obj->dateformatindia($rowget['billdate']); ?></td>
+                                                <td><?= $rowget['total_qty']; ?></td>
+                                                <td><?= $location; ?></td>
+                                                <td>
+                                                    <?= $statusHtml; ?><br>
+                                                    <?= $invoiceHtml; ?>
                                                 </td>
                                                 <td>
-                                                    <?php if ($rowget['is_approved'] == 0) { ?><span class="text-danger"><b>Pending</b></span>
-                                                    <?php } else { ?>
-                                                        <span class="text-success"><b>Approved</b></span>
-                                                    <?php } ?>
+                                                    <a href="order_view.php?transaction_id=<?= $rowget['transaction_id'] ?>"
+                                                        class="btn btn-sm btn-warning">View</a>
                                                 </td>
-                                                <td><a href="order_view.php?transaction_id=<?php echo $rowget['transaction_id'] ?>" class="btn btn-sm btn-warning">View</a></td>
-
                                             </tr>
                                         <?php } ?>
                                     </tbody>
@@ -202,96 +224,121 @@ if (isset($_REQUEST['order_trans_id'])) {
         </div>
     </div>
     <!-- Content close-->
+
+    <div class="modal fade" id="invoiceModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="invoiceModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h1 class="modal-title fs-5" id="invoiceModalLabel">Add Invoice No. For <span id="order_ref"></span></h1>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-lg-12">
+                            <strong><label for="">Invoice No.</label><span class="text-danger fw-bold">*</span></strong>
+                            <input type="text" id="invoice_no" class="form-control" placeholder="Enter Invoice No." autocomplete="off">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <input type="hidden" id="transaction_id">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" onclick="save_invoice();">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 
 <!-- script tag -->
 <?php include('component/script.php'); ?>
-
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
     $(document).ready(function() {
-
+        $('#example').DataTable();
         $(".chosen-select").chosen();
     });
-</script>
-<script>
-    function order_approve(transaction_id) {
 
-        swal({
-                title: "Are you sure?",
-                text: "You want to approve this order!",
-                icon: "warning",
-                buttons: true,
-                dangerMode: false,
-            })
-            .then((willApprove) => {
+    $(document).on('click', '.add-invoice-btn', function() {
+        let id = $(this).data('id');
+        let order = $(this).data('order');
 
-                if (willApprove) {
+        add_invoice(id, order);
+    });
 
-                    $.ajax({
-                        url: "",
-                        type: "POST",
-                        data: {
-                            order_trans_id: transaction_id
-                        },
-                        success: function(res) {
+    function add_invoice(transaction_id, order_no) {
+        $('#invoiceModal').modal('show');
 
-                            if (res == '1') {
+        $('#transaction_id').val(transaction_id);
+        $('#order_ref').text(order_no);
 
-                                swal("Approved!", "Order has been approved.", "success")
-                                    .then(() => {
-                                        location.reload();
-                                    });
+        $('#invoice_no').val('').focus();
+    }
 
-                            } else {
-                                swal("Error!", "Failed to approve.", "error");
-                            }
+    function save_invoice() {
+        let id = $('#transaction_id').val();
+        let invoice = $('#invoice_no').val().trim();
 
-                        }
+        if (invoice === '') {
+            alert('Invoice No. is required');
+            $('#invoice_no').focus();
+            return;
+        }
+
+        $.ajax({
+            url: 'save_invoice.php',
+            type: 'POST',
+            data: {
+                transaction_id: id,
+                invoice_no: invoice
+            },
+            beforeSend: function() {
+                $('#invoiceModal .btn-primary').prop('disabled', true).text('Saving...');
+            },
+            success: function(res) {
+                if (res == 1) {
+
+                    $('#invoiceModal').modal('hide');
+
+                    let btn = $('.add-invoice-btn[data-id="' + id + '"]');
+
+                    btn.replaceWith(
+                        '<span class="badge bg-info">Inv: ' + invoice + '</span>'
+                    );
+
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Saved',
+                        text: 'Invoice added successfully',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+
+                } else if (res == 2) {
+
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Duplicate Invoice',
+                        text: 'This invoice number already exists'
+                    });
+
+                    $('#invoice_no').focus();
+
+                } else {
+
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Failed to save invoice'
                     });
 
                 }
-
-            });
-    }
-    $(document).ready(function() {
-
-        var table = $('#example').DataTable({
-            "order": [
-                [1, "asc"]
-            ],
-            "pageLength": 25
-        });
-
-        $('#example tbody').on('click', 'td.details-control', function() {
-
-            var tr = $(this).closest('tr');
-            var row = table.row(tr);
-            var btn = $(this).find("i");
-            var id = tr.data("id");
-
-            if (row.child.isShown()) {
-                row.child.hide();
-                tr.removeClass('shown');
-                btn.removeClass("bi-dash").addClass("bi-plus");
-            } else {
-                $.ajax({
-                    url: "load_products.php",
-                    type: "POST",
-                    data: {
-                        transaction_id: id
-                    },
-                    success: function(data) {
-                        row.child(data).show();
-                        tr.addClass('shown');
-                    }
-                });
-
-                btn.removeClass("bi-plus").addClass("bi-dash");
+            },
+            complete: function() {
+                $('#invoiceModal .btn-primary').prop('disabled', false).text('Save');
             }
-
         });
-
-    });
+    }
 </script>
 
 </html>

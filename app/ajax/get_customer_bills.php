@@ -7,24 +7,25 @@ $res = $obj->executequery("
     SELECT 
         t.transaction_id,
         t.billno,
+        t.invoice_no,
         t.billdate,
 
-        IFNULL(SUM(td.qty * td.rate),0) as total_amt,
+        IFNULL(SUM(td.qty * td.rate),0) AS total_amt,
 
-        IFNULL((
-            SELECT SUM(p.grand_total)
-            FROM transaction_entry p
-            WHERE p.ref_bill_id = t.transaction_id
-            AND p.type = 'payment'
-        ),0) as total_paid
+        IFNULL(SUM(p.grand_total),0) AS total_paid
 
     FROM transaction_entry t
 
     LEFT JOIN transaction_details td 
         ON td.transaction_id = t.transaction_id
 
+    LEFT JOIN transaction_entry p
+        ON p.ref_bill_id = t.transaction_id
+        AND p.type = 'payment'
+
     WHERE t.account_id = '$account_id'
     AND t.type = 'order'
+    AND t.invoice_no != ''
 
     GROUP BY t.transaction_id
     ORDER BY t.transaction_id DESC
@@ -35,19 +36,18 @@ $html = '<option value="">Select Bill</option>';
 foreach ($res as $row) {
 
     $total = $row['total_amt'];
-    $billdate = $row['billdate'];
-    $pending = $row['total_amt'] - $row['total_paid'];
+    $paid = $row['total_paid'];
+    $pending = $total - $paid;
 
-    // skip fully paid
     if ($pending <= 0) continue;
 
     $html .= '<option 
-            value="' . $row['transaction_id'] . '"
-            data-total="' . $total . '"
-            data-pending="' . $pending . '"
-        >
-            ' . $row['billno'] . ' (Total: ₹' . $total . ')./' . $obj->dateformatindia($billdate) . '
-          </option>';
+        value="' . $row['transaction_id'] . '"
+        data-total="' . $total . '"
+        data-pending="' . $pending . '"
+    >
+        ' . $row['invoice_no'] . ' (₹' . $total . ' | Pending: ₹' . $pending . ') / ' . $obj->dateformatindia($row['billdate']) . '
+    </option>';
 }
 
 echo json_encode([

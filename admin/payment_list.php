@@ -14,8 +14,6 @@ $todate   = isset($_GET['todate'])   ? $_GET['todate']   : date('Y-m-d');
 $from = $fromdate . " 00:00:00";
 $to   = $todate . " 23:59:59";
 
-// $crit = "WHERE t.billdate BETWEEN '$from' AND '$to' and t.type='payment' and t.companyid='$companyid'";
-
 $createdby = isset($_GET['createdby']) ? $_GET['createdby'] : '';
 $account_id = isset($_GET['account_id']) ? $_GET['account_id'] : '';
 
@@ -23,12 +21,10 @@ $crit = "WHERE t.billdate BETWEEN '$from' AND '$to'
          AND t.type='payment' 
          AND t.companyid='$companyid'";
 
-// Apply Executive filter
 if (!empty($createdby)) {
     $crit .= " AND t.createdby = '$createdby'";
 }
 
-// Apply Counter filter
 if (!empty($account_id)) {
     $crit .= " AND t.account_id = '$account_id'";
 }
@@ -129,9 +125,9 @@ if (!empty($account_id)) {
                                         <tr class="table-primary">
                                             <th width="50">Sr No.</th>
                                             <th>Payment Received By</th>
-                                            <th>Counter Name</th>                                            
-                                            <th>Transection Id</th>
-                                            <th>Bill No.</th>
+                                            <th>Counter Name</th>
+                                            <th>Transaction Id</th>
+                                            <th>Invoice No.</th>
                                             <th>Voucher No.</th>
                                             <th>Voucher Date</th>
                                             <th>Pay Mode</th>
@@ -143,44 +139,95 @@ if (!empty($account_id)) {
                                     <tbody>
                                         <?php
                                         $slno = 1;
-                                        $qry = $obj->executequery("SELECT t.*, a.account_name, a.mobile_no, u.fullname, b.billno as ref_billno
+
+                                        $qry = $obj->executequery("
+    SELECT 
+        t.*, 
+        a.account_name, 
+        u.fullname, 
+        b.invoice_no as ref_invoice_no
     FROM $tblname t
     LEFT JOIN account a ON a.account_id = t.account_id
     LEFT JOIN user u ON u.userid = t.createdby
     LEFT JOIN transaction_entry b ON b.transaction_id = t.ref_bill_id
     $crit 
-    GROUP BY t.transaction_id
     ORDER BY t.$tblpkey DESC
 ");
 
-                                        foreach ($qry as $rowget) {
+                                        foreach ($qry as $row) {
+
+                                            // Payment reference logic
+                                            $ref = '';
+                                            if ($row['paymode'] == 'Cheque') {
+                                                $ref = 'Cheque: ' . $row['trans_id'];
+                                            } elseif ($row['paymode'] == 'Online') {
+                                                $ref = 'Txn: ' . $row['trans_id'];
+                                            } else {
+                                                $ref = '-';
+                                            }
+
+                                            // Paymode badge
+                                            $badge = '';
+                                            if ($row['paymode'] == 'Cash') {
+                                                $badge = '<span class="badge bg-success">Cash</span>';
+                                            } elseif ($row['paymode'] == 'Cheque') {
+                                                $badge = '<span class="badge bg-warning text-dark">Cheque</span>';
+                                            } else {
+                                                $badge = '<span class="badge bg-info text-dark">Online</span>';
+                                            }
                                         ?>
                                             <tr>
-                                                <td><?php echo $slno++; ?></td>
-                                                <td><strong><?php echo $rowget['fullname']; ?></strong></td>
-                                                <td><?php echo ucfirst($rowget['account_name']); ?></td>
-                                                <td><?php echo $rowget['trans_id']; ?></td>
-                                                <td><?php echo $rowget['ref_billno']; ?></td>
-                                                <td><?php echo $rowget['billno']; ?></td>
-                                                <td><?php echo $obj->dateformatindia($rowget['billdate']); ?></td>
-                                                <td><?= $rowget['paymode'] ?></td>
-                                                <td><?php echo number_format($rowget['grand_total'], 2); ?></td>
-                                                <td><?php if ($rowget['imgname'] != '') { ?>
-                                                        <a class="btn btn-sm btn-primary" target="_blank"
-                                                            href="../app/uploads/payment_proof/<?php echo $rowget['imgname']; ?>">
+                                                <td><?= $slno++ ?></td>
+
+                                                <td>
+                                                    <strong><?= $row['fullname'] ?></strong>
+                                                </td>
+
+                                                <td><?= ucfirst($row['account_name']) ?></td>
+
+                                                <td><?= $ref ?></td>
+
+                                                <td>
+                                                    <?= $row['ref_invoice_no'] ?: '-' ?>
+                                                </td>
+
+                                                <td>
+                                                    <?= $row['billno'] ?>
+                                                </td>
+
+                                                <td>
+                                                    <?= $obj->dateformatindia($row['billdate']) ?>
+                                                </td>
+
+                                                <td><?= $badge ?></td>
+
+                                                <td class="text-end">
+                                                    ₹<?= number_format($row['grand_total'], 2) ?>
+                                                </td>
+
+                                                <td class="text-center">
+                                                    <?php if ($row['imgname']) { ?>
+                                                        <a class="btn btn-sm btn-outline-primary" target="_blank"
+                                                            href="../app/uploads/payment_proof/<?= $row['imgname'] ?>">
                                                             View
                                                         </a>
+                                                    <?php } else { ?>
+                                                        <span class="text-muted">N/A</span>
                                                     <?php } ?>
                                                 </td>
-                                                <td><?php echo nl2br($rowget['address']); ?>
-                                                    <?php if ($rowget['latitude'] != '') { ?>
+
+                                                <td>
+                                                    <?= nl2br($row['address']) ?>
+
+                                                    <?php if ($row['latitude']) { ?>
                                                         <br>
-                                                        <a class="btn btn-sm btn-primary" target="_blank"
-                                                            href="https://www.google.com/maps?q=<?php echo $rowget['latitude']; ?>,<?php echo $rowget['longitude']; ?>">
+                                                        <a class="btn btn-sm btn-outline-dark mt-1" target="_blank"
+                                                            href="https://www.google.com/maps?q=<?= $row['latitude'] ?>,<?= $row['longitude'] ?>">
                                                             Map
                                                         </a>
                                                     <?php } ?>
                                                 </td>
+
                                             </tr>
                                         <?php } ?>
                                     </tbody>

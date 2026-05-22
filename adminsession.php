@@ -1,6 +1,5 @@
 <?php include("action.php");
-// echo $_SESSION['companyid'];
-// exit;
+
 if (isset($_SESSION['usertype']) && $_SESSION['usertype'] != "" && isset($_SESSION['userid']) && $_SESSION['userid'] != "") {
 
 	$ipaddress = $obj->get_client_ip();

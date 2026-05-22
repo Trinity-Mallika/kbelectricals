@@ -34,7 +34,7 @@ if (isset($_POST['target_account_id'])) {
     $check = $obj->getvalfield(
         "monthly_target",
         "target_id",
-        "account_id='$account_id' AND month='$month' AND year='$year'"
+        "account_id='$account_id' AND month='$month' AND year='$year' and createdby='$loginid'"
     );
 
     $arr2 = array(

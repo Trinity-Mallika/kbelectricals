@@ -1,9 +1,8 @@
-<?php
-include("../action.php");
+<?php include("../action.php");
 $brand_id = isset($_POST['brand_id']) ? $obj->test_input($_POST['brand_id']) : '';
 $category_id = isset($_POST['category_id']) ? $obj->test_input($_POST['category_id']) : '';
 $product_id = isset($_POST['product_id']) ? $obj->test_input($_POST['product_id']) : '';
-// $sql = "SELECT * FROM product_master WHERE category_id = '$category_id' ORDER BY product_name ASC";
+
 $sql = "SELECT * FROM product_master 
         WHERE category_id = '$category_id' 
         AND brand_id = '$brand_id'

@@ -70,12 +70,12 @@
 
             <li class="nav-item shadow-sm">
 
-                <a class="nav-link <?php echo ($pagename == "company.php" || $pagename == "brandwise_rate_setting.php" || $pagename == "session-master.php" || $pagename == "area_master.php" || $pagename == "user-master.php" || $pagename == "category_master.php" || $pagename == "product_master.php" || $pagename == "brand_master.php" || $pagename == "unit_master.php" || $pagename == "accounts.php") ? "active" : ""; ?> " href="#" data-bs-toggle="collapse" data-bs-target="#master" aria-expanded="true">
+                <a class="nav-link <?php echo ($pagename == "company.php" || $pagename == "add_behavioural_points.php" || $pagename == "kra_behavioural_aspect.php" || $pagename == "upload_mrp_excel.php" || $pagename == "session-master.php" || $pagename == "area_master.php" || $pagename == "user-master.php" || $pagename == "category_master.php" || $pagename == "product_master.php" || $pagename == "brand_master.php" || $pagename == "unit_master.php" || $pagename == "accounts.php" || $pagename == "bank_master.php") ? "active" : ""; ?> " href="#" data-bs-toggle="collapse" data-bs-target="#master" aria-expanded="true">
                     <i class="bi bi-pencil-square"></i> &nbsp; Master
                     <span class="float-end down"><i class="bi bi-chevron-right"></i></span>
                 </a>
 
-                <div class="collapse <?php echo ($pagename == "company.php"  || $pagename == "brandwise_rate_setting.php" || $pagename == "session-master.php" || $pagename == "area_master.php" || $pagename == "user-master.php" || $pagename == "category_master.php" || $pagename == "product_master.php" || $pagename == "brand_master.php" || $pagename == "unit_master.php" || $pagename == "accounts.php") ? "show" : ""; ?>" id="master">
+                <div class="collapse <?php echo ($pagename == "company.php" || $pagename == "add_behavioural_points.php" || $pagename == "kra_behavioural_aspect.php" || $pagename == "upload_mrp_excel.php" || $pagename == "session-master.php" || $pagename == "area_master.php" || $pagename == "user-master.php" || $pagename == "category_master.php" || $pagename == "product_master.php" || $pagename == "brand_master.php" || $pagename == "unit_master.php" || $pagename == "accounts.php" || $pagename == "bank_master.php") ? "show" : ""; ?>" id="master">
 
                     <ul class="btn-toggle-nav list-group list-unstyled fw-normal pb-1 small">
                         <li>
@@ -142,9 +142,27 @@
 
                         </li>
                         <li>
+
+                            <a href="upload_mrp_excel.php" class="list-group-item bg-submenu list-group-item-action <?php echo ($pagename == "upload_mrp_excel.php") ? "active" : ""; ?>">
+
+                                <i class="bi bi-chevron-right"></i> &nbsp; Upload Product MRP
+
+                            </a>
+
+                        </li>
+                        <li>
                             <a href="accounts.php" class="list-group-item bg-submenu list-group-item-action <?php echo ($pagename == "accounts.php") ? "active" : ""; ?>">
                                 <i class="bi bi-chevron-right"></i> &nbsp; Counter Master
                             </a>
+                        </li>
+                        <li>
+
+                            <a href="bank_master.php" class="list-group-item bg-submenu list-group-item-action <?php echo ($pagename == "bank_master.php") ? "active" : ""; ?>">
+
+                                <i class="bi bi-chevron-right"></i> &nbsp; Bank Master
+
+                            </a>
+
                         </li>
 
                         <li>
@@ -152,6 +170,26 @@
                             <a href="user-master.php" class="list-group-item bg-submenu list-group-item-action <?php echo ($pagename == "user-master.php") ? "active" : ""; ?>">
 
                                 <i class="bi bi-chevron-right"></i> &nbsp; User Master
+
+                            </a>
+
+                        </li>
+
+                        <li>
+
+                            <a href="kra_behavioural_aspect.php" class="list-group-item bg-submenu list-group-item-action <?php echo ($pagename == "kra_behavioural_aspect.php") ? "active" : ""; ?>">
+
+                                <i class="bi bi-chevron-right"></i> &nbsp; KRA Behavioural Aspects
+
+                            </a>
+
+                        </li>
+
+                        <li>
+
+                            <a href="add_behavioural_points.php" class="list-group-item bg-submenu list-group-item-action <?php echo ($pagename == "add_behavioural_points.php") ? "active" : ""; ?>">
+
+                                <i class="bi bi-chevron-right"></i> &nbsp; Add Behavioural Points
 
                             </a>
 
@@ -204,6 +242,17 @@
             </li>
             <li class="nav-item shadow-sm">
 
+                <a class="nav-link <?php echo ($pagename == "kra_setting_report.php") ? "active" : ""; ?>" href="kra_setting_report.php">
+
+                    <i class="bi bi-receipt"></i> &nbsp; KRA Setting
+
+                    <span class="float-end"><i class="bi bi-chevron-right"></i></span>
+
+                </a>
+
+            </li>
+            <li class="nav-item shadow-sm">
+
                 <a class="nav-link <?php echo ($pagename == "quotation.php" || $pagename == "quotation_list.php") ? "active" : ""; ?>" href="quotation.php">
 
                     <i class="bi bi-receipt"></i> &nbsp; Quotation
@@ -226,12 +275,23 @@
             </li>
             <li class="nav-item shadow-sm">
 
-                <a class="nav-link <?php echo ($pagename == "daily_visit_list.php" || $pagename == "order_list.php" || $pagename == "accounts_list.php" || $pagename == "payment_list.php") ? "active" : ""; ?> " href="#" data-bs-toggle="collapse" data-bs-target="#reports" aria-expanded="true">
+                <a class="nav-link <?php echo ($pagename == "order_list.php") ? "active" : ""; ?>" href="order_list.php">
+
+                    <i class="bi bi-receipt"></i> &nbsp; Order List
+
+                    <span class="float-end"><i class="bi bi-chevron-right"></i></span>
+
+                </a>
+
+            </li>
+            <li class="nav-item shadow-sm">
+
+                <a class="nav-link <?php echo ($pagename == "daily_visit_list.php" || $pagename == "accounts_list.php" || $pagename == "payment_list.php") ? "active" : ""; ?> " href="#" data-bs-toggle="collapse" data-bs-target="#reports" aria-expanded="true">
                     <i class="bi bi-bar-chart"></i>&nbsp; Reports
                     <span class="float-end down"><i class="bi bi-chevron-right"></i></span>
                 </a>
 
-                <div class="collapse <?php echo ($pagename == "daily_visit_list.php" || $pagename == "order_list.php" || $pagename == "accounts_list.php" || $pagename == "payment_list.php") ? "show" : ""; ?>" id="reports">
+                <div class="collapse <?php echo ($pagename == "daily_visit_list.php" || $pagename == "accounts_list.php" || $pagename == "payment_list.php") ? "show" : ""; ?>" id="reports">
 
                     <ul class="btn-toggle-nav list-group list-unstyled fw-normal pb-1 small">
                         <li>
@@ -244,14 +304,6 @@
                             <a href="daily_visit_list.php" class="list-group-item bg-submenu list-group-item-action <?php echo ($pagename == "daily_visit_list.php") ? "active" : ""; ?>">
 
                                 <i class="bi bi-chevron-right"></i> &nbsp; Daily Visit's Entries
-                            </a>
-
-                        </li>
-                        <li>
-
-                            <a href="order_list.php" class="list-group-item bg-submenu list-group-item-action <?php echo ($pagename == "order_list.php") ? "active" : ""; ?>">
-
-                                <i class="bi bi-chevron-right"></i> &nbsp; Order List
                             </a>
 
                         </li>

@@ -5,13 +5,16 @@ $tblname = 'transaction_entry';
 $tblpkey = 'transaction_id';
 $btn_name = "Save";
 $keyvalue = (isset($_GET["transaction_id"])) ? $obj->test_input($_GET["transaction_id"]) : 0;
-
+$account_id = (isset($_GET["account_id"])) ? $obj->test_input($_GET["account_id"]) : 0;
 $data = $obj->getRouteDashboardData($loginid, $companyid);
 $route_plan_id = $data['route_plan_id'];
 $imgpath = "uploads/payment_proof/";
+$balance = 0;
+if ($account_id > 0) {
+    $balance = $obj->get_ledger_balance($account_id);
+}
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-
     $keyvalue   = $obj->test_input($_POST['transaction_id']);
     $account_id = $obj->test_input($_POST['account_id']);
     $bill_id    = $_POST['bill_id'];
@@ -41,7 +44,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         @unlink($imgpath . $old);
                     }
                 }
-                // $form_data['imgname'] = $filename;
             }
         }
     } else {
@@ -66,20 +68,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         'ipaddress'     => $ipaddress
     );
 
-
-
     if ($keyvalue == 0) {
-
         $form_data['createdate'] = $createdate;
         $obj->insert_record($tblname, $form_data);
 
         echo "success";
         exit;
     } else {
-
         $form_data['lastupdated'] = $createdate;
         $obj->update_record($tblname, [$tblpkey => $keyvalue], $form_data);
-
         echo "updated";
         exit;
     }
@@ -99,10 +96,10 @@ if (isset($_GET[$tblpkey])) {
     $trans_id = $sqledit['trans_id'];
     $pending_amt = "";
 } else {
-    $account_id = $paymode = $pay_amt  = $payment_proof = $trans_id = "";
+    $paymode = $pay_amt  = $payment_proof = $trans_id = "";
     $paydate = date('Y-m-d');
     $pending_amt = "";
-    $voucher_no = $obj->getcode('transaction_entry', 'billno', 'type="payment"');
+    $voucher_no = '';
 }
 ?>
 
@@ -113,9 +110,7 @@ if (isset($_GET[$tblpkey])) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>KBELECTRICAL</title>
-    <!-- css links  files -->
     <?php include("inc/css-file.php"); ?>
-
 </head>
 
 <body class="dashboard">
@@ -137,10 +132,10 @@ if (isset($_GET[$tblpkey])) {
                         </div>
                         <div class="col-lg-3 mb-2">
                             <label for="" class="form-label"> Customer Name <span class="text-danger fw-bold">*</span></label>
-                            <select class="form-select chosen-select" name="account_id" id="account_id" onchange="get_account_details(this.value);">
+                            <select class="form-select chosen-select" name="account_id" id="account_id" onchange="set_url(this.value);">
                                 <option value="">Select</option>
                                 <?php
-                               $res = $obj->executequery("
+                                $res = $obj->executequery("
     SELECT DISTINCT
         a.account_id,
         a.account_name,
@@ -163,8 +158,6 @@ if (isset($_GET[$tblpkey])) {
 
     ORDER BY a.account_name ASC
 ");
-
-                               
                                 foreach ($res as $key) {
                                     echo "<option value='{$key['account_id']}'>
             {$key['account_name']} [{$key['account_type']}] /  {$key['area_name']} 
@@ -175,35 +168,40 @@ if (isset($_GET[$tblpkey])) {
                             <script>
                                 document.getElementById('account_id').value = '<?= $account_id ?>';
                             </script>
+                            <?php if ($account_id > 0) { ?>
+                                <div class="payment-row d-flex justify-content-between align-items-center mt-2 border-danger">
+                                    <div class="left">
+                                        <div class="date text-danger">Ledger Balance</div>
+                                    </div>
+                                    <div class="amount text-end text-danger">
+                                        ₹ <?= number_format($balance, 2); ?>
+                                    </div>
+
+                                </div>
+                            <?php } ?>
                         </div>
 
-
-                        <div class="col-lg-12 mb-2" id="account_details_div">
-
-                        </div>
                         <div class="col-lg-3 mb-2">
-                            <label class="form-label">Select Bill <span class="text-danger">*</span></label>
+                            <label class="form-label w-100">Select a Bill <span class="text-danger">*</span> <a href="#paymentDetails" data-bs-toggle="modal" class="btn btn-sm btn-green p-0 ps-3 pe-3 float-end">View Details</a> </label>
                             <select name="bill_id" id="bill_id" class="form-select chosen-select" onchange="get_bill_details(this.value)">
                                 <option value="">Select Bill</option>
                             </select>
                         </div>
-                        <div class="col-lg-12 mb-2" id="bill_details_div">
 
-                        </div>
                         <div class="col-lg-3 mb-2">
                             <label for="" class="form-label">Pending Amount <span class="text-danger fw-bold">*</span></label>
                             <input type="text" class="form-control shadow-sm" id="pending_amt" name="pending_amt" placeholder="Pending Amount" value="<?php echo $pending_amt ?>" readonly>
                         </div>
                         <div class="col-lg-3 mb-2">
                             <label for="" class="form-label">Pay Mode <span class="text-danger fw-bold">*</span></label>
-                            <select class="form-control chosen-select shadow-sm" id="paymode" name="paymode" placeholder="Enter Pay Mode" value="<?php echo $paymode ?>">
+                            <select class="form-control shadow-sm" id="paymode" name="paymode" placeholder="Enter Pay Mode">
                                 <option value="">Select Pay Mode</option>
                                 <option value="Cash" <?php if ($paymode == "Cash") echo "selected"; ?>>Cash</option>
                                 <option value="Cheque" <?php if ($paymode == "Cheque") echo "selected"; ?>>Cheque</option>
                                 <option value="Online" <?php if ($paymode == "Online") echo "selected"; ?>>Online</option>
                             </select>
                         </div>
-                        <div class="col-lg-3 mb-2" id="proof_div" style="display:none;">
+                        <div class="col-lg-3 mb-2 conditional-field" id="proof_div" style="display:none;">
                             <label class="form-label">Payment Proof <span class="text-danger">*</span></label>
                             <input type="file" class="form-control" name="payment_proof" id="payment_proof" accept=".jpg,.jpeg,.png">
                             <?php if ($payment_proof != "") { ?>
@@ -212,24 +210,37 @@ if (isset($_GET[$tblpkey])) {
                         </div>
                         <input type="hidden" id="old_img" value="<?= $payment_proof ?>">
 
-                        <div class="col-lg-3 mb-2" id="tansaction_div" style="display:none;">
-                            <label class="form-label">Transection id <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control shadow-sm" name="trans_id" id="trans_id" placeholder="Transection Id" value="<?php echo $trans_id ?>">
+                        <div class="col-lg-3 mb-2 conditional-field" id="tansaction_div" style="display:none;">
+                            <label class="form-label" id="trans_label">Transaction ID <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control shadow-sm" name="trans_id" id="trans_id" placeholder="Transaction ID" value="<?php echo $trans_id ?>">
 
                         </div>
-
-
-                        <div class="col-lg-3 mb-2">
-                            <label for="" class="form-label">Voucher No. <span class="text-danger fw-bold">*</span></label>
-                            <input type="text" class="form-control shadow-sm" id="voucher_no" name="voucher_no" placeholder="Enter Voucher No." value="<?php echo $voucher_no ?>" readonly>
+                        <div class="col-lg-3 mb-2 conditional-field" id="reciept_div">
+                            <label for="" class="form-label">Reciept No. <span class="text-danger fw-bold">*</span></label>
+                            <input type="text" class="form-control shadow-sm" id="voucher_no" name="voucher_no" placeholder="Enter Reciept No." value="<?php echo $voucher_no ?>">
                         </div>
                         <div class="col-lg-3 mb-2">
-                            <label for="" class="form-label">Payment Date <span class="text-danger fw-bold">*</span></label>
+                            <label for="" class="form-label" id="pay_date_l">Payment Date <span class="text-danger fw-bold">*</span></label>
                             <input type="date" class="form-control shadow-sm" id="paydate" name="paydate" placeholder="Enter Payment Date" value="<?php echo $paydate ?>">
                         </div>
                         <div class="col-lg-3 mb-2">
-                            <label for="" class="form-label">Payment Amount <span class="text-danger fw-bold">*</span></label>
+                            <label for="" class="form-label" id="pay_amt_l">Payment Amount <span class="text-danger fw-bold">*</span></label>
                             <input type="text" class="form-control shadow-sm" id="pay_amt" name="pay_amt" placeholder="Enter Payment Amount" value="<?php echo $pay_amt ?>">
+                        </div>
+                        <div class="col-lg-3 mb-2 conditional-field" id="bank_div" style="display:none;">
+                            <label for="" class="form-label">Bank Name <span class="text-danger fw-bold">*</span></label>
+                            <select class="form-control shadow-sm" id="bank_id" name="bank_id">
+                                <option value="">Select Bank</option>
+                                <?php $res = $obj->executequery("Select * from bank_master");
+                                foreach ($res as $banks) { ?>
+                                    <option value="<?= $banks['bank_id'] ?>"><?= $banks['bank_name'] ?></option>
+                                <?php } ?>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div class="col-lg-3 mb-2" id="remark_div">
+                            <label for="" class="form-label">Remark <span class="text-danger fw-bold">*</span></label>
+                            <input type="text" class="form-control shadow-sm" id="remark" name="remark" placeholder="Enter Remarks" value="<?php echo $pay_amt ?>">
                         </div>
                         <div class="d-grid mt-4">
                             <input type="hidden" name="latitude" id="latitude">
@@ -240,130 +251,144 @@ if (isset($_GET[$tblpkey])) {
                         </div>
                     </div>
                 </form>
-
             </div>
-
         </div>
-
     </section>
     <div id="loader">
         <div class="loader-spinner"></div>
     </div>
+
+    <!-- Modal -->
+    <div class="modal fade" id="paymentDetails" tabindex="-1" aria-labelledby="paymentDetailsLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h1 class="modal-title fs-5" id="paymentDetailsLabel">Payment Details</h1>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-lg-12 mb-2" id="bill_details_div">
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- js script files -->
     <?php include("inc/js-file.php"); ?>
-</body>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script>
-    $(document).ready(function() {
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+        $(document).ready(function() {
+            $(".chosen-select").chosen({
+                width: "100%",
+                search_contains: true
+            });
 
-        $(".chosen-select").chosen({
-            width: "100%",
-            search_contains: true
+            let account_id = <?= (int)$account_id ?>;
+            if (account_id > 0) {
+                load_bills(account_id);
+            }
+
+            $('#account_id').on('change', function() {
+                let acc_id = $(this).val();
+                if (!acc_id) {
+                    $('#bill_id').html('<option value="">Select Bill</option>').trigger('chosen:updated');
+                    return;
+                }
+                load_bills(acc_id);
+            });
+
+            $('#bank_id').on('change', function() {
+                $('#remark_div').toggle($(this).val() === 'other');
+            });
+
+            $('#bank_id').trigger('change');
+
         });
 
-        get_account_details('<?= $account_id; ?>');
-        $('#paymode').trigger('change');
-    });
-
-    // $('#paymode').change(function() {
-    //     let mode = $(this).val();
-
-    //     if (mode !== 'Cash' && mode !== '') {
-    //         $('#proof_div').show();
-    //         $('#tansaction_div').show();
-    //     } else {
-    //         $('#proof_div').hide();
-    //         $('#tansaction_div').hide();
-    //     }
-    // });
-
-    $('#paymode').change(function() {
-        let mode = $(this).val();
-
-        if (mode === 'Cheque') {
-            $('#proof_div').show();
-            $('#tansaction_div').show();
-        } else if (mode === 'Online') {
-            $('#proof_div').show();
-            $('#tansaction_div').show();
-        } else {
-            $('#proof_div').hide();
-            $('#tansaction_div').hide();
-        }
-    });
 
 
+        const star = ' <span class="text-danger fw-bold">*</span>';
 
-    function load_bills(account_id) {
-
-        $.ajax({
-            url: 'ajax/get_customer_bills.php',
-            type: 'POST',
-            data: {
-                account_id: account_id
-            },
-            success: function(response) {
-
-                let res = JSON.parse(response);
-
-                $('#bill_id').html(res.html);
-                $('#bill_id').trigger('chosen:updated');
+        $('#paymode').change(function() {
+            let mode = $(this).val();
+            $('.conditional-field').hide();
+            $('#trans_id, #voucher_no').val('');
+            if (mode === 'Cheque') {
+                $('#proof_div, #tansaction_div').show();
+                $('#trans_label').html('Cheque No.' + star);
+                $('#pay_date_l').html('Cheque Date' + star);
+                $('#pay_amt_l').html('Cheque Amount' + star);
+            } else if (mode === 'Online') {
+                $('#tansaction_div, #bank_div').show();
+                $('#trans_label').html('Transaction ID' + star);
+            } else if (mode === 'Cash') {
+                $('#reciept_div').show();
+                $('#voucher_no').val('');
             }
         });
-    }
 
-    $('#bill_id').on('change', function() {
+        function load_bills(account_id) {
 
-        let total = $('#bill_id option:selected').data('total') || 0;
-        let pending = $('#bill_id option:selected').data('pending') || 0;
-
-        // show total amount
-        $('#pending_amt').val(pending);
-
-        // auto fill payment
-        $('#pay_amt').val(pending);
-    });
-
-    // 🔥 Restrict payment amount
-    $('#pay_amt').on('input', function() {
-
-        let pending = $('#bill_id option:selected').data('pending') || 0;
-        let entered = parseFloat($(this).val()) || 0;
-
-        if (entered > pending) {
-            Swal.fire('Payment cannot be greater than pending amount');
-            $(this).val(pending);
-        }
-    });
-
-    function get_account_details(account_id) {
-        if (account_id != '') {
-            $('#loader').show();
+            if (!account_id) return;
 
             $.ajax({
-                url: 'ajax/get_account_details.php',
+                url: 'ajax/get_customer_bills.php',
                 type: 'POST',
                 data: {
-                    account_id: account_id
+                    account_id
                 },
                 success: function(response) {
+
                     let res = JSON.parse(response);
 
-                    $('#account_details_div').html(res.html);
-                    $('#mobile_no').val(res.mobile);
-                    $('#decision_maker_name').val(res.decision_maker_name);
+                    $('#bill_id').html(res.html).trigger('chosen:updated');
 
-                    load_bills(account_id);
-
-                    $('#loader').hide();
                 }
             });
         }
-    }
 
-    function get_bill_details(bill_id) {
+        $('#bill_id').on('change', function() {
 
-        if (bill_id != '') {
+            let pending = parseFloat($('#bill_id option:selected').data('pending')) || 0;
+
+            $('#pending_amt').val(pending.toFixed(2));
+
+            $('#pay_amt')
+                .val(pending.toFixed(2))
+                .trigger('input');
+        });
+
+
+        $('#pay_amt').on('input', function() {
+
+            let pending = parseFloat($('#bill_id option:selected').data('pending')) || 0;
+            let entered = parseFloat($(this).val()) || 0;
+
+            if (entered <= 0) {
+                $(this).val('');
+                $('#after_pay_info').text('');
+                return;
+            }
+
+            if (entered > pending) {
+                Swal.fire('Payment cannot exceed pending amount');
+                $(this).val(pending);
+                entered = pending;
+            }
+
+            let remaining = pending - entered;
+
+            $('#after_pay_info').text('Remaining: ₹ ' + remaining.toFixed(2));
+        });
+
+
+        function get_bill_details(bill_id) {
+
+            if (!bill_id) return;
 
             $('#loader').show();
 
@@ -371,223 +396,193 @@ if (isset($_GET[$tblpkey])) {
                 url: 'ajax/get_bill_details.php',
                 type: 'POST',
                 data: {
-                    bill_id: bill_id
+                    bill_id
                 },
-
                 success: function(response) {
-
                     $('#bill_details_div').html(response);
-
                     $('#loader').hide();
                 }
             });
         }
-    }
 
 
-    $('#dailyEntryForm').on('submit', function(e) {
-        e.preventDefault();
+        $('#dailyEntryForm').on('submit', function(e) {
 
-        let btn = document.getElementById('save_order_btn');
+            e.preventDefault();
 
-        if (btn) {
-            btn.disabled = true;
-            btn.value = "Processing...";
-        }
+            let btn = document.getElementById('save_order_btn');
 
-        if (!validateForm(btn)) {
-            return;
-        }
-
-        getLocationAndProceed(btn);
-    });
-
-    function validateForm(btn) {
-        let transaction_id = $('#transaction_id').val() || 0;
-        let paymode = $('#paymode').val();
-        let oldImg = $('#old_img').val();
-        let newFile = $('#payment_proof').val();
-        let pending = $('#bill_id option:selected').data('pending') || 0;
-        let pay_amt = parseFloat($('#pay_amt').val()) || 0;
-
-        oldImg = oldImg ? oldImg.trim() : '';
-
-        if (pay_amt > pending) {
-            Swal.fire('Payment amount exceeds pending amount');
-            enableBtn(btn);
-            return false;
-        }
-
-        if ($('#bill_id').val() == '') {
-            Swal.fire('Select Bill');
-            enableBtn(btn);
-            return false;
-        }
-
-        if ($('#account_id').val() == '') {
-            Swal.fire('Select Customer');
-            enableBtn(btn);
-            return false;
-        }
-
-
-
-        if (paymode.trim() == '') {
-            Swal.fire('Enter Payment Mode');
-            $('#paymode').focus();
-            enableBtn(btn);
-            return false;
-        }
-
-        // ✅ Correct validation
-        // if (paymode !== 'Cash') {
-        //     if (oldImg === '' && newFile === '') {
-        //         Swal.fire('Upload Payment Proof');
-        //         enableBtn(btn);
-        //         return false;
-        //     }
-        // }
-
-        // ✅ Cheque → proof mandatory
-        if (paymode === 'Cheque') {
-            if (oldImg === '' && newFile === '') {
-                Swal.fire('Upload Payment Proof');
-                enableBtn(btn);
-                return false;
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Saving...';
             }
-        }
 
-        // ✅ Online → trans_id mandatory
-        if (paymode === 'Online') {
-            let trans_id = $('#trans_id').val().trim();
+            if (!validateForm(btn)) return;
 
-            if (trans_id === '') {
-                Swal.fire('Enter Transaction ID');
-                enableBtn(btn);
-                return false;
-            }
-        }
-
-        if ($('#pay_amt').val().trim() == '') {
-            Swal.fire('Enter Payment Amount');
-            $('#pay_amt').focus();
-            enableBtn(btn);
-            return false;
-        }
-
-        return true;
-    }
-
-
-    function submitDailyEntryForm(btn) {
-
-        let formData = new FormData($('#dailyEntryForm')[0]);
-
-        Swal.fire({
-            title: 'Saving...',
-            allowOutsideClick: false,
-            didOpen: () => Swal.showLoading()
+            getLocationAndProceed(btn);
         });
 
-        $.ajax({
-            url: 'add_payment.php',
-            type: 'POST',
-            data: formData,
-            processData: false,
-            contentType: false,
-            success: function(response) {
-                // alert(response);
-                if (response.trim() == 'success') {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Saved Successfully',
-                        timer: 1500,
-                        showConfirmButton: false
-                    }).then(() => {
-                        window.location = 'payment_list.php';
-                    });
 
-                } else if (response.trim() == 'updated') {
-                    Swal.fire('Updated Successfully', '', 'success');
-                    enableBtn(btn);
-                    window.location = 'payment_list.php';
+        function validateForm(btn) {
 
-                } else if (response.trim() == 'error') {
+            let paymode = $('#paymode').val();
+            let oldImg = ($('#old_img').val() || '').trim();
+            let newFile = $('#payment_proof').val();
+            let pending = parseFloat($('#bill_id option:selected').data('pending')) || 0;
+            let pay_amt = parseFloat($('#pay_amt').val()) || 0;
 
-                    Swal.fire('Fill all required fields', '', 'warning');
-                    enableBtn(btn);
+            if (!$('#account_id').val()) {
+                Swal.fire('Select Customer');
+                return enableBtn(btn), false;
+            }
 
-                } else {
-                    Swal.fire('Unexpected response: ' + response);
+            if (!$('#bill_id').val()) {
+                Swal.fire('Select Bill');
+                return enableBtn(btn), false;
+            }
+
+            if (!paymode) {
+                Swal.fire('Select Payment Mode');
+                return enableBtn(btn), false;
+            }
+
+            if (pay_amt <= 0) {
+                Swal.fire('Enter valid payment amount');
+                return enableBtn(btn), false;
+            }
+
+            if (pay_amt > pending) {
+                Swal.fire('Payment exceeds pending amount');
+                return enableBtn(btn), false;
+            }
+
+            if (paymode === 'Cheque') {
+                if (!oldImg && !newFile) {
+                    Swal.fire('Upload Payment Proof');
+                    return enableBtn(btn), false;
+                }
+            }
+
+            if (paymode === 'Online') {
+                if (!$('#trans_id').val().trim()) {
+                    Swal.fire('Enter Transaction ID');
+                    return enableBtn(btn), false;
+                }
+            }
+
+            return true;
+        }
+
+        function submitDailyEntryForm(btn) {
+
+            let formData = new FormData($('#dailyEntryForm')[0]);
+
+            Swal.fire({
+                title: 'Saving...',
+                allowOutsideClick: false,
+                didOpen: () => Swal.showLoading()
+            });
+
+            $.ajax({
+                url: 'add_payment.php',
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+
+                success: function(response) {
+
+                    response = response.trim();
+
+                    if (response === 'success') {
+
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Saved Successfully',
+                            timer: 1500,
+                            showConfirmButton: false
+                        }).then(() => location = 'payment_list.php');
+
+                    } else if (response === 'updated') {
+
+                        Swal.fire('Updated Successfully', '', 'success')
+                            .then(() => location = 'payment_list.php');
+
+                    } else if (response === 'error') {
+
+                        Swal.fire('Fill all required fields', '', 'warning');
+                        enableBtn(btn);
+
+                    } else {
+
+                        Swal.fire('Unexpected: ' + response);
+                        enableBtn(btn);
+                    }
+                },
+
+                error: function() {
+                    Swal.fire('Error saving data', '', 'error');
                     enableBtn(btn);
                 }
-            },
+            });
+        }
 
-            error: function() {
-                Swal.fire('Error saving data', '', 'error');
-                enableBtn(btn);
+        function enableBtn(btn) {
+
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = 'Save';
             }
-        });
-    }
-
-    function enableBtn(btn) {
-        if (btn) {
-            btn.disabled = false;
-            btn.value = "Save";
-        }
-    }
-
-    function getLocationAndProceed(btn) {
-
-        let latitude = '';
-        let longitude = '';
-        let address = '';
-
-        function proceedSave() {
-            $('#latitude').val(latitude);
-            $('#longitude').val(longitude);
-            $('#address').val(address);
-            submitDailyEntryForm(btn);
         }
 
-        if (!navigator.geolocation) {
-            return proceedSave();
-        }
+        function getLocationAndProceed(btn) {
 
-        navigator.geolocation.getCurrentPosition(
+            let latitude = '',
+                longitude = '',
+                address = '';
 
-            function(position) {
-                latitude = position.coords.latitude;
-                longitude = position.coords.longitude;
+            function proceedSave() {
+                $('#latitude').val(latitude);
+                $('#longitude').val(longitude);
+                $('#address').val(address);
+                submitDailyEntryForm(btn);
+            }
 
-                fetch('location.php', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/x-www-form-urlencoded',
-                        },
-                        body: new URLSearchParams({
-                            latitude: latitude,
-                            longitude: longitude
+            if (!navigator.geolocation) return proceedSave();
+
+            navigator.geolocation.getCurrentPosition(
+
+                function(position) {
+
+                    latitude = position.coords.latitude;
+                    longitude = position.coords.longitude;
+
+                    fetch('location.php', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded'
+                            },
+                            body: new URLSearchParams({
+                                latitude,
+                                longitude
+                            })
                         })
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        address = data.address || '';
-                        proceedSave();
-                    })
-                    .catch(error => {
-                        console.log("Address fetch error:", error);
-                        proceedSave();
-                    });
-            },
+                        .then(res => res.json())
+                        .then(data => {
+                            address = data.address || '';
+                            proceedSave();
+                        })
+                        .catch(() => proceedSave());
+                },
 
-            function(error) {
-                console.log("Location error:", error);
-                Swal.fire("Location Error", "location not detected", "warning");
-                proceedSave();
-            }
-        );
-    }
-</script>
+                function() {
+                    Swal.fire("Location Error", "Location not detected", "warning");
+                    proceedSave();
+                }
+            );
+        }
+    </script>
+</body>
+
 
 </html>
