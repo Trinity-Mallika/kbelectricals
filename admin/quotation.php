@@ -12,9 +12,6 @@ $keyvalue = (isset($_GET["transaction_id"])) ? $obj->test_input($_GET["transacti
 $type = "quotation";
 $action = (isset($_GET["action"])) ? $obj->test_input($_GET["action"]) : "";
 $account_id = isset($_GET['account_id']) ? $obj->test_input($_GET['account_id']) : '';
-
-
-$taxtype = isset($taxtype) ? $taxtype : 'exclusive';
 $short_name = "";
 
 $res = $obj->select_record("company_setting", ["company_id" => $companyid]);
@@ -149,13 +146,20 @@ if ($keyvalue > 0) {
                                 </div>
                                 <div class="card-body">
                                     <div class="row">
-
                                         <input type="hidden" name="transaction_id" value="<?php echo $keyvalue; ?>">
                                         <div class="col-md-3 mb-2">
-                                            <strong><label>Account Name <span class="text-danger">*</span></label></strong>
+                                            <label class="w-100 ">
+                                                <strong>
+                                                    Account Name <span class="text-danger">*</span>
+                                                </strong>
+                                                <button type="button" class="float-end badge text-bg-primary"
+                                                    style="cursor:pointer;" onclick="add_account();">
+                                                    Add+
+                                                </button>
+                                            </label>
                                             <select class="form-control form-control-sm chosen-select" name="account_id" id="account_id" onchange="get_url1(this.value);" <?php echo ($keyvalue > 0) ? 'disabled' : ''; ?>>
                                                 <option value="">Select</option>
-                                                <?php $res = $obj->executequery("Select account_id,account_name from account WHERE companyid   = '$companyid' order by account_name asc");
+                                                <?php $res = $obj->executequery("Select account_id,account_name from account order by account_name asc");
 
                                                 foreach ($res as $key) {
                                                     $selected = ($account_id == $key['account_id']) ? "selected" : "";
@@ -242,7 +246,15 @@ if ($keyvalue > 0) {
                                         </select>
                                     </div>
                                     <div class="col-md-3">
-                                        <strong><label>Product<span class="text-danger">*</span></label></strong>
+                                        <label class="w-100 ">
+                                            <strong>
+                                                Product Name <span class="text-danger">*</span>
+                                            </strong>
+                                            <button type="button" class="float-end badge text-bg-primary"
+                                                style="cursor:pointer;" data-bs-toggle="modal" data-bs-target="#product_modal">
+                                                Add+
+                                            </button>
+                                        </label>
                                         <select class="form-select form-select-sm chosen-select" id="product_id" onchange="get_product_details(this.value);">
                                             <option value="">Select</option>
 
@@ -261,46 +273,39 @@ if ($keyvalue > 0) {
                                         <input type="number" id="rate" class="form-control form-control-sm" onkeyup="calculate_total()">
                                     </div>
                                     <div class="col-md-2">
+                                        <strong><label>Update MRP</label></strong>
+                                        <br>
+                                        <input type="checkbox" id="update_mrp" class="form-check-input" value="1">
+                                    </div>
+                                    <div class="col-md-2">
                                         <strong><label>Qty</label></strong>
                                         <input type="number" id="qty" class="form-control form-control-sm" onkeyup="calculate_total()">
                                     </div>
-                                    <div class="col-md-2">
-                                        <strong><label>Sub Total</label></strong>
-                                        <input type="number" id="sub_total" class="form-control form-control-sm" readonly>
-                                    </div>
+
+                                    <input type="hidden" id="sub_total">
+                                    <input type="hidden" id="total_amt">
+
                                     <div class="col-md-2">
                                         <strong><label>Discount<span class="text-danger"> (%)</span></label></strong>
                                         <input type="number" id="discount" class="form-control form-control-sm" onkeyup="calculate_total()">
                                         <input type="hidden" id="discount_amt" class="form-control form-control-sm" readonly>
                                     </div>
                                     <div class="col-md-2">
-                                        <strong><label>Taxable</label></strong>
-                                        <input type="number" id="total_amt" class="form-control form-control-sm" readonly>
+                                        <strong><label>Price After Disc.</label></strong>
+                                        <input type="number" id="price_after_disc" class="form-control form-control-sm" readonly>
                                     </div>
                                     <div class="col-md-2">
-                                        <strong> <label for="images">GST <span class="text-danger fw-bold"></span></label></strong>
-                                        <select type="text" class="form-control form-control-sm chosen-select" name="gst_id" id="gst_id" onchange="calculate_total()">
+                                        <strong> <label for="gst_id">GST <span class="text-danger fw-bold"></span></label></strong>
+                                        <select type="text" class="form-control form-control-sm chosen-select" id="gst_id" onchange="calculate_total()">
                                             <option value="">--Select GST--</option>
                                             <?php
-                                            $sql = $obj->executequery("select * from gst_master where gst_id not in(1,2) order by gst_name DESC ");
-
-                                            foreach ($sql as $key) {
-
-                                            ?> <option value="<?php echo $key['gst_id'] ?>"><?php echo $key['gst_name'] ?></option> <?php } ?>
+                                            $sql = $obj->executequery("select * from gst_master order by gst_name DESC ");
+                                            foreach ($sql as $key) {  ?>
+                                                <option value="<?php echo $key['gst_id'] ?>" data-percent="<?php echo $key['gst_percent'] ?>" <?= ($key['gst_id'] == 3) ? "selected" : "" ?>><?php echo $key['gst_name'] ?></option> <?php } ?>
                                         </select>
 
                                     </div>
-                                    <div class="col-md-2">
-                                        <strong> <label for="images">Tax Type <span class="text-danger fw-bold"></span></label></strong>
-                                        <select name="taxtype" id="taxtype" class="form-control form-control-sm chosen-select" onchange="calculate_total()">
-                                            <option value="inclusive" <?= ($taxtype == 'inclusive') ? 'selected' : '' ?>>Inclusive</option>
-                                            <option value="exclusive" <?= ($taxtype == 'exclusive' || empty($taxtype)) ? 'selected' : '' ?>>Exclusive</option>
-                                        </select>
-                                        <script>
-                                            document.getElementById('taxtype').value = '<?php echo $taxtype; ?>';
-                                        </script>
-
-                                    </div>
+                                    <input type="hidden" id="gst_amt">
                                     <div class="col-md-2">
                                         <strong><label>Net Total</label></strong>
                                         <input type="number" id="net_total" class="form-control form-control-sm" readonly>
@@ -315,6 +320,7 @@ if ($keyvalue > 0) {
                                         <input type="text" id="delivery_status" class="form-control form-control-sm">
                                     </div>
 
+                                    <input type="hidden" id="taxtype" value="exclusive">
                                     <input type="hidden" id="m_tran_detail_id" value="0">
                                     <div class="col-md-2 mt-4 ">
                                         <input type="button" id="add_btn" class="btn btn-theme btn-sm" onclick="add_product()" value="Add">
@@ -343,7 +349,136 @@ if ($keyvalue > 0) {
         </div>
         <!-- Content Close-->
     </div>
+    <div class="modal fade" id="accountNameAdd" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="accountNameAddLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h1 class="modal-title fs-5" id="accountNameAddLabel">Add Customer</h1>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-12 mb-2">
+                            <strong> <label for="account_name">Counter/Customer Name <span class="text-danger fw-bold">*</span></label></strong>
+                            <input type="text" class="form-control form-control-sm" name="account_name" id="account_name" placeholder="Counter/Customer  Name" autocomplete="off">
+                        </div>
+                        <div class="col-md-12 mb-2">
+                            <strong> <label for="mobile_no">Whatsapp No. <span class="text-danger fw-bold">*</span></label> </strong>
+                            <input type="text" class="form-control form-control-sm" name="mobile_no" id="mobile_no" placeholder="Whatsapp No." maxlength="10" autocomplete="off">
+                        </div>
+                        <div class="col-md-12 mb-2">
+                            <strong> <label for="account_name">Owner Name <span class="text-danger fw-bold"></span></label></strong>
+                            <input type="text" class="form-control form-control-sm" name="owner_name" id="owner_name" placeholder="Owner Name" autocomplete="off">
+                        </div>
+                        <div class="col-md-12 mb-2">
+                            <strong> <label for="mobile_no">Owner Mobile No. <span class="text-danger fw-bold"></span></label> </strong>
+                            <input type="text" class="form-control form-control-sm" name="o_mobile_no" id="o_mobile_no" placeholder="Owner Mobile No." maxlength="10" autocomplete="off">
+                        </div>
 
+                        <div class="col-md-12 mb-2">
+                            <strong> <label for="common_id">Counter Type<span class="text-danger fw-bold">*</span> </label></strong>
+                            <select name="common_id" id="common_id" class="chosen-select form-control form-control-sm">
+                                <option value="">--Select Counter Type--</option>
+                                <?php
+                                $sql = $obj->executequery("select common_id,common_name from common_master where type='acc_type' order by common_id asc ");
+                                foreach ($sql as $key) {
+                                ?>
+                                    <option value="<?= $key['common_id'] ?>" <?= ($key['common_id'] == "7") ? "selected" : "" ?>><?= $key['common_name'] ?></option>
+                                <?php } ?>
+                            </select>
+                        </div>
+                        <div class="col-md-12 mb-2">
+                            <strong> <label for="area_id">Area<span class="text-danger fw-bold">*</span> </label></strong>
+                            <select name="area_id" id="area_id" class="chosen-select form-control form-control-sm">
+                                <option value="">--Select Area--</option>
+                                <?php
+                                $sql = $obj->executequery("select area_id,area_name from area_master order by area_name asc ");
+                                foreach ($sql as $key) {
+                                ?>
+                                    <option value="<?= $key['area_id'] ?>"><?= $key['area_name'] ?></option>
+                                <?php } ?>
+                            </select>
+                            <script>
+                                document.getElementById('area_id').value = '<?php echo $area_id; ?>';
+                            </script>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" onclick="save_account()">
+                        Save
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="product_modal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="product_modalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h1 class="modal-title fs-5" id="product_modalLabel">Add Product</h1>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-2">
+                        <div class="col-12">
+                            <label class="form-label">Brand <span class="text-danger fw-bold">*</span></label>
+                            <select id="p_brand_id" class="form-select form-select-sm" onchange="pm_load_category(this.value)">
+                                <option value="">-- Select Brand --</option>
+                                <?php
+                                $brands = $obj->executequery("SELECT * FROM category_master WHERE type='brand' ORDER BY cat_id DESC");
+                                foreach ($brands as $b) {
+                                    echo "<option value='{$b['cat_id']}'>{$b['cat_name']}</option>";
+                                } ?>
+                            </select>
+                        </div>
+
+                        <!-- Category -->
+                        <div class="col-12">
+                            <label class="form-label">Category <span class="text-danger fw-bold">*</span></label>
+                            <select id="p_category_id" class="form-select form-select-sm">
+                                <option value="">-- Select Category --</option>
+                            </select>
+                        </div>
+
+                        <!-- Product Name -->
+                        <div class="col-12">
+                            <label class="form-label">Product Name <span class="text-danger fw-bold">*</span></label>
+                            <input type="text" id="p_product_name" class="form-control form-control-sm" placeholder="Enter Product Name">
+                        </div>
+
+                        <!-- Unit -->
+                        <div class="col-12">
+                            <label class="form-label">Unit <span class="text-danger fw-bold">*</span></label>
+                            <select id="p_unit_id" class="form-select form-select-sm">
+                                <option value="">-- Select Unit --</option>
+                                <?php
+                                $units = $obj->executequery("SELECT * FROM category_master WHERE type='unit' ORDER BY cat_id DESC");
+                                foreach ($units as $u) {
+                                    echo "<option value='{$u['cat_id']}'>{$u['cat_name']}</option>";
+                                } ?>
+                            </select>
+                        </div>
+
+                        <!-- MRP / Rate -->
+                        <div class="col-12">
+                            <label class="form-label">MRP / Rate <span class="text-danger fw-bold">*</span></label>
+                            <input type="number" id="p_mrp" class="form-control form-control-sm text-center" placeholder="0.00">
+                        </div>
+
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary btn-sm" id="save_product_btn" onclick="save_new_product()">
+                        <i class="bi bi-plus-lg"></i> Save Product
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 
 <!-- Script tags -->
@@ -352,11 +487,9 @@ if ($keyvalue > 0) {
     $('#ready_stock').change(function() {
 
         if ($(this).is(':checked')) {
-            // ✅ Ready stock checked → hide delivery
             $('#delivery_div').hide();
             $('#delivery_status').val('');
         } else {
-            // ❌ Not checked → show delivery
             $('#delivery_div').show();
         }
 
@@ -370,19 +503,192 @@ if ($keyvalue > 0) {
         }
     });
 
+    function pm_load_category(brand_id) {
+        const catSelect = document.getElementById('p_category_id');
+        catSelect.innerHTML = '<option value="">-- Select Category --</option>';
+        if (!brand_id) return;
+
+        $.ajax({
+            url: 'get_category.php',
+            type: 'POST',
+            data: {
+                brand_id: brand_id
+            },
+            success: function(res) {
+                catSelect.innerHTML = res;
+            }
+        });
+    }
+
+    function save_new_product() {
+        const brand = document.getElementById('p_brand_id').value;
+        const category = document.getElementById('p_category_id').value;
+        const name = document.getElementById('p_product_name').value.trim();
+        const unit = document.getElementById('p_unit_id').value;
+        const mrp = document.getElementById('p_mrp').value;
+
+        if (!brand || !category || !name || !unit || !mrp) {
+            alert('Please fill all required fields.');
+            return;
+        }
+
+        const btn = document.getElementById('save_product_btn');
+        btn.disabled = true;
+        btn.innerText = 'Saving...';
+
+        $.ajax({
+            url: 'ajax_save_product.php',
+            type: 'POST',
+            data: {
+                p_brand_id: brand,
+                p_category_id: category,
+                p_product_name: name,
+                p_unit_id: unit,
+                p_mrp: mrp
+            },
+            success: function(res) {
+                let savedBrand = document.getElementById('p_brand_id').value;
+                let savedCategory = document.getElementById('p_category_id').value;
+                $('#brand_id').val(savedBrand).trigger('chosen:updated');
+                $.ajax({
+                    url: 'get_category.php',
+                    type: 'POST',
+                    data: {
+                        brand_id: savedBrand
+                    },
+                    success: function(catOptions) {
+                        $('#category_id').html(catOptions).trigger('chosen:updated');
+                        $('#category_id').val(savedCategory).trigger('chosen:updated');
+                        $('#product_id').html(res).trigger('chosen:updated');
+                        const selectedVal = $('#product_id').val();
+                        if (selectedVal) get_product_details(selectedVal);
+                    }
+                });
+
+                bootstrap.Modal.getInstance(document.getElementById('product_modal')).hide();
+                document.getElementById('p_brand_id').value = '';
+                document.getElementById('p_category_id').innerHTML = '<option value="">-- Select Category --</option>';
+                document.getElementById('p_product_name').value = '';
+                document.getElementById('p_unit_id').value = '';
+                document.getElementById('p_mrp').value = '';
+            },
+            error: function() {
+                alert('Something went wrong. Please try again.');
+            },
+            complete: function() {
+                btn.disabled = false;
+                btn.innerText = 'Save Product';
+            }
+        });
+    }
+
+    function add_account() {
+
+        $('#account_name').val('');
+        $('#mobile_no').val('');
+        $('#owner_name').val('');
+        $('#o_mobile_no').val('');
+
+        $('#common_id').val('7').trigger('chosen:updated');
+        $('#area_id').val('').trigger('chosen:updated');
+
+        $('#accountNameAdd').modal('show');
+    }
+
+    function save_account() {
+
+        var account_name = $('#account_name').val().trim();
+        var mobile_no = $('#mobile_no').val().trim();
+        var owner_name = $('#owner_name').val().trim();
+        var o_mobile_no = $('#o_mobile_no').val().trim();
+        var common_id = $('#common_id').val();
+        var area_id = $('#area_id').val();
+
+        if (account_name == '') {
+            alert('Enter Customer Name');
+            $('#account_name').focus();
+            return false;
+        }
+
+        if (mobile_no == '') {
+            alert('Enter Whatsapp No.');
+            $('#mobile_no').focus();
+            return false;
+        }
+
+        if (common_id == '') {
+            alert('Select Counter Type');
+            return false;
+        }
+
+        if (area_id == '') {
+            alert('Select Area');
+            return false;
+        }
+
+        $.ajax({
+            url: "ajax_save_account.php",
+            type: "POST",
+            data: {
+                account_name: account_name,
+                mobile_no: mobile_no,
+                owner_name: owner_name,
+                o_mobile_no: o_mobile_no,
+                common_id: common_id,
+                area_id: area_id
+            },
+            success: function(res) {
+                if ($.trim(res) != '') {
+                    $('#accountNameAdd').modal('hide');
+                    get_account_list($.trim(res));
+                    $('#account_name').val('');
+                    $('#mobile_no').val('');
+                    $('#owner_name').val('');
+                    $('#o_mobile_no').val('');
+                    $('#common_id').val('7').trigger('chosen:updated');
+                    $('#area_id').val('').trigger('chosen:updated');
+
+                } else {
+                    alert('Unable to save record');
+                }
+            }
+        });
+    }
+
+    function get_account_list(account_id = '') {
+        location = 'quotation.php?account_id=' + account_id;
+        // $.ajax({
+        //     url: "ajax_fetch_account.php",
+        //     type: "POST",
+        //     data: {
+        //         account_id: account_id
+        //     },
+        //     success: function(res) {
+
+        //         $('#account_id').html(res);
+
+        //         if (account_id != '') {
+        //             $('#account_id').val(account_id);
+        //         }
+
+        //         $('#account_id').trigger('chosen:updated');
+        //     }
+        // });
+
+    }
+
     function get_url1(account_id) {
         if (account_id > 0) {
             location = 'quotation.php?account_id=' + account_id;
         }
     }
 
-
     $(document).ready(function() {
-        $(".chosen-select").chosen();
+        $(".chosen-select").chosen({
+            width: "100%"
+        });
         fetch_data('<?php echo $keyvalue ?>');
     });
-
-
 
     function get_product_details(product_id) {
         jQuery.ajax({
@@ -391,19 +697,12 @@ if ($keyvalue > 0) {
             data: {
                 product_id: product_id
             },
-            dataType: 'json', // ✅ important
+            dataType: 'json',
             success: function(res) {
-                // alert(res);
                 if (res.status === 'success') {
-
-                    // Set rate
                     $('#rate').val(res.rate);
-
                     $('#unit_id').val(res.unit_id);
-
-                    // OR if you just want to show name
                     $('#unit_name').val(res.unit_name);
-
                 } else {
                     alert('Product not found');
                 }
@@ -413,11 +712,10 @@ if ($keyvalue > 0) {
 
 
     function load_category_by_brand(brand_id, category_id = 0) {
-
         let account_id = $('#account_id').val();
 
         if (!account_id) {
-            alert('Please select account name first');
+            alert('Please select ustomer name first');
             $('#category_id').val('').trigger('chosen:updated');
             return false;
         }
@@ -442,10 +740,7 @@ if ($keyvalue > 0) {
     }
 
     function get_products(category_id, product_id = 0) {
-
         let brand_id = document.getElementById('brand_id').value;
-
-
 
         if (!brand_id) {
             alert('Please select brand first');
@@ -458,7 +753,7 @@ if ($keyvalue > 0) {
             url: 'get_product_combo.php',
             data: {
                 category_id: category_id,
-                brand_id: brand_id, // ✅ ADD THIS
+                brand_id: brand_id,
                 product_id: product_id
             },
             success: function(data) {
@@ -472,33 +767,37 @@ if ($keyvalue > 0) {
 
         let qty = parseFloat($('#qty').val()) || 0;
         let rate = parseFloat($('#rate').val()) || 0;
-        let discount = parseFloat($('#discount').val()) || 0;
+        let discP = parseFloat($('#discount').val()) || 0;
+        let gst_percent = parseFloat(
+            $('#gst_id option:selected').data('percent')
+        ) || 0;
 
-        let gst_percent = parseFloat($('#gst_id option:selected').text().match(/\d+/)) || 0;
         let taxtype = $('#taxtype').val();
 
-        let sub_total = qty * rate;
-
-        let discount_amt = (sub_total * discount) / 100;
-        let amount_after_discount = sub_total - discount_amt;
+        let disc_per_unit = (rate * discP) / 100;
+        let price_after_disc = Math.max(rate - disc_per_unit, 0);
+        $('#price_after_disc').val(price_after_disc.toFixed(2));
+        let sub_total = price_after_disc * qty;
+        let discount_amt = disc_per_unit * qty;
 
         let taxable = 0;
-        let net_amt = 0;
         let gst_amt = 0;
+        let net_amt = 0;
 
         if (taxtype == 'exclusive') {
-            taxable = amount_after_discount;
+            taxable = sub_total;
             gst_amt = (taxable * gst_percent) / 100;
             net_amt = taxable + gst_amt;
         } else if (taxtype == 'inclusive') {
-            net_amt = amount_after_discount;
+            net_amt = sub_total;
             taxable = (net_amt * 100) / (100 + gst_percent);
             gst_amt = net_amt - taxable;
         }
 
         $('#sub_total').val(sub_total.toFixed(2));
-        $('#discount_amt').val(discount_amt.toFixed(2));
         $('#total_amt').val(taxable.toFixed(2));
+        $('#discount_amt').val(discount_amt.toFixed(2));
+        $('#gst_amt').val(gst_amt.toFixed(2));
         $('#net_total').val(net_amt.toFixed(2));
     }
 
@@ -568,13 +867,31 @@ if ($keyvalue > 0) {
         $('#total_amt').val(total_amt);
 
         $('#gst_id').val(gst_id).trigger('chosen:updated');
-        $('#taxtype').val(taxtype).trigger('chosen:updated');
         $('#net_total').val(net_amt);
 
         $('#m_tran_detail_id').val(tran_detail_id);
         $('#add_btn').val('Update');
-        calculateGST();
+        calculate_total();
+    }
 
+    function saveLastSelection() {
+        localStorage.setItem('last_brand_id', $('#brand_id').val());
+        localStorage.setItem('last_category_id', $('#category_id').val());
+    }
+
+    function restoreLastSelection() {
+        let lastCategory = localStorage.getItem('last_category_id');
+        let lastBrand = localStorage.getItem('last_brand_id');
+
+        if (lastCategory) {
+            $('#category_id').val(lastCategory).trigger('change');
+        }
+
+        setTimeout(() => {
+            if (lastBrand) {
+                $('#brand_id').val(lastBrand).trigger('change');
+            }
+        }, 300);
     }
 
 
@@ -582,6 +899,7 @@ if ($keyvalue > 0) {
     function add_product() {
 
         let ready_stock = document.getElementById('ready_stock').checked ? 1 : 0;
+        let update_mrp = document.getElementById('update_mrp').checked ? 1 : 0;
         let delivery_status = document.getElementById('delivery_status').value;
         let product_id = document.getElementById('product_id').value.trim();
 
@@ -591,8 +909,10 @@ if ($keyvalue > 0) {
         let unit_name = document.getElementById('unit_name').value;
         let qty = document.getElementById('qty').value.trim();
         let rate = document.getElementById('rate').value.trim();
+        let price_after_disc = document.getElementById('price_after_disc').value.trim();
         let discount = document.getElementById('discount').value;
         let total_amt = document.getElementById('total_amt').value.trim();
+        let gst_amt = document.getElementById('gst_amt').value.trim();
         let sub_total = document.getElementById('sub_total').value.trim();
         let discount_amt = document.getElementById('discount_amt').value.trim();
 
@@ -627,8 +947,6 @@ if ($keyvalue > 0) {
             return false;
         }
 
-
-
         if (qty == '' || qty <= 0) {
             alert('Please enter valid Quantity');
             return false;
@@ -639,23 +957,12 @@ if ($keyvalue > 0) {
             return false;
         }
 
-        if (sub_total == '' || sub_total <= 0) {
-            alert('Sub Total must be greater than 0');
-            return false;
-        }
-
-        if (total_amt == '' || total_amt <= 0) {
-            alert('Total Amount must be greater than 0');
-            return false;
-        }
-        // ✅ Validation
         if (ready_stock == 0 && delivery_status == '') {
             alert('Please select Delivery Status');
             $('#delivery_status').focus();
             return false;
         }
 
-        // ✅ AJAX call
         jQuery.ajax({
             type: 'POST',
             url: 'add_product.php',
@@ -663,12 +970,14 @@ if ($keyvalue > 0) {
                 ready_stock: ready_stock,
                 unit_name: unit_name,
                 product_id: product_id,
+                gst_amt: gst_amt,
                 category_id: category_id,
                 delivery_status: delivery_status,
                 brand_id: brand_id,
                 unit_id: unit_id,
                 qty: qty,
                 rate: rate,
+                price_after_disc: price_after_disc,
                 discount: discount,
                 total_amt: total_amt,
                 discount_amt: discount_amt,
@@ -680,7 +989,8 @@ if ($keyvalue > 0) {
                 taxtype: taxtype,
                 net_amt: net_amt,
                 transaction_id: transaction_id,
-                type: type
+                type: type,
+                update_mrp: update_mrp
             },
             dataType: 'html',
             success: function(data) {
@@ -691,15 +1001,12 @@ if ($keyvalue > 0) {
                     return;
                 }
 
-                // 🔥 Reset form fields
-                $('#category_id').val('').trigger('chosen:updated'); // ❌ no change trigger
-                $('#product_id').val('').trigger('chosen:updated'); // ❌ no change trigger
-                $('#brand_id').val('').trigger('chosen:updated');
+                restoreLastSelection();
+                $('#product_id').val('').trigger('chosen:updated');
                 $('#qty').val("");
-
-                $('#ready_stock').prop('checked', false);
                 $('#add_btn').val('Add');
                 $('#unit_id').val('');
+                $('#gst_amt').val('');
                 $('#unit_name').val('');
                 $('#rate').val('');
                 $('#delivery_status').val('');
@@ -708,14 +1015,7 @@ if ($keyvalue > 0) {
                 $('#discount_amt').val('');
                 $('#sub_total').val('');
                 $('#total_amt').val('');
-                $('#gst_id').val('').trigger('chosen:updated');
-                $('#taxtype').val('').trigger('chosen:updated');
                 $('#sub_total').val('');
-
-
-
-
-
             }
         });
     }
@@ -723,22 +1023,17 @@ if ($keyvalue > 0) {
 <script>
     function calculateGST() {
 
-        // ✅ Safe fetch using jQuery (no null error)
         let net_total = parseFloat($('#net_total_amt').val()) || 0;
         let gst_percent = parseFloat($('#gst_percent').val()) || 0;
 
-        // ❌ If elements not loaded yet, stop
         if ($('#net_total_amt').length === 0) return;
 
         let half_gst = gst_percent / 2;
-
-        // ✅ GST calculation
         let gst_amount = (net_total * gst_percent) / 100;
         let cgst = gst_amount / 2;
         let sgst = gst_amount / 2;
         let grand_total = net_total + gst_amount;
 
-        // ✅ Display values (check existence before updating)
         if ($('#cgst_display').length) $('#cgst_display').text(cgst.toFixed(2));
         if ($('#sgst_display').length) $('#sgst_display').text(sgst.toFixed(2));
         if ($('#grand_total_display').length) $('#grand_total_display').text(grand_total.toFixed(2));
@@ -746,7 +1041,6 @@ if ($keyvalue > 0) {
         if ($('#cgst_percent_display').length) $('#cgst_percent_display').text(half_gst);
         if ($('#sgst_percent_display').length) $('#sgst_percent_display').text(half_gst);
 
-        // ✅ Hidden fields update
         $('#cgst').val(cgst.toFixed(2));
         $('#sgst').val(sgst.toFixed(2));
         $('#grand_total').val(grand_total.toFixed(2));

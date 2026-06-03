@@ -55,15 +55,14 @@ foreach ($res as $key) {
                 <!-- DETAILS -->
                 <td class="border-start"
                     onclick="openModal('<?php echo $key['transaction_id']; ?>');">
-
                     <p class="ms-1 mb-0">
-                        <strong>Voucher No.:</strong> <?php echo $key['billno']; ?>
+                        <strong>Counter:</strong> <?php echo $key['account_name']; ?>
                     </p>
                     <p class="ms-1 mb-0">
-                        <strong>Customer:</strong> <?php echo $key['account_name']; ?>
+                        <strong>Paid Amount:</strong> <?php echo $key['grand_total']; ?>
                     </p>
                     <p class="ms-1 mb-0">
-                        <strong>Pay Amount:</strong> <?php echo $key['grand_total']; ?>
+                        <strong>Pay Mode:</strong> <?php echo $key['paymode']; ?>
                     </p>
                 </td>
 

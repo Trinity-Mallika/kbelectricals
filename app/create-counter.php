@@ -5,9 +5,6 @@ $tblname = 'account';
 $tblpkey = 'account_id';
 $btn_name = "Save";
 $keyvalue = (isset($_GET["account_id"])) ? $obj->test_input($_GET["account_id"]) : 0;
-$data = $obj->getRouteDashboardData($loginid, $companyid);
-// $route_plan_id = $data['route_plan_id'];
-
 $current_date = date('Y-m-d');
 
 
@@ -102,7 +99,7 @@ if (isset($_GET[$tblpkey])) {
     $type  =  $sqledit['type'];
     $class  =  $sqledit['class'];
 } else {
-    $account_name = $mobile_no = $address = $area_id = "";
+    $account_name = $mobile_no = $address = $area_id = $route_plan_id = "";
     $type = $class =  "";
     $common_id = $obj->getvalfield($tblname, "common_id", "1=1 order by $tblpkey desc");
 }
@@ -138,31 +135,27 @@ if (isset($_GET[$tblpkey])) {
                             <hr class="m-0">
                         </div>
                         <div class="col-lg-3 mb-2">
+                            <label for="" class="form-label"> Counter Type<span class="text-danger fw-bold">*</span></label>
+                            <select name="common_id" id="common_id" class="chosen-select  form-control form-control-sm">
+                                <option value="">--Select Counter Type--</option>
+                                <?php
+                                $sql = $obj->executequery("select common_id,common_name from common_master where type='acc_type' order by common_id asc ");
+                                foreach ($sql as $key) {
+                                ?>
+                                    <option value="<?= $key['common_id'] ?>"><?= $key['common_name'] ?></option>
+                                <?php } ?>
+                                <option value="-1">Employee</option>
+                            </select>
+                            <script>
+                                document.getElementById('common_id').value = '<?php echo $common_id; ?>';
+                            </script>
+                        </div>
+                        <div class="col-lg-3 mb-2">
                             <label for="" class="form-label"> Route Name<span class="text-danger fw-bold">*</span></label>
                             <select name="route_planid" id="route_planid" class="chosen-select form-control form-control-sm">
                                 <option value="">--Select Route Name--</option>
                                 <?php
-                                 $sql = $obj->executequery("SELECT
-    R.batch_no,
-    R.route_name,
-    GROUP_CONCAT(
-        R.day_of_week
-        ORDER BY FIELD(
-            day_of_week,
-            'Monday',
-            'Tuesday',
-            'Wednesday',
-            'Thursday',
-            'Friday',
-            'Saturday'
-        )
-        SEPARATOR ', '
-    ) AS days
-FROM route as R left join route_plan as RP on R.batch_no=RP.batch_no
-WHERE R.companyid='$companyid' AND RP.sales_executive_id='$loginid'
-GROUP BY R.batch_no, R.route_name
-ORDER BY R.route_name ASC
-");
+                                $sql = $obj->executequery("SELECT R.batch_no,R.route_name, GROUP_CONCAT(R.day_of_week ORDER BY FIELD(day_of_week,'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday') SEPARATOR ', ') AS days FROM route as R left join route_plan as RP on R.batch_no=RP.batch_no WHERE R.companyid='$companyid' AND RP.sales_executive_id='$loginid' GROUP BY R.batch_no, R.route_name ORDER BY R.route_name ASC");
                                 foreach ($sql as $key) { ?>
                                     <option value="<?= $key['batch_no'] ?>"><?= $key['route_name'] ?> [<?= $key['days'] ?>]</option>
                                 <?php } ?>
@@ -171,13 +164,28 @@ ORDER BY R.route_name ASC
                                 document.getElementById('route_planid').value = '<?php echo $route_plan_id; ?>';
                             </script>
                         </div>
+                        <div class="col-lg-3 mb-2">
+                            <label for="" class="form-label"> Area <span class="text-danger fw-bold">*</span></label>
+                            <select name="area_id" id="area_id" class="chosen-select  form-control form-control-sm">
+                                <option value="">--Select Area--</option>
+                                <?php
+                                $sql = $obj->executequery("select area_id,area_name from area_master order by area_name asc ");
+                                foreach ($sql as $key) {
+                                ?>
+                                    <option value="<?= $key['area_id'] ?>"><?= $key['area_name'] ?></option>
+                                <?php } ?>
+                            </select>
+                            <script>
+                                document.getElementById('area_id').value = '<?php echo $area_id; ?>';
+                            </script>
+                        </div>
 
                         <div class="col-lg-3 mb-2">
                             <label for="" class="form-label">Counter Name <span class="text-danger fw-bold">*</span></label>
                             <input type="text" class="form-control shadow-sm" id="account_name" name="account_name" placeholder="Enter Counter Name" value="<?php echo $account_name ?>">
                         </div>
                         <div class="col-lg-3 mb-2">
-                            <label for="" class="form-label">Mobile Number <span class="text-danger fw-bold"></span></label>
+                            <label for="" class="form-label">Whatsapp Number <span class="text-danger fw-bold"></span></label>
                             <input type="text"
                                 class="form-control shadow-sm"
                                 id="mobile_no"
@@ -201,38 +209,17 @@ ORDER BY R.route_name ASC
                             </script>
                         </div>
                         <div class="col-lg-3 mb-2">
-                            <label for="" class="form-label"> Area <span class="text-danger fw-bold">*</span></label>
-                            <select name="area_id" id="area_id" class="chosen-select  form-control form-control-sm">
-                                <option value="">--Select Area--</option>
-                                <?php
-                                $sql = $obj->executequery("select area_id,area_name from area_master order by area_name asc ");
-                                foreach ($sql as $key) {
-                                ?>
-                                    <option value="<?= $key['area_id'] ?>"><?= $key['area_name'] ?></option>
-                                <?php } ?>
-                            </select>
-                            <script>
-                                document.getElementById('area_id').value = '<?php echo $area_id; ?>';
-                            </script>
+                            <label for="" class="form-label">Owner Name <span class="text-danger fw-bold">*</span></label>
+                            <input type="text" class="form-control shadow-sm" id="account_name" name="account_name" placeholder="Enter Counter Name" value="<?php echo $account_name ?>">
                         </div>
                         <div class="col-lg-3 mb-2">
-                            <label for="" class="form-label"> Counter Type</label>
-                            <select name="common_id" id="common_id" class="chosen-select  form-control form-control-sm">
-                                <option value="">--Select Counter Type--</option>
-                                <?php
-                                $sql = $obj->executequery("select common_id,common_name from common_master where type='acc_type' order by common_id asc ");
-                                foreach ($sql as $key) {
-                                ?>
-                                    <option value="<?= $key['common_id'] ?>"><?= $key['common_name'] ?></option>
-                                <?php } ?>
-                                <option value="-1">Employee</option>
-                            </select>
-                            <script>
-                                document.getElementById('common_id').value = '<?php echo $common_id; ?>';
-                            </script>
+                            <label for="" class="form-label">Owner Mobile No. <span class="text-danger fw-bold">*</span></label>
+                            <input type="text" class="form-control shadow-sm" id="account_name" name="account_name" placeholder="Enter Counter Name" value="<?php echo $account_name ?>">
                         </div>
-
-
+                        <div class="col-lg-9 mb-2">
+                            <label for="" class="form-label">Counter Visiting Card Image</label>
+                            <input type="file" class="form-control shadow-sm" id="visiting_image" name="visiting_image">
+                        </div>
                         <div class="col-lg-9 mb-2">
                             <label for="" class="form-label">Address</label>
                             <textarea class="form-control shadow-sm" id="address" name="address" placeholder="Enter Address"><?= $address; ?></textarea>

@@ -1,7 +1,10 @@
 <?php
 include("../../action.php");
+$route_plan_ids = $_POST['route_plan_ids'];
 
-$route_plan_id = (int)$_POST['route_plan_id'];
+$route_plan_ids = array_map('intval', $route_plan_ids);
+
+$route_plan_ids_sql = implode(',', $route_plan_ids);
 $companyid     = (int)$_POST['companyid'];
 
 $sql = "
@@ -41,7 +44,7 @@ FROM (
         AND o.is_approved = '1'
         AND o.companyid = '$companyid'
 
-    WHERE rp.route_planid = '$route_plan_id'
+   WHERE rp.route_planid IN ($route_plan_ids_sql)
       AND rp.companyid = '$companyid'
       AND rc.companyid = '$companyid'
       AND rc.is_active = 1

@@ -16,7 +16,7 @@ if ($scheme_details_id == 0) {
         'qty' => $qty,
         'output' => $output,
         'scheme_type' => $scheme_type,
-
+        "scheme_id" => $scheme_id,
         'ipaddress' => $ipaddress,
         'createdby' => $loginid,
         "companyid" => $companyid,
@@ -31,7 +31,6 @@ if ($scheme_details_id == 0) {
         'qty' => $qty,
         'output' => $output,
         'scheme_type' => $scheme_type,
-
         'scheme_id' => $scheme_id,
         'companyid' => $companyid,
         'ipaddress' => $ipaddress,

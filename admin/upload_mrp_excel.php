@@ -10,12 +10,10 @@ require_once __DIR__ . '/src/SimpleXLSX.php';
 function normalize($str)
 {
     $str = html_entity_decode($str);
-    $str = strtolower($str);
-    $str = trim($str);
+    $str = strtolower(trim($str));
     $str = str_replace(['*', '(', ')', '.', ','], ' ', $str);
     $str = str_replace(['sqmm'], 'mm', $str);
     $str = preg_replace('/\s+/', ' ', $str);
-
     return $str;
 }
 
@@ -31,12 +29,12 @@ if (isset($_POST['submit'])) {
 
     $rows = [];
 
+    // 📥 READ FILE
     if ($file_ext == 'xlsx') {
 
         if (!$xlsx = SimpleXLSX::parse($file_tmp)) {
             die("Invalid Excel file.");
         }
-
         $rows = $xlsx->rows();
     } elseif ($file_ext == 'csv') {
 
@@ -62,13 +60,13 @@ if (isset($_POST['submit'])) {
 
         foreach ($rows as $index => $r) {
 
-            if ($index == 0) continue;
+            if ($index == 0) continue; // skip header
 
             $brand_name    = normalize($r[1] ?? '');
             $category_name = normalize($r[2] ?? '');
+            $product_id    = trim($r[3] ?? '');
             $product_name  = normalize($r[4] ?? '');
-            $rate          = trim($r[5] ?? '');
-            $rate = str_replace(',', '', $rate);
+            $rate          = str_replace(',', '', trim($r[5] ?? ''));
 
             $row_data = [
                 'row' => $index,
@@ -79,88 +77,39 @@ if (isset($_POST['submit'])) {
                 'reason' => ''
             ];
 
-            if ($brand_name == '' || $category_name == '' || $product_name == '') {
-                $row_data['reason'] = 'Missing required fields';
-            } elseif (!is_numeric($rate)) {
+            // 🔍 VALIDATIONS
+            if ($product_id == '') {
+                $row_data['reason'] = 'Missing Product ID';
+            } elseif (!is_numeric($product_id)) {
+                $row_data['reason'] = 'Invalid Product ID';
+            } elseif ($rate === '' || !is_numeric($rate)) {
                 $row_data['reason'] = 'Invalid rate';
             } else {
 
-                $b = addslashes($brand_name);
-                $c = addslashes($category_name);
-                $p = addslashes($product_name);
-
-                $words = explode(' ', $brand_name);
-                $conditions = [];
-
-                foreach ($words as $w) {
-                    if (strlen($w) > 2) {
-                        $conditions[] = "LOWER(cat_name) LIKE '%$w%'";
-                    }
-                }
-
-                $where = implode(" AND ", $conditions);
-
-                $brand_id = $obj->getvalfield(
-                    "category_master",
-                    "cat_id",
-                    "$where AND type='brand'"
+                // ✅ CHECK EXISTENCE
+                $exists = $obj->getvalfield(
+                    "product_master",
+                    "product_id",
+                    "product_id='$product_id'"
                 );
-                $words = explode(' ', $category_name);
-                $conditions = [];
 
-                foreach ($words as $w) {
-                    if (strlen($w) > 2) {
-                        $conditions[] = "LOWER(cat_name) LIKE '%$w%'";
-                    }
-                }
-
-                $where = implode(" AND ", $conditions);
-
-                $category_id = $obj->getvalfield(
-                    "category_master",
-                    "cat_id",
-                    "$where AND brand_id='$brand_id'"
-                );
-                if (!$brand_id || !$category_id) {
-                    $row_data['reason'] = 'Brand/Category not found';
+                if (empty($exists)) {
+                    $row_data['reason'] = 'Product ID not found';
                 } else {
 
-                    $p = normalize($r[4] ?? '');
+                    // 🚀 UPDATE DIRECTLY
+                    $obj->executequery("
+                        UPDATE product_master 
+                        SET rate='$rate' 
+                        WHERE product_id='$product_id'
+                    ");
 
-                    $product_condition = [];
-                    $words = explode(' ', $p);
-
-                    foreach ($words as $w) {
-                        if (strlen($w) > 2) { 
-                            $product_condition[] = "LOWER(product_name) LIKE '%$w%'";
-                        }
-                    }
-
-                    $product_where = implode(" AND ", $product_condition);
-
-                    $product_id = $obj->getvalfield(
-                        "product_master",
-                        "product_id",
-                        "brand_id='$brand_id' 
-     AND category_id='$category_id' 
-     AND $product_where"
-                    );
-                    if (!$product_id) {
-                        $row_data['reason'] = 'Product not found';
-                    } else {
-
-                        $obj->executequery("
-                            UPDATE product_master 
-                            SET rate='$rate' 
-                            WHERE product_id='$product_id'
-                        ");
-
-                        $updated++;
-                        continue;
-                    }
+                    $updated++;
+                    continue;
                 }
             }
 
+            // ❌ SKIPPED
             $skipped_rows[] = $row_data;
             $skipped++;
         }
@@ -171,6 +120,7 @@ if (isset($_POST['submit'])) {
         die("Error: " . $e->getMessage());
     }
 
+    // 📊 OUTPUT
     echo "<h4>Updated: $updated | Skipped: $skipped</h4>";
 
     if (!empty($skipped_rows)) {

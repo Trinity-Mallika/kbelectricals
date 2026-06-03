@@ -1,19 +1,11 @@
 <script src="assets/js/jquery-3.6.0.min.js"></script>
-
 <script src="assets/js/bootstrap.bundle.min.js"></script>
-
 <script src="assets/choosen-select/chosen.jquery.min.js"></script>
-
 <script src="assets/datatable/js/jquery.dataTables.min.js"></script>
-
 <script src="assets/datatable/js/dataTables.bootstrap5.min.js"></script>
-
 <script src="assets/datepicker/js/bootstrap-datepicker.js"></script>
-
 <script src="assets/js/sweetalert.min.js"></script>
-
 <script src="assets/js/custom.js"></script>
-
 <script src="js/commonfun.js"></script>
 
 <div class="modal fade" id="companyModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="staticBackdropLabel" aria-hidden="true">
@@ -28,12 +20,9 @@
                     <option value="">Select</option>
                     <?php $comps = $obj->executequery("SELECT * FROM company_setting");
                     foreach ($comps as $comp) { ?>
-                        <option value="<?= $comp['company_id'] ?>"><?= $comp['company_name'] ?></option>
+                        <option value="<?= $comp['company_id'] ?>" <?php echo (isset($_SESSION['companyid']) == $comp['company_id']) ? "selected" : "" ?>><?= $comp['company_name'] ?></option>
                     <?php } ?>
                 </select>
-                <script>
-                    document.getElementById('company_id').value = '<?php echo $companyid ?>'
-                </script>
             </div>
         </div>
     </div>
@@ -62,4 +51,12 @@
             }); //ajax close
         }
     }
+
+
+    $(document).ready(function() {
+        $(".chosen-select").chosen({
+            width: "100%",
+            search_contains: true
+        });
+    });
 </script>

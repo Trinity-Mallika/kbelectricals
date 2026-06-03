@@ -21,12 +21,11 @@ $sql = "
 $res = $obj->executequery($sql);
 
 $html = '<div class="payment-list">';
+if (count($res) > 0) {
+    foreach ($res as $key) {
+        $badgeClass = ($key['paymode'] == 'Cash') ? 'bg-success' : (($key['paymode'] == 'Online') ? 'bg-primary' : 'bg-warning');
 
-foreach ($res as $key) {
-
-    $badgeClass = ($key['paymode'] == 'Cash') ? 'bg-success' : (($key['paymode'] == 'Online') ? 'bg-primary' : 'bg-warning');
-
-    $html .= '
+        $html .= '
     <div class="payment-row d-flex justify-content-between align-items-center">
 
         <div class="left">
@@ -37,6 +36,13 @@ foreach ($res as $key) {
             ₹ ' . number_format($key['grand_total'], 2) . '
         </div>
 
+    </div>
+    ';
+    }
+} else {
+    $html .= '
+    <div class="payment-row d-flex justify-content-between align-items-center">
+No Payment History.
     </div>
     ';
 }

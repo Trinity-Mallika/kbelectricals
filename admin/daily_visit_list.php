@@ -7,13 +7,10 @@ $submodule = "Daily Visiting List";
 $btn_name = "Save";
 $tblname = "daily_entries";
 $tblpkey = "entry_id";
-$fromdate = isset($_GET['fromdate']) ? $_GET['fromdate'] : date('Y-m-d', strtotime('-30 days'));
+$fromdate = isset($_GET['fromdate']) ? $_GET['fromdate'] : date('Y-m-d');
 $todate   = isset($_GET['todate'])   ? $_GET['todate']   : date('Y-m-d');
-
 $from = $fromdate . " 00:00:00";
 $to   = $todate . " 23:59:59";
-
-// $crit = "WHERE de.createdate BETWEEN '$from' AND '$to' and de.companyid='$companyid'";
 
 $createdby = isset($_GET['createdby']) ? $_GET['createdby'] : '';
 $account_id = isset($_GET['account_id']) ? $_GET['account_id'] : '';
@@ -21,12 +18,10 @@ $account_id = isset($_GET['account_id']) ? $_GET['account_id'] : '';
 $crit = "WHERE de.createdate BETWEEN '$from' AND '$to' 
          AND de.companyid='$companyid'";
 
-// Apply Executive filter
 if (!empty($createdby)) {
     $crit .= " AND de.createdby = '$createdby'";
 }
 
-// Apply Counter filter
 if (!empty($account_id)) {
     $crit .= " AND de.account_id = '$account_id'";
 }
@@ -88,7 +83,7 @@ if (!empty($account_id)) {
                                     <select name="createdby" id="createdby" class="chosen-select form-control form-control-sm">
                                         <option value="">--Select Executive--</option>
                                         <?php
-                                        $sql = $obj->executequery("SELECT userid, fullname FROM user ORDER BY fullname ASC");
+                                        $sql = $obj->executequery("SELECT userid, fullname FROM user where usertype='sales' ORDER BY fullname ASC");
                                         foreach ($sql as $row) {
                                         ?>
                                             <option value="<?= $row['userid']; ?>">
@@ -106,7 +101,7 @@ if (!empty($account_id)) {
                                     <select name="account_id" id="account_id" class="chosen-select form-control form-control-sm">
                                         <option value="">--Select Counter--</option>
                                         <?php
-                                        $sql = $obj->executequery("SELECT account_id, account_name FROM account WHERE companyid='$companyid' ORDER BY account_name ASC");
+                                        $sql = $obj->executequery("SELECT account_id, account_name FROM account  ORDER BY account_name ASC");
                                         foreach ($sql as $row) {
                                         ?>
                                             <option value="<?= $row['account_id']; ?>">
@@ -146,13 +141,14 @@ if (!empty($account_id)) {
                                         <th>Follow Up</th>
                                         <th>Discussion details</th>
                                         <th>Location</th>
+                                        <th>Checkout</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <?php
                                     $slno = 1;
                                     $qry = $obj->executequery("
-            SELECT de.*, a.account_name, a.mobile_no, u.fullname,c.common_name
+            SELECT de.*, a.account_name, u.fullname,c.common_name
             FROM $tblname de
             LEFT JOIN account a ON a.account_id = de.account_id
             LEFT JOIN common_master c ON c.common_id = de.common_id and c.type='product_display'
@@ -211,6 +207,23 @@ if (!empty($account_id)) {
                                                     </a>
                                                 <?php } ?>
                                             </td>
+                                            <td>
+                                                <?php
+                                                if ($rowget['is_saved'] == 0) {
+                                                    echo '<span class="text-danger fw-bold">Checkout Pending</span>';
+                                                ?>
+                                                    <br>
+                                                    <button type="button"
+                                                        class="btn btn-sm btn-warning mt-1"
+                                                        onclick="adminCheckout('<?php echo $rowget['entry_id']; ?>')">
+                                                        Force Checkout
+                                                    </button>
+                                                <?php
+                                                } else {
+                                                    echo '<span class="text-success fw-bold">Checked Out</span>';
+                                                }
+                                                ?>
+                                            </td>
                                         </tr>
                                     <?php } ?>
                                 </tbody>
@@ -233,6 +246,70 @@ if (!empty($account_id)) {
         $("#example").DataTable();
         $(".chosen-select").chosen();
     });
+
+
+    function adminCheckout(entry_id) {
+
+        swal({
+            title: 'Force Checkout?',
+            text: 'Executive could not checkout. Admin checkout will be applied.',
+            icon: 'warning',
+            buttons: true,
+            dangerMode: true,
+        }).then((willCheckout) => {
+
+            if (willCheckout) {
+
+                $.ajax({
+                    url: 'admin_checkout.php',
+                    type: 'POST',
+                    data: {
+                        entry_id: entry_id
+                    },
+                    success: function(response) {
+
+                        response = response.trim();
+
+                        if (response == '1') {
+
+                            swal({
+                                title: 'Success',
+                                text: 'Checked Out Successfully',
+                                icon: 'success',
+                                timer: 1500,
+                                buttons: false
+                            });
+
+                            setTimeout(function() {
+                                location.reload();
+                            }, 1500);
+
+                        } else {
+
+                            swal({
+                                title: 'Error',
+                                text: 'Checkout failed',
+                                icon: 'error'
+                            });
+
+                        }
+                    },
+                    error: function() {
+
+                        swal({
+                            title: 'Error',
+                            text: 'Server error occurred',
+                            icon: 'error'
+                        });
+
+                    }
+                });
+
+            }
+
+        });
+
+    }
 </script>
 
 </html>

@@ -9,7 +9,7 @@ $tblpkey = "route_counter_id";
 $btn_name = "Save";
 $keyvalue = $_GET[$tblpkey] ?? 0;
 $action = $_GET['action'] ?? 0;
-$batch_no = $_GET['batch_no'] ?? $obj->getvalfield($tblname, "batch_no", "1=1 order by $tblpkey desc");
+$batch_no = $_GET['batch_no'] ?? $obj->getvalfield($tblname, "batch_no", "1=1 order by $tblpkey asc");
 
 if (isset($_POST['submit'])) {
     $batch_no   = $obj->test_input($_POST['batch_no']);
@@ -162,7 +162,6 @@ if ($keyvalue != 0) {
                     FROM account a
                     LEFT JOIN area_master ar ON ar.area_id=a.area_id
                     WHERE a.status1='1'
-                    AND a.companyid='$companyid'
                     ORDER BY a.account_name
                 ");
 
@@ -252,8 +251,8 @@ if ($keyvalue != 0) {
         ON t.batch_no = r.batch_no
     JOIN account a
         ON t.account_id = a.account_id
-    WHERE t.companyid='$companyid'
-      AND t.batch_no='$batch_no'
+    WHERE t.companyid='$companyid' and a.common_id=7
+AND r.batch_no='$batch_no'
       AND a.status1='1'
     GROUP BY t.route_counter_id
     ORDER BY t.sequence DESC

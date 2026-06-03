@@ -4,10 +4,10 @@ $limit = 5;
 $start = isset($_POST['start']) ? intval($_POST['start']) : 0;
 $from_date = $_POST['from_date'] ?? '';
 $to_date   = $_POST['to_date'] ?? '';
-$where = "1=1";
+$where = "1=1 and d.createdby='$loginid'";
 
 if (!empty($from_date) && !empty($to_date)) {
-    $where .= " AND DATE(d.follow_up_date) BETWEEN '$from_date' AND '$to_date'";
+    $where .= " AND DATE(d.createdate) BETWEEN '$from_date' AND '$to_date'";
 }
 
 $sql = "SELECT d.*,a.account_name,cm.common_name AS product_name
@@ -64,7 +64,7 @@ foreach ($res as $key) {
 
                 </td>
 
-                <td width="40" class="text-end">
+                <!-- <td width="40" class="text-end">
                     <div class="btn-group">
                         <?php if ($key['follow_up_date'] == date('Y-m-d')) { ?>
                             <a class="text-danger"
@@ -73,7 +73,7 @@ foreach ($res as $key) {
                             </a>
                         <?php } ?>
                     </div>
-                </td>
+                </td> -->
             </tr>
         </table>
     </div>

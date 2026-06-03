@@ -136,15 +136,18 @@ if ($keyvalue > 0) {
                                         $i = 1;
                                         $sql = $obj->executequery("SELECT * FROM $tblname ORDER BY area_id desc");
                                         foreach ($sql as $key) {
+                                            $count = $obj->getvalfield("account", "count(*)", "area_id='{$key['area_id']}'");
                                         ?>
                                             <tr>
                                                 <td class="text-center"><?php echo $i++; ?></td>
                                                 <td><?php echo ucfirst($key['area_name']); ?> </td>
                                                 <td class="text-center">
                                                     <a href="<?php echo $pagename . "?" . $tblpkey . "=" . $key['area_id']; ?>" title="Edit" class="btn btn-sm btn-outline-success"><i class="bi bi-pencil-square"></i></a>
-                                                    <button type="button" title="Delete" class="btn btn-sm btn-danger" onclick="funDel('<?php echo $key['area_id']; ?>');">
-                                                        <i class="bi bi-trash3-fill"></i>
-                                                    </button>
+                                                    <?php if ($count == 0) { ?>
+                                                        <button type="button" title="Delete" class="btn btn-sm btn-danger" onclick="funDel('<?php echo $key['area_id']; ?>');">
+                                                            <i class="bi bi-trash3-fill"></i>
+                                                        </button>
+                                                    <?php } ?>
                                             </tr>
                                         <?php } ?>
                                     </tbody>

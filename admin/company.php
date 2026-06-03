@@ -5,7 +5,6 @@ $module = "CompanyMaster";
 $submodule = $title = "COMPANY MASTER";
 $tblname = "company_setting";
 $tblpkey = "company_id";
-// $keyvalue = "1";
 $keyvalue = $companyid;
 $imgpath = "uploaded/company/";
 if (isset($_GET['action'])) {
@@ -22,12 +21,12 @@ $address = "";
 $email = "";
 $term_cond = "";
 $gsttinno = "";
-$contact_no = "";
 $bank_name = "";
 $ifsc_code = "";
 $account_no = "";
 $account_branch = "";
 $pan = "";
+$dispatch_no = $accounts_no = $quo_no = "";
 $comp_logo = "";
 
 if ($keyvalue > 0) {
@@ -37,11 +36,13 @@ if ($keyvalue > 0) {
     $company_name = $sqledit['company_name'];
     $short_name = $sqledit['short_name'];
     $mobile = $sqledit['mobile'];
+    $dispatch_no = $sqledit['dispatch_no'];
+    $accounts_no = $sqledit['accounts_no'];
+    $quo_no = $sqledit['quo_no'];
     $address = $sqledit['address'];
     $email = $sqledit['email'];
     $term_cond = $sqledit['term_cond'];
     $gsttinno = $sqledit['gst'];
-    $contact_no = $sqledit['contact_no'];
     $account_branch = $sqledit['account_branch'];
     $account_no = $sqledit['account_no'];
     $ifsc_code = $sqledit['ifcs_code'];
@@ -50,18 +51,7 @@ if ($keyvalue > 0) {
     $comp_logo = $sqledit['comp_logo'];
 }
 
-
 if (isset($_POST['submit'])) {
-
-    $countRes = $obj->executequery("SELECT COUNT(*) as total FROM $tblname");
-    $total = $countRes[0]['total'];
-
-    // if ($total >= 2 && empty($_GET[$tblpkey]))
-    if ($total >= 2 && $keyvalue == 0) {
-        echo "<script>alert('Only 2 companies allowed');</script>";
-        echo "<script>location='$pagename'</script>";
-        exit;
-    }
 
     $company_name = $obj->test_input($_POST['company_name']);
     $short_name = $obj->test_input($_POST['short_name']);
@@ -70,32 +60,37 @@ if (isset($_POST['submit'])) {
     $email  = $obj->test_input($_POST['email']);
     $term_cond  = $obj->test_input($_POST['term_cond']);
     $gsttinno = $obj->test_input($_POST['gsttinno']);
-    $contact_no = $obj->test_input($_POST['contact_no']);
+    $dispatch_no = $obj->test_input($_POST['dispatch_no']);
+    $accounts_no = $obj->test_input($_POST['accounts_no']);
+    $quo_no = $obj->test_input($_POST['quo_no']);
     $bank_name = $obj->test_input($_POST['bank_name']);
     $ifsc_code = $obj->test_input($_POST['ifsc_code']);
     $account_no = $obj->test_input($_POST['account_no']);
     $account_branch = $obj->test_input($_POST['account_branch']);
     $pan = $obj->test_input($_POST['pan']);
 
-    //update
-    $form_data = array(
-        'contact_no' => $contact_no,
-        'company_name' => $company_name,
-        'short_name' => $short_name,
-        'mobile' => $mobile,
-        'address' => $address,
-        'email' => $email,
-        'bank_name' => $bank_name,
-        'ifcs_code' => $ifsc_code,
-        'account_no' => $account_no,
-        'account_branch' => $account_branch,
-        'term_cond' => $term_cond,
-        'gst' => $gsttinno,
-        'ipaddress' => $ipaddress,
-        'lastupdated' => $createdate,
-        'createdby' => $loginid,
-        'pan' => $pan
-    );
+    if ($keyvalue != 0)
+        $form_data = array(
+            'company_name' => $company_name,
+            'short_name' => $short_name,
+            'mobile' => $mobile,
+            'accounts_no' => $accounts_no,
+            'quo_no' => $quo_no,
+            'dispatch_no' => $dispatch_no,
+            'address' => $address,
+            'email' => $email,
+            'bank_name' => $bank_name,
+            'ifcs_code' => $ifsc_code,
+            'account_no' => $account_no,
+            'account_branch' => $account_branch,
+            'term_cond' => $term_cond,
+            'gst' => $gsttinno,
+            'ipaddress' => $ipaddress,
+            'lastupdated' => $createdate,
+            'createdby' => $loginid,
+            'pan' => $pan
+        );
+
     $where = array($tblpkey => $keyvalue);
     $imageFileType = strtolower(pathinfo($_FILES["imgname"]['name'], PATHINFO_EXTENSION));
     if ($imageFileType == 'png' || $imageFileType == 'jpg' || $imageFileType == 'jpeg') {
@@ -103,21 +98,11 @@ if (isset($_POST['submit'])) {
         $form_data["comp_logo"] = $filename;
     }
 
-    if ($keyvalue == 0) {
-        // INSERT
-        $form_data["createdate"] = $createdate;
-        $obj->insert_record($tblname, $form_data);
-        $action = 1;
-    } else {
-        // UPDATE
-        $form_data["lastupdated"] = $createdate;
-        $where = array($tblpkey => $keyvalue);
-        $obj->update_record($tblname, $where, $form_data);
-        $action = 2;
-    }
-
-    $process = ($keyvalue == 0) ? "Insert" : "Update";
-
+    $form_data["lastupdated"] = $createdate;
+    $where = array($tblpkey => $keyvalue);
+    $obj->update_record($tblname, $where, $form_data);
+    $action = 2;
+    $process = "updated";
     echo "<script>location='$pagename?action=$action'</script>";
 }
 
@@ -216,23 +201,31 @@ if (isset($_POST['submit'])) {
                                             <input type="text" class="form-control form-control-sm" name="short_name" placeholder="Enter Short Name" value="<?php echo $short_name; ?>">
                                         </div>
                                         <div class="col-md-3">
-                                            <strong> <label>Mobile <span class="text-danger">*</span></label></strong>
+                                            <strong> <label>Mobile No.<span class="text-danger">*</span></label></strong>
                                             <input type="text" class="form-control form-control-sm" name="mobile" placeholder="Enter Mobile Number" value="<?php echo $mobile; ?>">
                                         </div>
                                         <div class="col-md-3">
-                                            <strong> <label>Contact No.</label></strong>
-                                            <input type="text" class="form-control form-control-sm" name="contact_no" placeholder="Enter Contact Number" value="<?php echo $contact_no; ?>">
+                                            <strong> <label>Dispatch No.</label></strong>
+                                            <input type="text" class="form-control form-control-sm" name="dispatch_no" placeholder="Enter Dispatch No." value="<?php echo $dispatch_no; ?>">
+                                        </div>
+                                        <div class="col-md-3 mt-2">
+                                            <strong> <label>Accounts/Billing No.</label></strong>
+                                            <input type="text" class="form-control form-control-sm" name="accounts_no" placeholder="Enter Accounts/Billing No." value="<?php echo $accounts_no; ?>">
+                                        </div>
+                                        <div class="col-md-3 mt-2">
+                                            <strong> <label>Inquiry/Offer/Quotations No.</label></strong>
+                                            <input type="text" class="form-control form-control-sm" name="quo_no" placeholder="Enter Inquiry/Offer/Quotations No." value="<?php echo $quo_no; ?>">
+                                        </div>
+                                        <div class="col-md-6 mt-2">
+                                            <strong> <label>Email</label></strong>
+                                            <input type="email" class="form-control form-control-sm" name="email" placeholder="Enter Email" value="<?php echo $email; ?>">
                                         </div>
                                     </div>
 
                                     <div class="row mb-3">
-                                        <div class="col-md-6">
-                                            <strong> <label>Email</label></strong>
-                                            <input type="email" class="form-control form-control-sm" name="email" placeholder="Enter Email" value="<?php echo $email; ?>">
-                                        </div>
-                                        <div class="col-md-6">
+                                        <div class="col-md-12">
                                             <strong> <label>Address</label></strong>
-                                            <input type="text" class="form-control form-control-sm" name="address" placeholder="Enter Address" value="<?php echo $address; ?>">
+                                            <textarea class="form-control form-control-sm" name="address" placeholder="Enter Address"><?php echo $address; ?></textarea>
                                         </div>
                                     </div>
                                     <div class="row mb-3">
@@ -297,75 +290,6 @@ if (isset($_POST['submit'])) {
                     </fieldset>
                 </div>
             </div>
-
-            <!-- <div class="row mt-4 mb-4">
-                <div class="col-lg-12">
-                    <div class="card">
-                        <div class="card-header text-white">
-                            <?php echo $submodule; ?>
-                        </div>
-                        <div class="card-body">
-                            <div class="table-responsive">
-                                <table id="example" class="table table-bordered table-sm table-hover">
-                                    <thead class="text-center">
-                                        <th class="text-center">S. No.</th>
-                                        <th>Company Name</th>
-                                        <th>Short Name</th>
-                                        <th>Mobile </th>
-                                        <th>Contact No.</th>
-                                        <th>Email</th>
-                                        <th>Address</th>
-                                        <th>Bank Name</th>
-                                        <th>Account Number</th>
-                                        <th>Branch</th>
-                                        <th>IFSC Code</th>
-                                        <th>GST</th>
-                                        <th>PAN</th>
-                                        <th>Terms & Conditions</th>
-                                        <th>Upload Logo</th>
-                                        <th class="text-center">Action</th>
-                                    </thead>
-                                    <tbody>
-                                        <?php
-                                        $res = $obj->executequery("SELECT * FROM $tblname ORDER BY $tblpkey DESC");
-                                        $i = 1;
-
-                                        foreach ($res as $row) {
-                                        ?>
-                                            <tr>
-                                                <td class="text-center"><?= $i++ ?></td>
-                                                <td><?= $row['company_name'] ?></td>
-                                                <td><?= $row['short_name'] ?></td>
-                                                <td><?= $row['mobile'] ?></td>
-                                                <td><?= $row['contact_no'] ?></td>
-                                                <td><?= $row['email'] ?></td>
-                                                <td><?= $row['address'] ?></td>
-                                                <td><?= $row['bank_name'] ?></td>
-                                                <td><?= $row['account_no'] ?></td>
-                                                <td><?= $row['account_branch'] ?></td>
-                                                <td><?= $row['ifcs_code'] ?></td>
-                                                <td><?= $row['gst'] ?></td>
-                                                <td><?= $row['pan'] ?></td>
-                                                <td><?= $row['term_cond'] ?></td>
-                                                <td><?php if ($row['comp_logo'] != '') { ?>
-                                                        <img src="<?= $imgpath . $row['comp_logo']; ?>" width="80">
-                                                    <?php } ?>
-                                                </td>
-                                                <td class="text-center">
-                                                    <a href="<?= $pagename . "?" . $tblpkey . "=" . $row[$tblpkey]; ?>"
-                                                        class="btn btn-sm btn-outline-success">
-                                                        <i class="bi bi-pencil-square"></i>
-                                                    </a>
-                                                </td>
-                                            </tr>
-                                        <?php } ?>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div> -->
         </div>
     </div>
 

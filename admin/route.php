@@ -57,7 +57,7 @@ if (isset($_POST['submit'])) {
             }
         } else {
 
-            $old = $obj->select_record($tblname, [$tblpkey => $keyvalue]);
+            $old = $obj->select_record($tblname, ["batch_no" => $keyvalue]);
             $batch_no = $old['batch_no'];
             $existing_days = [];
             $res = $obj->executequery("SELECT route_id, day_of_week FROM $tblname WHERE batch_no='$batch_no'");
@@ -88,15 +88,7 @@ if (isset($_POST['submit'])) {
             foreach ($existing_days as $day => $route_id) {
 
                 if (!in_array($day, $week_days)) {
-                    $used = $obj->getvalfield(
-                        "route_plan",
-                        "count(*)",
-                        "route_id='$route_id'"
-                    );
-
-                    if ($used == 0) {
-                        $obj->delete_record($tblname, ["route_id" => $route_id]);
-                    }
+                    $obj->delete_record($tblname, ["route_id" => $route_id]);
                 }
             }
         }

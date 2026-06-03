@@ -7,34 +7,40 @@
                         <i class="bi bi-house-door text-white"></i>
                     </h5>
                 </a>
-                <!-- <?php //if ($title == "Dashboard") { 
-                        ?>
-                    <a href="dashboard.php">
-                        <h5 class="text-white text-start mt-1 mb-0  text-start">
-                            <i class="bi bi-house-door text-white"></i>
-                        </h5>
-                    </a>
-                <?php  //} else { 
-                ?>
-                    <h5 class="text-white text-start mt-1 mb-0  text-start" onclick="window.history.back();">
-                        <i class="bi-arrow-left-circle text-white"></i>
-                    </h5>
-
-                <?php  //} 
-                ?> -->
 
             </div>
             <div class="col-6 col-lg-6 col-mg-6">
                 <h6 class="text-white text-start mt-1 mb-0  text-center"> <?php echo $title; ?></h6>
             </div>
-            <div class="col-3 col-lg-3 col-mg-3 text-end">
-                <a href="my-order.php?status=Pending" class=" position-relative">
-                    <i class="bi bi-bell fs-5 text-white "></i>
-                    <span class="position-absolute top-0 start-100 translate-middle bg-danger text-white border border-light rounded-circle d-flex align-items-center justify-content-center"
-                        style="width:20px; height:20px; font-size:12px; margin-left:-5px;">
-                        1
-                    </span>
-                </a> &nbsp;&nbsp;
+            <div class="col-3 col-lg-3 col-mg-3 justify-content-end d-flex">
+                <div class="dropdown">
+                    <button class="btn btn-sm position-relative p-0" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="background: transparent !important;">
+                        <i class="bi bi-bell fs-5 text-white "></i>
+                        <span class="position-absolute top-0 start-100 translate-middle bg-danger text-white border border-light rounded-circle d-flex align-items-center justify-content-center"
+                            style="width:20px; height:20px; font-size:12px; margin-left:-5px;">
+                            1
+                        </span>
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="#">Action</a></li>
+                        <li><a class="dropdown-item" href="#">Another action</a></li>
+                    </ul>
+                </div>
+                <!-- <div class="dropdown">
+                    <a href="#dropdown" class=" position-relative">
+                        <i class="bi bi-bell fs-5 text-white "></i>
+                        <span class="position-absolute top-0 start-100 translate-middle bg-danger text-white border border-light rounded-circle d-flex align-items-center justify-content-center"
+                            style="width:20px; height:20px; font-size:12px; margin-left:-5px;">
+                            1
+                        </span>
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="#">Action</a></li>
+                        <li><a class="dropdown-item" href="#">Another action</a></li>
+                        <li><a class="dropdown-item" href="#">Something else here</a></li>
+                    </ul>
+                </div> -->
+                &nbsp;&nbsp;
                 <a data-bs-toggle="offcanvas" href="#offcanvasExample" role="button" aria-controls="offcanvasExample">
                     <i class="bi bi-list-nested fs-3 text-white "></i>
                 </a>

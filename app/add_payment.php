@@ -17,7 +17,8 @@ if ($account_id > 0) {
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $keyvalue   = $obj->test_input($_POST['transaction_id']);
     $account_id = $obj->test_input($_POST['account_id']);
-    $bill_id    = $_POST['bill_id'];
+    $bill_id = $obj->test_input($_POST['bill_id']);
+    $pay_type = ($bill_id == "opening") ? "$bill_id" : "bill";
     $paymode    = $obj->test_input($_POST['paymode']);
     $paydate    = $obj->test_input($_POST['paydate']);
     $pay_amt    = $obj->test_input($_POST['pay_amt']);
@@ -34,17 +35,30 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 
     if ($paymode != 'Cash') {
-        if (!empty($_FILES["payment_proof"]['name'])) {
-            $filename = $obj->uploadImage($imgpath, $_FILES["payment_proof"]);
-            if ($filename != "") {
 
-                if ($keyvalue != 0) {
-                    $old = $obj->getvalfield($tblname, "imgname", "entry_id='$keyvalue'");
-                    if ($old != "") {
-                        @unlink($imgpath . $old);
-                    }
+        if (!empty($_FILES["payment_proof"]['name'])) {
+
+            $filename = $obj->uploadImage($imgpath, $_FILES["payment_proof"]);
+
+            if ($filename != "" && $keyvalue != 0) {
+
+                $old = $obj->getvalfield(
+                    $tblname,
+                    "imgname",
+                    "$tblpkey='$keyvalue'"
+                );
+
+                if ($old != "") {
+                    @unlink($imgpath . $old);
                 }
             }
+        } elseif ($keyvalue != 0) {
+
+            $filename = $obj->getvalfield(
+                $tblname,
+                "imgname",
+                "$tblpkey='$keyvalue'"
+            );
         }
     } else {
         $filename = "";
@@ -63,6 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         'longitude'     => $longitude,
         'address'       => $address,
         'type'          => 'payment',
+        'pay_type'      => $pay_type,
         'createdby'     => $loginid,
         'companyid'     => $companyid,
         'ipaddress'     => $ipaddress
@@ -96,10 +111,11 @@ if (isset($_GET[$tblpkey])) {
     $trans_id = $sqledit['trans_id'];
     $pending_amt = "";
 } else {
-    $paymode = $pay_amt  = $payment_proof = $trans_id = "";
+    $pay_amt  = $payment_proof = $trans_id = "";
     $paydate = date('Y-m-d');
     $pending_amt = "";
     $voucher_no = '';
+    $paymode = 'Cash';
 }
 ?>
 
@@ -135,8 +151,7 @@ if (isset($_GET[$tblpkey])) {
                             <select class="form-select chosen-select" name="account_id" id="account_id" onchange="set_url(this.value);">
                                 <option value="">Select</option>
                                 <?php
-                                $res = $obj->executequery("
-    SELECT DISTINCT
+                                $res = $obj->executequery("SELECT DISTINCT
         a.account_id,
         a.account_name,
         cm.common_name AS account_type,
@@ -182,12 +197,35 @@ if (isset($_GET[$tblpkey])) {
                         </div>
 
                         <div class="col-lg-3 mb-2">
-                            <label class="form-label w-100">Select a Bill <span class="text-danger">*</span> <a href="#paymentDetails" data-bs-toggle="modal" class="btn btn-sm btn-green p-0 ps-3 pe-3 float-end">View Details</a> </label>
-                            <select name="bill_id" id="bill_id" class="form-select chosen-select" onchange="get_bill_details(this.value)">
+                            <label class="form-label w-100">
+                                Select a Bill
+                                <span class="text-danger fw-bold">*</span>
+                            </label>
+
+                            <select
+                                name="bill_id"
+                                id="bill_id"
+                                class="form-select chosen-select">
                                 <option value="">Select Bill</option>
                             </select>
-                        </div>
 
+                            <div class="d-flex justify-content-between align-items-center mt-2">
+
+                                <small
+                                    id="selected_bill_info"
+                                    class="text-muted">
+                                </small>
+
+                                <a href="#paymentDetails"
+                                    id="view_bill_details"
+                                    data-bs-toggle="modal"
+                                    class="btn btn-sm btn-primary d-none">
+
+                                    View Details
+                                </a>
+
+                            </div>
+                        </div>
                         <div class="col-lg-3 mb-2">
                             <label for="" class="form-label">Pending Amount <span class="text-danger fw-bold">*</span></label>
                             <input type="text" class="form-control shadow-sm" id="pending_amt" name="pending_amt" placeholder="Pending Amount" value="<?php echo $pending_amt ?>" readonly>
@@ -309,26 +347,52 @@ if (isset($_GET[$tblpkey])) {
 
         });
 
-
+        function set_url(account_id) {
+            if (account_id > 0) {
+                location = "?account_id=" + account_id;
+            }
+        }
 
         const star = ' <span class="text-danger fw-bold">*</span>';
 
         $('#paymode').change(function() {
+
             let mode = $(this).val();
+
             $('.conditional-field').hide();
             $('#trans_id, #voucher_no').val('');
+
             if (mode === 'Cheque') {
+
                 $('#proof_div, #tansaction_div').show();
+
                 $('#trans_label').html('Cheque No.' + star);
+                $('#trans_id').attr('placeholder', 'Enter Cheque No.');
+
                 $('#pay_date_l').html('Cheque Date' + star);
                 $('#pay_amt_l').html('Cheque Amount' + star);
+
             } else if (mode === 'Online') {
+
                 $('#tansaction_div, #bank_div').show();
+
                 $('#trans_label').html('Transaction ID' + star);
+                $('#trans_id').attr('placeholder', 'Enter Transaction ID');
+
+                $('#pay_date_l').html('Payment Date' + star);
+                $('#pay_amt_l').html('Payment Amount' + star);
+
             } else if (mode === 'Cash') {
+
                 $('#reciept_div').show();
+
                 $('#voucher_no').val('');
+                $('#trans_id').val('');
+
+                $('#pay_date_l').html('Payment Date' + star);
+                $('#pay_amt_l').html('Payment Amount' + star);
             }
+
         });
 
         function load_bills(account_id) {
@@ -353,18 +417,35 @@ if (isset($_GET[$tblpkey])) {
 
         $('#bill_id').on('change', function() {
 
-            let pending = parseFloat($('#bill_id option:selected').data('pending')) || 0;
+            let bill_id = $(this).val();
+            if (!bill_id) {
 
+                $('#view_bill_details').addClass('d-none');
+
+                $('#selected_bill_info').text('');
+
+                $('#pending_amt').val('');
+
+                $('#pay_amt').val('');
+
+                return;
+            }
+
+            let pending = parseFloat(
+                $('#bill_id option:selected').data('pending')
+            ) || 0;
+
+            $('#selected_bill_info').text('');
             $('#pending_amt').val(pending.toFixed(2));
 
             $('#pay_amt')
-                .val(pending.toFixed(2))
+                .val(pending)
                 .trigger('input');
+
+            get_bill_details(bill_id);
         });
 
-
         $('#pay_amt').on('input', function() {
-
             let pending = parseFloat($('#bill_id option:selected').data('pending')) || 0;
             let entered = parseFloat($(this).val()) || 0;
 
@@ -387,7 +468,6 @@ if (isset($_GET[$tblpkey])) {
 
 
         function get_bill_details(bill_id) {
-
             if (!bill_id) return;
 
             $('#loader').show();

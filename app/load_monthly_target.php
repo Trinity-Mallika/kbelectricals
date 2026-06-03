@@ -1,17 +1,55 @@
 <?php
 include("appsession.php");
 
-$where = "";
+$current_date = date('Y-m-d');
+$current_month_start = date('Y-m-01');
+$start_window = date('Y-m-d', strtotime("$current_month_start -2 days"));
+$end_window   = date('Y-m-d', strtotime("$current_month_start +3 day"));
 
-$month_filter = $_POST['month_filter'];
-$week_day     = $_POST['week_day'];
+$is_within_window = (
+    $current_date >= $start_window &&
+    $current_date <= $end_window
+);
+
+if (!$is_within_window) {
+
+    echo '
+    <div class="counter-card searchable-card text-center">
+
+        <div class="py-4">
+
+            <div class="mb-2" style="font-size:40px;">
+                🔒
+            </div>
+
+            <div class="counter-name text-danger mb-2">
+                Access Restricted
+            </div>
+
+            <div class="counter-meta" style="font-size:14px;">
+                Monthly target can only be filled between
+                <br>
+                <strong>' . date('d M Y', strtotime($start_window)) . '</strong>
+                to
+                <strong>' . date('d M Y', strtotime($end_window)) . '</strong>
+            </div>
+
+        </div>
+
+    </div>';
+
+    exit();
+}
+$where = "";
+$target_month = date('m', strtotime($current_month_start));
+$target_year  = date('Y', strtotime($current_month_start));
+
+$week_day = $_POST['week_day'];
 
 if ($week_day != '') {
     $where .= " AND r.day_of_week='$week_day'";
 }
-$res = $obj->executequery("
-
-    SELECT 
+$res = $obj->executequery("SELECT 
         rc.sequence,
         a.account_id,
         a.account_name,
@@ -51,9 +89,13 @@ $res = $obj->executequery("
 
 ");
 
-$current_month = date('m');
-$current_year  = date('Y');
-
+$approval_status = $obj->getvalfield(
+    "monthly_target_approval",
+    "status",
+    "userid='$loginid'
+    AND month='$target_month'
+    AND year='$target_year'"
+);
 ?>
 
 <!-- SEARCH -->
@@ -67,15 +109,28 @@ $current_year  = date('Y');
 
 </div>
 
+<?php if ($approval_status == 'Approved') { ?>
+
+    <div class="alert alert-success mt-2">
+
+        <strong>Target Approved</strong><br>
+
+        Monthly target has been approved by management.
+        Editing has been locked.
+
+    </div>
+
+<?php } ?>
+
 <?php
-
+$overall_total = 0;
+$slno = 1;
 foreach ($res as $key) {
-
     $target_id = (int)$obj->getvalfield(
         "monthly_target",
         "target_id",
-        "month='$current_month'
-        AND year='$current_year'
+        "month='$target_month'
+        AND year='$target_year'
         AND account_id='$key[account_id]' and createdby='$loginid'"
     );
 
@@ -98,7 +153,7 @@ foreach ($res as $key) {
             <div class="flex-grow-1 pe-2">
 
                 <div class="counter-number">
-                    #<?php echo str_pad($key['sequence']++, 2, '0', STR_PAD_LEFT) ?>
+                    #<?php echo str_pad($slno++, 2, '0', STR_PAD_LEFT) ?>
                 </div>
 
                 <div class="d-flex align-items-center flex-wrap gap-1 mt-1">
@@ -125,19 +180,34 @@ foreach ($res as $key) {
             </div>
 
             <!-- RIGHT -->
+            <?php if ($approval_status == 'Approved') { ?>
 
-            <button class="btn btn-sm"
-                type="button"
-                onclick="open_target_modal(
-            '<?php echo $key['account_id'] ?>',
-            '<?php echo $key['account_name'] ?>',
-            '<?php echo $target_id ?>',
-            '<?php echo $comment ?>'
-        )">
+                <span class="badge bg-success p-2">
+                    Approved
+                </span>
 
-                <?php echo ($target_id > 0) ? 'Edit' : 'Add' ?>
+            <?php } elseif ($approval_status == 'Rejected') { ?>
 
-            </button>
+                <span class="badge bg-danger p-2">
+                    Rejected
+                </span>
+
+            <?php } else { ?>
+
+                <button class="btn btn-sm"
+                    type="button"
+                    onclick="open_target_modal(
+        '<?php echo $key['account_id'] ?>',
+        '<?php echo $key['account_name'] ?>',
+        '<?php echo $target_id ?>',
+        '<?php echo $comment ?>'
+    )">
+
+                    <?php echo ($target_id > 0) ? 'Edit' : 'Add' ?>
+
+                </button>
+
+            <?php } ?>
 
         </div>
 
@@ -166,7 +236,7 @@ foreach ($res as $key) {
         <div class="brand-list">
 
             <?php
-
+            $total_target = 0;
             if (!empty($details)) {
 
                 foreach ($details as $row) {
@@ -185,10 +255,23 @@ foreach ($res as $key) {
 
                     </div>
 
-                <?php
+                <?php $total_target += $row['target'];
                 }
-            } else {
                 ?>
+                <div class="brand-item">
+
+                    <div class="brand-name">
+                        Total
+                    </div>
+
+                    <div class="brand-target">
+                        ₹<?php echo number_format($total_target) ?>
+                    </div>
+
+                </div>
+            <?php
+            } else {
+            ?>
 
                 <div class="empty-target">
 
@@ -214,8 +297,29 @@ foreach ($res as $key) {
 
     </div>
 
-<?php } ?>
+<?php $overall_total += $total_target;
+} ?>
+<div class="counter-card mt-3 border border-primary">
 
+    <div class="d-flex justify-content-between align-items-center">
+
+        <div>
+            <div class="counter-name text-primary">
+                Overall Target
+            </div>
+
+            <div class="counter-meta">
+                Total of all counters
+            </div>
+        </div>
+
+        <div style="font-size:22px;font-weight:700;color:#0d6efd;">
+            ₹<?= number_format($overall_total) ?>
+        </div>
+
+    </div>
+
+</div>
 <script>
     $("#counterSearch").on("keyup", function() {
 

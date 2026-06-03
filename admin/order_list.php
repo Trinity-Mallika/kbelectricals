@@ -8,7 +8,7 @@ $btn_name = "Save";
 $tblname = "transaction_entry";
 $tblpkey = "transaction_id";
 
-$fromdate = isset($_GET['fromdate']) ? $_GET['fromdate'] : date('Y-m-d', strtotime('-30 days'));
+$fromdate = isset($_GET['fromdate']) ? $_GET['fromdate'] : date('Y-m-d');
 $todate   = isset($_GET['todate'])   ? $_GET['todate']   : date('Y-m-d');
 
 $from = $fromdate . " 00:00:00";
@@ -16,26 +16,24 @@ $to   = $todate . " 23:59:59";
 
 $createdby = isset($_GET['createdby']) ? $_GET['createdby'] : '';
 $account_id = isset($_GET['account_id']) ? $_GET['account_id'] : '';
+$status = isset($_GET['status']) ? $_GET['status'] : '';
 
 $crit = "WHERE t.billdate BETWEEN '$from' AND '$to' 
          AND t.type='order' 
          AND t.companyid='$companyid'";
 
-// Apply Executive filter
 if (!empty($createdby)) {
     $crit .= " AND t.createdby = '$createdby'";
 }
 
-// Apply Counter filter
+if ($status != '') {
+    $crit .= " AND t.is_approved = '$status'";
+}
+
 if (!empty($account_id)) {
     $crit .= " AND t.account_id = '$account_id'";
 }
-if (isset($_REQUEST['order_trans_id'])) {
-    $order_trans_id = $_REQUEST['order_trans_id'];
-    $obj->update_record("$tblname", ['transaction_id' => $order_trans_id], ['is_approved' => 1, 'approve_date' => date('Y-m-d')]);
-    echo 1;
-    die;
-}
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -74,6 +72,17 @@ if (isset($_REQUEST['order_trans_id'])) {
                                         <strong><label for="todate">To Date</label></strong>
                                         <input type="date" class="form-control form-control-sm" name="todate" id="todate"
                                             value="<?php echo $todate; ?>">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <strong><label>Order Status</label></strong>
+                                        <select name="status" id="status" class="chosen-select form-control form-control-sm">
+                                            <option value="">--Select Status--</option>
+                                            <option value="0">Pending</option>
+                                            <option value="1">Approved</option>
+                                        </select>
+                                        <script>
+                                            document.getElementById('status').value = '<?= $status ?>';
+                                        </script>
                                     </div>
 
                                     <div class="col-md-3">
@@ -139,14 +148,14 @@ if (isset($_REQUEST['order_trans_id'])) {
                                             <th>Total Qty</th>
                                             <th>Location</th>
                                             <th>Order Status</th>
+                                            <th>Dispatch Status</th>
                                             <th>Order View</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         <?php
                                         $slno = 1;
-                                        $qry = $obj->executequery("
-    SELECT 
+                                        $qry = $obj->executequery("SELECT 
         t.*,
         a.account_name,
         u.fullname,
@@ -169,6 +178,13 @@ if (isset($_REQUEST['order_trans_id'])) {
                                                 $statusHtml = '<span class="badge bg-danger">Pending</span>';
                                             } else {
                                                 $statusHtml = '<span class="badge bg-success">Approved</span>';
+                                            }
+
+                                            $DispHtml = '';
+                                            if ($rowget['dispatch_status'] == 0) {
+                                                $DispHtml = '<span class="badge bg-danger">Pending</span>';
+                                            } else {
+                                                $DispHtml = '<span class="badge bg-success">Approved</span>';
                                             }
 
                                             // Invoice Status
@@ -209,8 +225,26 @@ if (isset($_REQUEST['order_trans_id'])) {
                                                     <?= $invoiceHtml; ?>
                                                 </td>
                                                 <td>
-                                                    <a href="order_view.php?transaction_id=<?= $rowget['transaction_id'] ?>"
-                                                        class="btn btn-sm btn-warning">View</a>
+                                                    <?= $DispHtml; ?>
+                                                </td>
+                                                <td>
+                                                    <div class="text-center d-flex justify-content-center gap-2">
+                                                        <?php if ($rowget['is_approved'] == 0) { ?>
+                                                            <a href="order-entry.php?transaction_id=<?php echo  $rowget['transaction_id']; ?>" title="Edit" class="btn btn-sm btn-outline-success"><i class="bi bi-pencil-square"></i></a>
+                                                        <?php } ?>
+                                                        <a href="order_view.php?transaction_id=<?= $rowget['transaction_id'] ?>"
+                                                            class="btn btn-sm btn-warning">
+                                                            View
+                                                        </a>
+
+                                                        <a href="print_order.php?transaction_id=<?= $rowget['transaction_id'] ?>"
+                                                            class="btn btn-sm btn-primary"
+                                                            title="Click To Print"
+                                                            target="_blank">
+                                                            <i class="bi bi-printer"></i>
+                                                        </a>
+
+                                                    </div>
                                                 </td>
                                             </tr>
                                         <?php } ?>

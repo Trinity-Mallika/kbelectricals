@@ -44,9 +44,6 @@ if (isset($_POST['submit'])) {
         $route_cache[$key] = $r['route_id'];
     }
 
-    foreach ($obj->executequery("SELECT userid, fullname FROM user") as $u) {
-        $user_cache[strtolower($u['fullname'])] = $u['userid'];
-    }
 
     $obj->begin();
 
@@ -66,11 +63,13 @@ if (isset($_POST['submit'])) {
             $area_name     = clean_val($r[2] ?? '');
             $status        = trim($r[3] ?? '');
             $class         = trim($r[4] ?? '');
-            $route_name = preg_replace('/\s+/', ' ', trim($r[5] ?? ''));
+            $day        = ucfirst(strtolower(trim($r[5] ?? '')));
+            $week       = (int)($r[6] ?? 1);
+
+            $route_name = preg_replace('/\s+/', ' ', trim($r[7] ?? ''));
             $route_name = ucwords(strtolower($route_name));
 
-            $week          = (int)($r[6] ?? 1);
-            $user_name     = strtolower(trim($r[7] ?? ''));
+            $user_id    = (int)($r[8] ?? 0);
 
             if (!$account_name || !$area_name || !$route_name) continue;
 
@@ -107,11 +106,8 @@ if (isset($_POST['submit'])) {
                 $account_id = $account_cache[$acc_key];
             }
 
-            preg_match('/(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday)/i', $route_name, $dayMatch);
-            $day = ucfirst(strtolower($dayMatch[1] ?? ''));
-
-            if (!$day) {
-                $error_rows[] = "Invalid day in route: $route_name";
+            if (empty($day)) {
+                $error_rows[] = "Invalid weekday";
                 continue;
             }
 
@@ -119,73 +115,99 @@ if (isset($_POST['submit'])) {
 
             if (!isset($route_cache[$route_key])) {
 
-                $route_id = $obj->getvalfield(
+                $route = $obj->select_record(
                     "route",
-                    "route_id",
-                    "LOWER(route_name)=LOWER('$route_name') AND day_of_week='$day'"
+                    [
+                        "route_name" => $route_name,
+                        "day_of_week" => $day
+                    ]
                 );
 
-                if (!$route_id) {
+                if (!$route) {
+
+                    $batch_no = $obj->getcode("route", "batch_no", "1=1");
+
                     $route_id = $obj->insert_record_lastid("route", [
                         "route_name" => $route_name,
                         "day_of_week" => $day,
+                        "batch_no" => $batch_no,
                         "createdby" => $loginid,
                         "createdate" => $createdate,
                         "ipaddress" => $ipaddress
                     ]);
+                } else {
+
+                    $route_id = $route['route_id'];
+                    $batch_no = $route['batch_no'];
                 }
 
-                $route_cache[$route_key] = $route_id;
+                $route_cache[$route_key] = [
+                    'route_id' => $route_id,
+                    'batch_no' => $batch_no
+                ];
             } else {
-                $route_id = $route_cache[$route_key];
+
+                $route_id = $route_cache[$route_key]['route_id'];
+                $batch_no = $route_cache[$route_key]['batch_no'];
             }
 
-            $user_id = $user_cache[$user_name] ?? 0;
-
-            if (!$user_id) {
-                $error_rows[] = "User not found: $user_name";
+            if ($user_id <= 0) {
+                $error_rows[] = "Invalid User ID";
                 continue;
             }
 
-            $plan_key = $route_id . '_' . $user_id . '_' . $week;
+            $plan_key = $batch_no . '_' . $user_id . '_' . $week;
 
             if (!isset($route_plan_cache[$plan_key])) {
 
                 $route_plan_id = $obj->getvalfield(
                     "route_plan",
                     "route_planid",
-                    "route_id='$route_id' AND sales_executive_id='$user_id' AND week_number='$week'"
+                    "batch_no='$batch_no'
+         AND sales_executive_id='$user_id'
+         AND week_number='$week'"
                 );
 
                 if (!$route_plan_id) {
 
-                    $route_plan_id = $obj->insert_record_lastid("route_plan", [
-                        "route_id" => $route_id,
-                        "sales_executive_id" => $user_id,
-                        "week_number" => $week,
-                        "createdate" => $createdate
-                    ]);
+                    $route_plan_id = $obj->insert_record_lastid(
+                        "route_plan",
+                        [
+                            "batch_no" => $batch_no,
+                            "sales_executive_id" => $user_id,
+                            "week_number" => $week,
+                            "createdby" => $loginid,
+                            "createdate" => $createdate,
+                            "companyid" => $companyid,
+                            "ipaddress" => $ipaddress
+                        ]
+                    );
                 }
 
                 $route_plan_cache[$plan_key] = $route_plan_id;
             }
 
-            $route_plan_id = $route_plan_cache[$plan_key];
-
-            // ================= ROUTE PLAN DETAILS =================
             $exists = $obj->getvalfield(
-                "route_plan_details",
-                "route_plan_detail_id",
-                "route_plan_id='$route_plan_id' AND account_id='$account_id'"
+                "route_counter",
+                "route_counter_id",
+                "batch_no='$batch_no'
+     AND account_id='$account_id'"
             );
 
             if (!$exists) {
 
-                $obj->insert_record("route_plan_details", [
-                    "route_plan_id" => $route_plan_id,
-                    "account_id" => $account_id,
-                    "sequence" => $sequence
-                ]);
+                $obj->insert_record(
+                    "route_counter",
+                    [
+                        "batch_no" => $batch_no,
+                        "account_id" => $account_id,
+                        "sequence" => $sequence,
+                        "createdby" => $loginid,
+                        "createdate" => $createdate,
+                        "companyid" => $companyid,
+                        "ipaddress" => $ipaddress
+                    ]
+                );
             }
         }
 

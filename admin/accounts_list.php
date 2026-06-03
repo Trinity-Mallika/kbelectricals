@@ -7,7 +7,7 @@ $btn_name = "Save";
 $tblname = "account";
 $tblpkey = "account_id";
 $companyid = isset($_SESSION['companyid']) ? $_SESSION['companyid'] : 0;
-$fromdate = isset($_GET['fromdate']) ? $_GET['fromdate'] : date('Y-m-d', strtotime('-30 days'));
+$fromdate = isset($_GET['fromdate']) ? $_GET['fromdate'] : date('Y-m-d');
 $todate   = isset($_GET['todate'])   ? $_GET['todate']   : date('Y-m-d');
 
 $from = $fromdate . " 00:00:00";
@@ -63,7 +63,7 @@ $to   = $todate . " 23:59:59";
                                         <select name="createdby" id="createdby" class="chosen-select form-control form-control-sm">
                                             <option value="">--Select Executive--</option>
                                             <?php
-                                            $sql = $obj->executequery("SELECT userid, fullname FROM user ORDER BY fullname ASC");
+                                            $sql = $obj->executequery("SELECT userid, fullname FROM user where usertype='sales' ORDER BY fullname ASC");
                                             foreach ($sql as $row) {
                                             ?>
                                                 <option value="<?= $row['userid']; ?>">
@@ -81,7 +81,7 @@ $to   = $todate . " 23:59:59";
                                         <select name="account_id" id="account_id" class="chosen-select form-control form-control-sm">
                                             <option value="">--Select Counter--</option>
                                             <?php
-                                            $sql = $obj->executequery("SELECT account_id, account_name FROM account WHERE companyid='$companyid' ORDER BY account_name ASC");
+                                            $sql = $obj->executequery("SELECT account_id, account_name FROM account ORDER BY account_name ASC");
                                             foreach ($sql as $row) {
                                             ?>
                                                 <option value="<?= $row['account_id']; ?>">

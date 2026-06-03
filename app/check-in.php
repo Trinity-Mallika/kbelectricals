@@ -7,7 +7,7 @@ $imgpath = "uploads/checkin/";
 $btn_name = "Save";
 $keyvalue = (isset($_GET["entry_id"])) ? $obj->test_input($_GET["entry_id"]) : 0;
 $data = $obj->getRouteDashboardData($loginid, $companyid);
-$route_plan_id = $data['route_plan_id'];
+$batchNosSql = $data['batch_no'];
 $current_date = date('Y-m-d');
 
 
@@ -121,26 +121,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         exit;
     }
 
-    $exists = $obj->getvalfield(
-        "daily_entries",
-        "count(*)",
-        "account_id='$account_id'
-         AND createdby='$loginid'
-         AND DATE(createdate)=CURDATE()
-         AND companyid='$companyid'"
-    );
+    // $exists = $obj->getvalfield(
+    //     "daily_entries",
+    //     "count(*)",
+    //     "account_id='$account_id'
+    //      AND createdby='$loginid'
+    //      AND DATE(createdate)=CURDATE()
+    //      AND companyid='$companyid'"
+    // );
 
-    if ($exists > 0) {
-        echo "duplicate";
-        exit;
-    }
-
-    $batch_no = $obj->getvalfield(
-        "route_plan",
-        "batch_no",
-        "route_planid='$route_plan_id'"
-    );
-
+    // if ($exists > 0) {
+    //     echo "duplicate";
+    //     exit;
+    // }
 
 
 
@@ -251,19 +244,19 @@ $openVisit = $obj->executequery("
                             </small>
 
                             <div class="mt-3 row g-2">
-                                <div class="col-8">
+                                <div class="col-12">
                                     <a href="visit-entry.php?entry_id=<?= $ov['entry_id'] ?>"
                                         class="btn btn-primary btn-sm rounded-pill w-100">
                                         Continue Visit
                                     </a>
                                 </div>
 
-                                <div class="col-4">
+                                <!-- <div class="col-4">
                                     <button type="button" onclick="deleteVisit(<?= $ov['entry_id'] ?>)"
                                         class="btn btn-red btn-sm rounded-pill w-100">
                                         Delete
                                     </button>
-                                </div>
+                                </div> -->
                             </div>
 
 
@@ -278,7 +271,7 @@ $openVisit = $obj->executequery("
                                 <h4 class="mb-0"> Check In</h4>
                             </div>
                             <div class="col-6 text-end ">
-                                 <a href="daily-entrylist.php" class="btn btn-sm btn-primary">Visiting List</a>
+                                <a href="daily-entrylist.php" class="btn btn-sm btn-primary">Visiting List</a>
                             </div>
                             <div class="col-12 mb-2 mt-2">
                                 <hr class="m-0">
@@ -292,30 +285,53 @@ $openVisit = $obj->executequery("
                                     onchange="get_account_details(this.value);">
                                     <option value="">Select</option>
                                     <?php
-                                    $res = $obj->executequery("SELECT
-        rc.sequence,
-        a.account_id,
-        a.account_name,
-        cm.common_name
-    FROM route_plan rp
-    JOIN route_counter rc
-        ON rc.batch_no = rp.batch_no
-    JOIN account a
-        ON a.account_id = rc.account_id
-    LEFT JOIN common_master cm
-        ON cm.common_id = a.common_id
-    WHERE rp.route_planid = '$route_plan_id'
-        AND rp.companyid = '$companyid'
-        AND rc.companyid = '$companyid'
-    
-        AND (cm.type = 'acc_type' OR cm.type IS NULL)
-    ORDER BY rc.sequence ASC
+
+                                    $batchRes = $obj->executequery("
+    SELECT DISTINCT
+        rc.batch_no,
+        r.route_name
+    FROM route_counter rc
+    LEFT JOIN route r ON r.batch_no = rc.batch_no
+    WHERE rc.batch_no IN ($batchNosSql)
+      AND rc.is_active = 1
+      AND rc.companyid = '$companyid'
+    ORDER BY rc.batch_no
 ");
 
-                                    foreach ($res as $key) {
-                                        echo "<option value='{$key['account_id']}'>
-            {$key['sequence']}. {$key['account_name']} [{$key['common_name']}]
-          </option>";
+                                    foreach ($batchRes as $batch) {
+
+                                        echo "<optgroup label='Route - {$batch['route_name']}'>";
+
+                                        $accounts = $obj->executequery("
+        SELECT
+            rc.sequence,
+            a.account_id,
+            a.account_name,
+            cm.common_name
+        FROM route_counter rc
+        JOIN account a
+            ON a.account_id = rc.account_id
+        LEFT JOIN common_master cm
+            ON cm.common_id = a.common_id
+        WHERE rc.batch_no = '{$batch['batch_no']}'
+          AND rc.is_active = 1
+          AND rc.companyid = '$companyid'
+          AND (cm.type='acc_type' OR cm.type IS NULL)
+        ORDER BY rc.sequence
+    ");
+
+                                        foreach ($accounts as $row) {
+
+                                            $type = !empty($row['common_name'])
+                                                ? " [{$row['common_name']}]"
+                                                : "";
+
+                                            echo "<option value='{$row['account_id']}'>
+                {$row['sequence']}. {$row['account_name']}{$type}
+              </option>";
+                                        }
+
+                                        echo "</optgroup>";
                                     }
                                     ?>
                                 </select>
@@ -678,7 +694,11 @@ $openVisit = $obj->executequery("
         }
 
         if (!navigator.geolocation) {
-            proceedSave();
+            Swal.fire({
+                icon: 'error',
+                title: 'Location Required',
+                text: 'Geolocation is not supported by this browser.'
+            });
             return;
         }
 
@@ -701,17 +721,42 @@ $openVisit = $obj->executequery("
                     })
                     .then(response => response.json())
                     .then(data => {
-                        address = data.address || '';
+
+                        if (!data.address) {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Location Not Saved',
+                                text: 'Unable to fetch address. Please try again.'
+                            });
+                            return;
+                        }
+
+                        address = data.address;
                         proceedSave();
                     })
                     .catch(() => {
-                        proceedSave();
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Location Not Saved',
+                            text: 'Unable to fetch location. Please check your internet connection.'
+                        });
                     });
 
             },
 
-            function() {
-                proceedSave();
+            function(error) {
+
+                let msg = 'Please allow location access to continue.';
+
+                if (error.code === error.PERMISSION_DENIED) {
+                    msg = 'Location permission denied. Please enable location access.';
+                }
+
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Location Required',
+                    text: msg
+                });
             }
         );
     }
@@ -736,10 +781,6 @@ $openVisit = $obj->executequery("
                     },
 
                     success: function(res) {
-
-                        console.log(res); // 🔥 ADD THIS
-                        // alert(res); // 🔥 ADD THIS
-
                         if (res.trim() === 'success') {
                             Swal.fire(
                                 'Deleted',

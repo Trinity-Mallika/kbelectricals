@@ -7,13 +7,13 @@ header("Content-Disposition: attachment; filename=$filename");
 
 $output = fopen('php://output', 'w');
 
-fputcsv($output, ['Sr No', 'Brand Name', 'Category Name', 'Product Code', 'Product Name', 'MRP', 'PKG']);
+fputcsv($output, ['Sr No', 'Brand Name', 'Category Name', 'Product ID', 'Product Name', 'MRP', 'PKG']);
 
 $sql = "SELECT 
             b.cat_name AS brand_name,
             c.cat_name AS category_name,
             p.product_name,
-            p.product_code,
+            p.product_id,
             p.package,
             p.rate
         FROM product_master p
@@ -35,7 +35,7 @@ foreach ($res as $row) {
         $sr++,
         htmlspecialchars_decode($row['brand_name']),
         htmlspecialchars_decode($row['category_name']),
-        htmlspecialchars_decode($row['product_code']),
+        $row['product_id'],
         htmlspecialchars_decode($row['product_name']),
         $row['rate'],
         $row['package']

@@ -25,8 +25,7 @@ $fullname  = "";
 
 $status  = "";
 
-$usertype = "";
-$route_id = 0;
+$usertypem = "user";
 
 $dup = "";
 
@@ -62,8 +61,6 @@ if (isset($_POST['submit'])) {
 
     $fullname = $obj->test_input($_POST['fullname']);
 
-    $route_id = $obj->test_input($_POST['route_id']);
-
     $status = $obj->test_input($_POST['enable']);
 
 
@@ -97,7 +94,6 @@ if (isset($_POST['submit'])) {
                 'password' => $password,
                 'mobile' => $mobile,
                 'fullname' => $fullname,
-                'route_id' => $route_id,
                 'status' => $status,
                 'usertype' => $usertype,
                 'ipaddress' => $ipaddress,
@@ -121,7 +117,6 @@ if (isset($_POST['submit'])) {
                 'password' => $password,
                 'mobile' => $mobile,
                 'fullname' => $fullname,
-                'route_id' => $route_id,
                 'status' => $status,
                 'usertype' => $usertype,
                 'ipaddress' => $ipaddress,
@@ -162,11 +157,10 @@ if (isset($_GET[$tblpkey])) {
 
     $fullname  =  $sqledit['fullname'];
 
-    $route_id  =  $sqledit['route_id'];
 
     $status  =  $sqledit['status'];
 
-    $usertype  =  $sqledit['usertype'];
+    $usertypem  =  $sqledit['usertype'];
 }
 
 
@@ -355,7 +349,7 @@ if (isset($_GET[$tblpkey])) {
                                             </select>
 
                                             <script>
-                                                document.getElementById('usertype').value = '<?php echo $usertype; ?>';
+                                                document.getElementById('usertype').value = '<?php echo $usertypem; ?>';
                                             </script>
 
                                         </div>

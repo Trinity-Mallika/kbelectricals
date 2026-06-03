@@ -102,7 +102,7 @@ if (isset($_REQUEST['dis_trans_details_id'])) {
                                 <?php if ($sqledit['is_approved'] == 1) { ?>
                                     <span class="badge bg-success px-3 py-2 me-2">Approved</span>
                                 <?php } else { ?>
-                                    <span class="badge bg-warning px-3 py-2 text-dark me-2" style="cursor: pointer;" onclick="order_approve('<?= $transaction_id; ?>')">Pending</span>
+                                    <span class="badge bg-warning px-3 py-2 text-dark me-2" style="cursor: pointer;" onclick="order_approve('<?= $transaction_id; ?>')">Click to approve order</span>
                                 <?php } ?>
                                 <a href="javascript:history.back()" class="btn btn-sm btn-danger">Back</a>
                             </div>
@@ -184,10 +184,11 @@ if (isset($_REQUEST['dis_trans_details_id'])) {
                         <div class="card-header text-white d-flex justify-content-between align-items-center">
                             <span>Order Product Details</span>
 
+                            
                             <button type="button"
                                 class="btn btn-sm btn-light text-primary fw-bold"
                                 onclick="bulk_dispatch()">
-                                <i class="bi bi-truck"></i> Dispatch Selected
+                                <i class="bi bi-truck"></i> Click to Dispatch Product
                             </button>
                         </div>
                         <div class="card-body">
@@ -640,6 +641,7 @@ ORDER BY td.tran_detail_id DESC
     function bulk_dispatch() {
 
         let approve = parseInt('<?= $sqledit['is_approved']; ?>') || 0;
+        let transaction_id = parseInt('<?= $sqledit['transaction_id']; ?>') || 0;
 
         if (approve !== 1) {
             swal({
@@ -684,7 +686,8 @@ ORDER BY td.tran_detail_id DESC
                 url: "save_bulk_dispatch.php",
                 type: "POST",
                 data: {
-                    products: JSON.stringify(products)
+                    products: JSON.stringify(products),
+                    transaction_id
                 },
 
                 beforeSend: function() {

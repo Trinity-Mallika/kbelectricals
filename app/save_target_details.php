@@ -1,5 +1,5 @@
-<?php
-include("appsession.php");
+<?php include("appsession.php");
+
 if (isset($_POST['details_account_id'])) {
     $account_id = $_POST['details_account_id'];
     $month      = $_POST['month'];
@@ -15,8 +15,10 @@ if (isset($_POST['details_account_id'])) {
         "month"       => $month,
         "year"        => $year,
         "createdby"   => $loginid,
-        "ipaddress"   => $_SERVER['REMOTE_ADDR'],
-        "createdate"  => date('Y-m-d H:i:s'),
+        "ipaddress"    => $ipaddress,
+        "createdate"   => $createdate,
+        "companyid"    => $company_id,
+        "sessionid"    => $sessionid
     );
     $obj->insert_record("monthly_target_details", $arr2);
     echo 1;
@@ -44,8 +46,10 @@ if (isset($_POST['target_account_id'])) {
         "year"         => $year,
         "comment"      => $comment,
         "createdby"    => $loginid,
-        "ipaddress"    => $_SERVER['REMOTE_ADDR'],
-        "createdate"   => date('Y-m-d H:i:s'),
+        "ipaddress"    => $ipaddress,
+        "createdate"   => $createdate,
+        "companyid"    => $company_id,
+        "sessionid"    => $sessionid
     );
 
     if ($check == '') {

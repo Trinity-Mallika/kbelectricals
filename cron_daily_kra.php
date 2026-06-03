@@ -1,16 +1,53 @@
-<?php
-include("action.php");
+<?php include("action.php");
 
 $yesterday = date('Y-m-d', strtotime('-1 day'));
+$day       = date('l', strtotime($yesterday));
 $users = $obj->executequery("
-    SELECT userid 
+    SELECT userid,companyid 
     FROM user 
     WHERE usertype='sales' AND status='1'
 ");
 
-foreach ($users as $u) {
-    $emp = $u['userid'];
+$userIds = array_column($users, 'userid');
+$companyids = array_column($users, 'companyid');
+if (empty($userIds)) return;
 
+$userList = implode(",", array_map('intval', $userIds));
+$entryData = $obj->executequery("
+    SELECT 
+        createdby AS emp_id,
+        COUNT(*) AS visit_count,
+        COUNT(DISTINCT account_id) AS active_counters
+    FROM daily_entries
+    WHERE DATE(createdate)='$yesterday' 
+        AND is_saved='1'
+        AND createdby IN ($userList)
+    GROUP BY createdby
+");
+
+$entryMap = [];
+foreach ($entryData as $row) {
+    $entryMap[$row['emp_id']] = $row;
+}
+
+$routeData = $obj->executequery("
+    SELECT 
+        rp.sales_executive_id AS emp_id,
+        COUNT(DISTINCT rc.account_id) AS total_counters
+    FROM route_counter rc
+    JOIN route r ON rc.batch_no = r.batch_no
+    JOIN route_plan rp ON rp.batch_no = r.batch_no
+    WHERE FIND_IN_SET('$day', r.day_of_week)
+        AND rp.sales_executive_id IN ($userList)
+    GROUP BY rp.sales_executive_id
+");
+
+$routeMap = [];
+foreach ($routeData as $row) {
+    $routeMap[$row['emp_id']] = $row['total_counters'];
+}
+
+foreach ($userIds as $emp) {
     $exists = $obj->getvalfield(
         "daily_productivity",
         "COUNT(*)",
@@ -19,28 +56,9 @@ foreach ($users as $u) {
 
     if ($exists > 0) continue;
 
-    $visit = $obj->getvalfield(
-        "daily_entries",
-        "COUNT(*)",
-        "createdby='$emp' AND DATE(createdate)='$yesterday' AND is_saved='1'"
-    );
-
-    $active = $obj->getvalfield(
-        "daily_entries",
-        "COUNT(DISTINCT account_id)",
-        "createdby='$emp' AND DATE(createdate)='$yesterday' AND is_saved='1'"
-    );
-
-    $day = date('l', strtotime($yesterday));
-
-    $total = $obj->getvalfield(
-        "route_counter rc 
-         JOIN route r ON rc.batch_no = r.batch_no
-         JOIN route_plan rp ON rp.batch_no = r.batch_no",
-        "COUNT(DISTINCT rc.account_id)",
-        "rp.sales_executive_id='$emp'
-         AND FIND_IN_SET('$day', r.day_of_week)"
-    );
+    $visit  = $entryMap[$emp]['visit_count'] ?? 0;
+    $active = $entryMap[$emp]['active_counters'] ?? 0;
+    $total  = $routeMap[$emp] ?? 0;
 
     if ($visit > 0) {
         $obj->insert_record("daily_productivity", [
@@ -49,7 +67,7 @@ foreach ($users as $u) {
             "visit_count" => $visit,
             "active_counters" => $active,
             "total_counters" => $total,
-            "company_id" => 1
+            "companyid" => 1
         ]);
     }
 }

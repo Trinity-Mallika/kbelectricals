@@ -91,12 +91,13 @@ $crit = " and billdate between '$fromdate' and '$todate'";
                                     <thead>
                                         <tr>
                                             <th>SrNo.</th>
-                                            <th>Quotation No.</th>
                                             <th>Company Name</th>
+                                            <th>Quotation No.</th>
+                                            <th>Quotation Date</th>
                                             <th>Account Name</th>
                                             <th>Mobile No.</th>
-                                            <th>Quotation Date</th>
                                             <th>Remark</th>
+                                            <th>With GST</th>
                                             <th style="text-align: right;">Net_Amount</th>
                                             <th style="text-align: center;">Print</th>
                                             <th>Edit</th>
@@ -125,12 +126,13 @@ $crit = " and billdate between '$fromdate' and '$todate'";
                                         ?>
                                             <tr>
                                                 <td><?php echo $slno++; ?></td>
-                                                <td><?php echo $rowget['billno']; ?></td>
                                                 <td><?php echo ucfirst($rowget['company_name']); ?></td>
+                                                <td><?php echo $rowget['billno']; ?></td>
+                                                <td><?php echo $obj->dateformatindia($rowget['billdate']); ?></td>
                                                 <td><?php echo ucfirst($rowget['account_name']); ?></td>
                                                 <td><?php echo ($rowget['mobile_no']); ?></td>
-                                                <td><?php echo $obj->dateformatindia($rowget['billdate']); ?></td>
-                                                <td><?php echo ucfirst($rowget['remark']); ?></td>
+                                                <td><?php echo ucwords($rowget['remark']); ?></td>
+                                                <td><?php echo ($rowget['is_gst'] == 1) ? "Yes" : "No"; ?></td>
                                                 <td style="text-align:right;"><?php echo number_format($rowget['net_total_amt'], 2); ?></td>
                                                 <td style="text-align: center;">
                                                     <a href="quotation_pdf.php?transaction_id=<?php echo $rowget['transaction_id']; ?>" class="btn btn-primary btn-sm" target="_blank">
@@ -156,7 +158,7 @@ $crit = " and billdate between '$fromdate' and '$todate'";
                                     </tbody>
                                     <tfoot>
                                         <tr>
-                                            <th colspan="6">Total</th>
+                                            <th colspan="8">Total</th>
                                             <th style="text-align: right;"><?php echo number_format($total_amt, 2); ?></th>
                                             <th colspan="3"></th>
                                         </tr>
@@ -176,6 +178,11 @@ $crit = " and billdate between '$fromdate' and '$todate'";
 <?php include('component/script.php'); ?>
 
 <script>
+    $(document).ready(function() {
+        $(".chosen-select").chosen();
+        $("#example").DataTable();
+    });
+
     function funDel(id) {
         tblname = '<?php echo $tblname; ?>';
         tblpkey = '<?php echo $tblpkey; ?>';

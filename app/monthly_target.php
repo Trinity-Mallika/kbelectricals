@@ -1,7 +1,22 @@
 <?php include("appsession.php");
 $title = "Monthly Target";
-$fromdate = isset($_POST['from_date']) ? $_POST['from_date'] : date('Y-m-d', strtotime('-7 days'));
-$todate = isset($_POST['to_date']) ? $_POST['to_date'] : date('Y-m-d');
+$current_date =  date('Y-m-d');
+$next_month_start = date('Y-m-01', strtotime('+1 month'));
+$window_before = 2;
+$window_after  = 2;
+$current_month_start = date('Y-m-01');
+
+$start_window = date('Y-m-d', strtotime("$current_month_start -2 days"));
+$end_window   = date('Y-m-d', strtotime("$current_month_start +3 day"));
+
+$is_within_window = (
+    $current_date >= $start_window &&
+    $current_date <= $end_window
+);
+
+$target_month = date('m', strtotime($current_month_start));
+$target_year  = date('Y', strtotime($current_month_start));
+
 $tblname = 'transaction_entry';
 $tblpkey = 'transaction_id';
 $where = "";
@@ -16,6 +31,8 @@ if (!empty($_GET['week_day'])) {
     $where = "";
     $week_day = date('l');
 }
+
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -108,6 +125,10 @@ if (!empty($_GET['week_day'])) {
             box-shadow: 0px 1px 2px #d9d9d9;
         }
 
+        .brand-item:last-child {
+            background: #b7d5fb;
+        }
+
         .brand-name {
             font-size: 14px;
             font-weight: 600;
@@ -173,24 +194,37 @@ if (!empty($_GET['week_day'])) {
                     <form onsubmit="return false;">
                         <div class="card border-0 shadow-lg mb-3 p-2">
                             <div class="row">
+                                <?php
+                                if (!$is_within_window) {
+                                    echo "<div style='text-align:center;margin-top:50px;font-weight:bold;color:red;'>
+           <div class='py-4'>
+
+            <div class='mb-2' style='font-size:40px;'>
+                🔒
+            </div>
+
+            <div class='counter-name text-danger mb-2'>
+                Access Restricted
+            </div>
+
+            <div class='counter-meta' style='font-size:14px;'>
+                Monthly target can only be filled between
+                <br>
+                <strong>" . date('d M Y', strtotime($start_window)) . "</strong>
+                to
+                <strong>" . date('d M Y', strtotime($end_window)) . "</strong>
+            </div>
+
+        </div>
+          </div>";
+                                    exit;
+                                } ?>
                                 <div class="col-6 mb-3">
                                     <label><strong>Month</strong></label>
                                     <select name="month_filter" id="month_filter" class="form-control">
-                                        <option value="">--Select Month--</option>
-
-                                        <?php
-                                        $current_month = date('m'); // 01,02,03 format
-
-                                        for ($m = 1; $m <= 12; $m++) {
-
-                                            $month_value = str_pad($m, 2, '0', STR_PAD_LEFT); // 01,02,03
-                                            $month_name  = date('F', mktime(0, 0, 0, $m, 1));
-
-                                            $selected = ($month_value == $current_month) ? 'selected' : '';
-
-                                            echo "<option value='$month_value' $selected>$month_name</option>";
-                                        }
-                                        ?>
+                                        <option value="<?= $target_month ?>" selected>
+                                            <?= date('F', mktime(0, 0, 0, $target_month, 1)) ?>
+                                        </option>
                                     </select>
                                 </div>
 
@@ -249,13 +283,8 @@ if (!empty($_GET['week_day'])) {
                 <div class="modal-body">
                     <div class="row">
                         <div class="col-12 mb-3">
-                            <input type="hidden" id="account_id">
-                            <input type="hidden" id="month">
-                            <input type="hidden" id="year">
-                            <input type="hidden" id="target_id">
-                            <label for="">Brand</label>
-
-                            <select name="brand_id" id="brand_id" class="form-select form-control shadow-sm">
+                            <label for="" class="form-label"> Brand Name <span class="text-danger fw-bold">*</span></label>
+                            <select name="brand_id" id="brand_id" class="form-select form-select-sm shadow-sm">
                                 <option value="">--Select Brand--</option>
                                 <?php
                                 $sql = $obj->executequery("select * from category_master where type='brand' order by cat_id DESC ");
@@ -263,14 +292,16 @@ if (!empty($_GET['week_day'])) {
                                 ?> <option value="<?php echo $key['cat_id'] ?>"><?php echo $key['cat_name'] ?></option> <?php } ?>
 
                             </select>
-
-
                         </div>
                         <div class="col-12 mb-3">
-                            <label for="">Target</label>
-                            <input type="number" class="form-control" id="target" placeholder="Enter Traget">
+                            <label for="" class="form-label"> Target Amount <span class="text-danger fw-bold">*</span></label>
+                            <input type="number" class="form-control form-control-sm" id="target" placeholder="Enter Target Amount" autocomplete="off">
                         </div>
                         <div class="col-12 mb-3">
+                            <input type="hidden" id="account_id">
+                            <input type="hidden" id="month">
+                            <input type="hidden" id="year">
+                            <input type="hidden" id="target_id">
                             <button type="button" class="btn btn-sm w-100" onclick="add_target_row()">Add</button>
                         </div>
                         <div class="col-12 mb-3">
@@ -290,9 +321,10 @@ if (!empty($_GET['week_day'])) {
                             </div>
                         </div>
                         <div class="col-12 mb-3">
+                            <label for="">Comments</label>
                             <textarea id="comment"
                                 class="form-control form-control-sm"
-                                placeholder="Comment"></textarea>
+                                placeholder="Enter Comments"></textarea>
                         </div>
 
 
@@ -316,7 +348,7 @@ if (!empty($_GET['week_day'])) {
     </div>
 
 </body>
-
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
     function show_loader() {
         $("#ajax_loader").show();
@@ -325,75 +357,84 @@ if (!empty($_GET['week_day'])) {
     function hide_loader() {
         $("#ajax_loader").hide();
     }
+
     load_monthly_target();
 
     function add_target_row() {
         var account_id = $("#account_id").val();
-
         var month = $("#month").val();
-
         var year = $("#year").val();
-
         var brand_id = $("#brand_id").val();
-
         var target = $("#target").val();
         var target_id = $("#target_id").val();
 
-
-
         if (brand_id == '') {
-
-            alert("Select Brand");
+            Swal.fire({
+                icon: 'warning',
+                title: 'Brand Required',
+                text: 'Please select a brand.'
+            });
             return false;
         }
-
-
 
         if (target == '') {
-
-            alert("Enter Target");
-
-
+            Swal.fire({
+                icon: 'warning',
+                title: 'Target Required',
+                text: 'Please enter target amount.'
+            });
             return false;
         }
-
 
         show_loader();
 
         $.ajax({
-
             url: "save_target_details.php",
-
             type: "POST",
-
             data: {
-
                 details_account_id: account_id,
                 month: month,
                 year: year,
                 brand_id: brand_id,
                 target_id: target_id,
                 target: target
-
             },
 
             success: function(res) {
-                // alert(res);
                 hide_loader();
 
                 if (res == 1) {
-                    $("#brand_id").val('');
 
+                    $("#brand_id").val('');
                     $("#target").val('');
 
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Added',
+                        text: 'Target added successfully.',
+                        timer: 1200,
+                        showConfirmButton: false
+                    });
+
                     load_target_list1(target_id);
+
                 } else if (res == 2) {
 
-                    alert("Brand Already Added");
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Already Added',
+                        text: 'This brand has already been added.',
+                        confirmButtonColor: '#3085d6'
+                    });
 
                 } else {
 
-                    alert("Something Went Wrong");
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Oops...',
+                        text: 'Something went wrong. Please try again.',
+                        confirmButtonColor: '#d33'
+                    });
 
                 }
             }
@@ -402,9 +443,10 @@ if (!empty($_GET['week_day'])) {
     }
 
     function load_monthly_target() {
-
         var month_filter = $("#month_filter").val();
+        var year = "<?= $target_year ?>";
         var week_day = $("#week_day").val();
+
         show_loader();
 
         $.ajax({
@@ -412,11 +454,11 @@ if (!empty($_GET['week_day'])) {
             type: "POST",
             data: {
                 month_filter: month_filter,
+                year: year,
                 week_day: week_day
             },
             success: function(res) {
                 hide_loader();
-
                 $("#target_data").html(res);
             }
         });
@@ -434,38 +476,37 @@ if (!empty($_GET['week_day'])) {
         show_loader();
 
         $.ajax({
-
             url: "save_target_details.php",
-
             type: "POST",
-
             data: {
-
                 target_account_id: account_id,
                 month: month,
                 comment: comment,
                 year: year,
                 total_target: total_target,
                 target_id: target_id,
-
             },
-
             success: function(res) {
-                console.log(res);
+                alert(res);
                 hide_loader();
-
-                if (res == 1) {
-                    load_monthly_target();
+                if (res == 1 || res == 2) {
                     $("#tragetAdd").modal('hide');
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Saved Successfully',
+                        text: 'Monthly target has been saved.',
+                        confirmButtonColor: '#198754'
+                    });
 
-                } else if (res == 2) {
                     load_monthly_target();
-                    $("#tragetAdd").modal('hide');
-
-
                 } else {
 
-                    alert("Something Went Wrong");
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Oops...',
+                        text: 'Something went wrong. Please try again.',
+                        confirmButtonColor: '#d33'
+                    });
 
                 }
             }
@@ -475,31 +516,21 @@ if (!empty($_GET['week_day'])) {
 
     function load_target_list1(target_id = 0) {
         var account_id = $("#account_id").val();
-
         var month = $("#month").val();
-
         var year = $("#year").val();
-
-
         show_loader();
 
         $.ajax({
-
             url: "load_target_list.php",
-
             type: "POST",
-
             data: {
-
                 account_id: account_id,
                 month: month,
                 target_id1: target_id,
                 year: year
 
             },
-
             success: function(res) {
-                // console.log(res);
                 hide_loader();
                 $("#target_list").html(res);
             }
@@ -508,32 +539,52 @@ if (!empty($_GET['week_day'])) {
     }
 
     function delete_target(target_details_id, target_id) {
-        tblname = 'monthly_target_details';
-        tblpkey = 'target_details_id';
-        show_loader();
 
-        $.ajax({
+        Swal.fire({
+            title: 'Delete Target?',
+            text: 'This record will be permanently deleted.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc3545',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Yes, Delete'
+        }).then((result) => {
 
-            url: "delete_master.php",
+            if (result.isConfirmed) {
 
-            type: "POST",
+                tblname = 'monthly_target_details';
+                tblpkey = 'target_details_id';
 
-            data: {
+                show_loader();
 
-                id: target_details_id,
-                tblpkey: tblpkey,
-                tblname: tblname,
+                $.ajax({
+                    url: "delete_master.php",
+                    type: "POST",
+                    data: {
+                        id: target_details_id,
+                        tblpkey: tblpkey,
+                        tblname: tblname
+                    },
+                    success: function(res) {
 
-            },
+                        hide_loader();
 
-            success: function(res) {
-                hide_loader();
-                load_target_list1(target_id);
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Deleted',
+                            text: 'Target deleted successfully.',
+                            timer: 1200,
+                            showConfirmButton: false
+                        });
+
+                        load_target_list1(target_id);
+                        load_monthly_target();
+                    }
+                });
+
             }
 
         });
-
-
     }
 
 
@@ -548,9 +599,8 @@ if (!empty($_GET['week_day'])) {
         );
 
 
-        $("#month").val($("#month_filter").val());
-
-        $("#year").val(new Date().getFullYear());
+        $("#month").val("<?= $target_month ?>");
+        $("#year").val("<?= $target_year ?>");
 
         $("#tragetAdd").modal('show');
 

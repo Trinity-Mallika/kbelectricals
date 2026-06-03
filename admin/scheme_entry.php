@@ -305,8 +305,6 @@ if ($keyvalue > 0) {
     }
 
     function fetch_data(scheme_id) {
-        let company_id = '<?= $companyid; ?>';
-
         jQuery.ajax({
             type: 'POST',
             url: 'fetch_scheme_details.php',
@@ -368,7 +366,7 @@ if ($keyvalue > 0) {
                 scheme_details_id: scheme_details_id,
                 output: output,
                 scheme_type: scheme_type,
-
+                scheme_id
             },
             dataType: 'html',
             success: function(data) {
@@ -380,7 +378,7 @@ if ($keyvalue > 0) {
                     alert('This product already added. Please update the existing product.');
                     return;
                 }
-                $('#product_id').val('').trigger('chosen:updated'); // ❌ no change trigger
+                $('#product_id').val('').trigger('chosen:updated');
                 $('#qty').val("");
                 $('#add_btn').val('Add');
                 $('#output').val('');
