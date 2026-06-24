@@ -17,7 +17,7 @@ if (isset($_POST['details_account_id'])) {
         "createdby"   => $loginid,
         "ipaddress"    => $ipaddress,
         "createdate"   => $createdate,
-        "companyid"    => $company_id,
+        "companyid"    => $companyid,
         "sessionid"    => $sessionid
     );
     $obj->insert_record("monthly_target_details", $arr2);
@@ -48,7 +48,7 @@ if (isset($_POST['target_account_id'])) {
         "createdby"    => $loginid,
         "ipaddress"    => $ipaddress,
         "createdate"   => $createdate,
-        "companyid"    => $company_id,
+        "companyid"    => $companyid,
         "sessionid"    => $sessionid
     );
 

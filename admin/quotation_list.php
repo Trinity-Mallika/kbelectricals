@@ -16,7 +16,7 @@ if (isset($_GET['fromdate']) && isset($_GET['todate'])) {
     $fromdate = date('Y-m-d');
     $todate = date('Y-m-d');
 }
-$crit = " and billdate between '$fromdate' and '$todate'";
+$crit = " and billdate between '$fromdate' and '$todate' ";
 
 ?>
 <!DOCTYPE html>
@@ -100,6 +100,7 @@ $crit = " and billdate between '$fromdate' and '$todate'";
                                             <th>With GST</th>
                                             <th style="text-align: right;">Net_Amount</th>
                                             <th style="text-align: center;">Print</th>
+                                            <th style="text-align: center;">Order</th>
                                             <th>Edit</th>
                                             <th>Delete</th>
                                         </tr>
@@ -140,16 +141,27 @@ $crit = " and billdate between '$fromdate' and '$todate'";
                                                     </a>
                                                 </td>
                                                 <td>
-
-                                                    <a class="btn btn-sm btn-outline-success" href="quotation.php?transaction_id=<?php echo $rowget['transaction_id']; ?>">
-                                                        <i class="bi bi-pencil-square"></i>
-                                                    </a>
+                                                    <?php if ($rowget['conversion_status'] == 0) { ?>
+                                                        <button
+                                                            class="btn btn-sm btn-outline-primary"
+                                                            onclick="convertQuotation(<?php echo $rowget['transaction_id']; ?>)">
+                                                            <i class="bi bi-arrow-left-right"></i>
+                                                        </button>
+                                                    <?php } ?>
                                                 </td>
                                                 <td>
-
-                                                    <button type="button" title="Delete" class="btn btn-sm btn-danger" onclick="funDel('<?php echo $rowget['transaction_id']; ?>');">
-                                                        <i class="bi bi-trash3-fill"></i>
-                                                    </button>
+                                                    <?php if ($rowget['conversion_status'] == 0) { ?>
+                                                        <a class="btn btn-sm btn-outline-success" href="quotation.php?transaction_id=<?php echo $rowget['transaction_id']; ?>">
+                                                            <i class="bi bi-pencil-square"></i>
+                                                        </a>
+                                                    <?php } ?>
+                                                </td>
+                                                <td>
+                                                    <?php if ($rowget['conversion_status'] == 0) { ?>
+                                                        <button type="button" title="Delete" class="btn btn-sm btn-danger" onclick="funDel('<?php echo $rowget['transaction_id']; ?>');">
+                                                            <i class="bi bi-trash3-fill"></i>
+                                                        </button>
+                                                    <?php } ?>
                                                 </td>
                                             </tr>
                                         <?php
@@ -176,7 +188,7 @@ $crit = " and billdate between '$fromdate' and '$todate'";
 
 <!-- script tag -->
 <?php include('component/script.php'); ?>
-
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
     $(document).ready(function() {
         $(".chosen-select").chosen();
@@ -202,6 +214,60 @@ $crit = " and billdate between '$fromdate' and '$todate'";
             }); //ajax close
         } //confirm close
     } //fun close
+
+    function convertQuotation(transactionId) {
+
+        Swal.fire({
+            title: 'Convert Order?',
+            text: "Do you want to convert this quotation into Order ?",
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, Convert',
+            cancelButtonText: 'No'
+        }).then((result) => {
+
+            if (result.isConfirmed) {
+
+                $.ajax({
+                    url: "ajax_convert_order.php",
+                    type: "POST",
+                    data: {
+                        transaction_id: transactionId
+                    },
+                    success: function(response) {
+                        console.log(response);
+
+                        if (response > 0) {
+
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Converted!',
+                                text: 'Quotation converted to Order successfully.'
+                            }).then(() => {
+
+                                window.location.href =
+                                    "order-entry.php?transaction_id=" + response;
+
+                            });
+
+                        } else {
+
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: 'Unable to convert quotation.'
+                            });
+
+                        }
+
+                    }
+                });
+
+            }
+
+        });
+
+    }
 </script>
 
 </html>

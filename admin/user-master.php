@@ -247,7 +247,7 @@ if (isset($_GET[$tblpkey])) {
 
                     <fieldset class="mt-2">
 
-                        <legend>User Master</legend>
+                        <legend>User Master / Employee Master</legend>
 
                         <?php include('component/alert.php'); ?>
 
@@ -286,7 +286,7 @@ if (isset($_GET[$tblpkey])) {
 
                                             </strong>
 
-                                            <input type="password" class="form-control form-control-sm" name="password" id="password" placeholder="Password" value="<?php echo $password; ?>" autocomplete="off">
+                                            <input type="password" class="form-control form-control-sm" name="password" id="password" placeholder="Password" value="<?php echo !empty($password) ? $password : '12345'; ?>" autocomplete="off">
 
                                         </div>
 
@@ -345,6 +345,7 @@ if (isset($_GET[$tblpkey])) {
 
                                                 <option value="sales">Sales Executive</option>
                                                 <option value="user">User</option>
+                                                <option value="employee">Employee</option>
 
                                             </select>
 

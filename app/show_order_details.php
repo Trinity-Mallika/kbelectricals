@@ -29,12 +29,12 @@ $row_count = count($res);
 $sub_grand = 0;
 foreach ($res as $key):
     $sub_total   = (float)$key['sub_total'];
-    $total_amt   = (float)$key['total_amt'];
+    $net_amt   = (float)$key['net_amt'];
     $disc        = (float)$key['discount'];
     $disc_amt    = (float)$key['discount_amt'];
     $gst_percent = $obj->getvalfield("gst_master", "gst_percent", "gst_id='{$key['gst_id']}'");
     $gst_amt     = (float)($key['gst_amt']     ?? 0);
-    $sub_grand  += $total_amt;
+    $sub_grand  += $net_amt;
 ?>
 
     <div class="col-12 mb-2" data-subtotal="<?= $sub_total ?>" data-gst-percent="<?= $gst_percent ?>">
@@ -73,7 +73,7 @@ foreach ($res as $key):
                         </small>
                         <br>
                         <span class="fw-bold text-success small">
-                            Total: ₹<?= number_format($total_amt, 2) ?>
+                            Total: ₹<?= number_format($net_amt, 2) ?>
                         </span>
                     </th>
                     <td class="border-start ps-2 text-center" style="white-space:nowrap">

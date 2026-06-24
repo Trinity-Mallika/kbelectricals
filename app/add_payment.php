@@ -22,6 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $paymode    = $obj->test_input($_POST['paymode']);
     $paydate    = $obj->test_input($_POST['paydate']);
     $pay_amt    = $obj->test_input($_POST['pay_amt']);
+    $cash_disc    = $obj->test_input($_POST['cash_disc']);
     $voucher_no = $obj->test_input($_POST['voucher_no']);
     $trans_id   = $obj->test_input($_POST['trans_id']);
     $latitude   = $obj->test_input($_POST['latitude']);
@@ -77,6 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         'longitude'     => $longitude,
         'address'       => $address,
         'type'          => 'payment',
+        'cash_disc'      => $cash_disc,
         'pay_type'      => $pay_type,
         'createdby'     => $loginid,
         'companyid'     => $companyid,
@@ -109,11 +111,13 @@ if (isset($_GET[$tblpkey])) {
     $voucher_no = $sqledit['billno'];
     $payment_proof = $sqledit['imgname'];
     $trans_id = $sqledit['trans_id'];
+    $cash_disc = $sqledit['cash_disc'];
     $pending_amt = "";
 } else {
     $pay_amt  = $payment_proof = $trans_id = "";
     $paydate = date('Y-m-d');
     $pending_amt = "";
+    $cash_disc = '';
     $voucher_no = '';
     $paymode = 'Cash';
 }
@@ -151,28 +155,16 @@ if (isset($_GET[$tblpkey])) {
                             <select class="form-select chosen-select" name="account_id" id="account_id" onchange="set_url(this.value);">
                                 <option value="">Select</option>
                                 <?php
-                                $res = $obj->executequery("SELECT DISTINCT
-        a.account_id,
-        a.account_name,
-        cm.common_name AS account_type,
-        am.area_name
-
-    FROM route_plan rp
-    JOIN route_counter rc
-        ON rc.batch_no = rp.batch_no
-    JOIN account a
-        ON a.account_id = rc.account_id
-    LEFT JOIN common_master cm
-        ON cm.common_id = a.common_id
-       AND cm.type = 'acc_type'
-    LEFT JOIN area_master am
-        ON am.area_id = a.area_id
-
-    WHERE rp.companyid = '$companyid'
-      AND rc.companyid = '$companyid'
-
-    ORDER BY a.account_name ASC
-");
+                                $res = $obj->executequery("SELECT DISTINCT a.account_id, a.account_name,
+                                   cm.common_name AS account_type, am.area_name
+                            FROM route_plan rp
+                            JOIN route_counter rc ON rc.batch_no = rp.batch_no
+                            JOIN account a        ON a.account_id = rc.account_id
+                            LEFT JOIN common_master cm ON cm.common_id = a.common_id AND cm.type = 'acc_type'
+                            LEFT JOIN area_master am   ON am.area_id = a.area_id
+                            WHERE rp.sales_executive_id = '$loginid'
+                            ORDER BY a.account_name ASC
+                        ");
                                 foreach ($res as $key) {
                                     echo "<option value='{$key['account_id']}'>
             {$key['account_name']} [{$key['account_type']}] /  {$key['area_name']} 
@@ -260,6 +252,10 @@ if (isset($_GET[$tblpkey])) {
                         <div class="col-lg-3 mb-2">
                             <label for="" class="form-label" id="pay_date_l">Payment Date <span class="text-danger fw-bold">*</span></label>
                             <input type="date" class="form-control shadow-sm" id="paydate" name="paydate" placeholder="Enter Payment Date" value="<?php echo $paydate ?>">
+                        </div>
+                        <div class="col-lg-3 mb-2">
+                            <label for="" class="form-label">Cash Discount <small class="text-danger fw-bold">(If Applicable)</small></label>
+                            <input type="text" class="form-control shadow-sm" id="cash_disc" name="cash_disc" placeholder="Enter Cash Discount" value="<?php echo $cash_disc ?>">
                         </div>
                         <div class="col-lg-3 mb-2">
                             <label for="" class="form-label" id="pay_amt_l">Payment Amount <span class="text-danger fw-bold">*</span></label>
@@ -427,6 +423,7 @@ if (isset($_GET[$tblpkey])) {
                 $('#pending_amt').val('');
 
                 $('#pay_amt').val('');
+                $('#cash_disc').val('');
 
                 return;
             }
@@ -445,27 +442,34 @@ if (isset($_GET[$tblpkey])) {
             get_bill_details(bill_id);
         });
 
-        $('#pay_amt').on('input', function() {
+        $('#pay_amt, #cash_disc').on('input', function() {
+
             let pending = parseFloat($('#bill_id option:selected').data('pending')) || 0;
-            let entered = parseFloat($(this).val()) || 0;
+            let cash_disc = parseFloat($('#cash_disc').val()) || 0;
+            let pay_amt = parseFloat($('#pay_amt').val()) || 0;
 
-            if (entered <= 0) {
-                $(this).val('');
-                $('#after_pay_info').text('');
-                return;
+            if (cash_disc > pending) {
+                Swal.fire('Discount cannot exceed pending amount');
+                $('#cash_disc').val(pending);
+                cash_disc = pending;
             }
 
-            if (entered > pending) {
-                Swal.fire('Payment cannot exceed pending amount');
-                $(this).val(pending);
-                entered = pending;
+            let maxPay = pending - cash_disc;
+
+            if ($(this).attr('id') == 'pay_amt') {
+
+                if (pay_amt > maxPay) {
+                    Swal.fire('Payment cannot exceed pending amount');
+                    $('#pay_amt').val(maxPay.toFixed(2));
+                }
+
+            } else {
+
+                $('#pay_amt').val(maxPay.toFixed(2));
+
             }
 
-            let remaining = pending - entered;
-
-            $('#after_pay_info').text('Remaining: ₹ ' + remaining.toFixed(2));
         });
-
 
         function get_bill_details(bill_id) {
             if (!bill_id) return;
@@ -510,6 +514,7 @@ if (isset($_GET[$tblpkey])) {
             let newFile = $('#payment_proof').val();
             let pending = parseFloat($('#bill_id option:selected').data('pending')) || 0;
             let pay_amt = parseFloat($('#pay_amt').val()) || 0;
+            let voucher_no = $('#voucher_no').val() || '';
 
             if (!$('#account_id').val()) {
                 Swal.fire('Select Customer');
@@ -534,6 +539,13 @@ if (isset($_GET[$tblpkey])) {
             if (pay_amt > pending) {
                 Swal.fire('Payment exceeds pending amount');
                 return enableBtn(btn), false;
+            }
+
+            if (paymode === 'Cash') {
+                if (!voucher_no) {
+                    Swal.fire('Please Enter Reciept No.');
+                    return enableBtn(btn), false;
+                }
             }
 
             if (paymode === 'Cheque') {

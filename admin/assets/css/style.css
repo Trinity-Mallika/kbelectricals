@@ -85,3 +85,44 @@ label {
 .card-header {
   background: linear-gradient(292deg, #124069, #169cd8) !important;
 }
+
+/* Align entries dropdown and buttons */
+.dataTables_wrapper .dataTables_length,
+.dataTables_wrapper .dt-buttons {
+  display: inline-block;
+  vertical-align: middle;
+  margin-bottom: 10px;
+}
+
+.dataTables_wrapper .dt-buttons {
+  margin-left: 15px;
+}
+
+/* Excel Button */
+.buttons-excel {
+  background: #198754 !important;
+  color: #fff !important;
+  border: 1px solid #198754 !important;
+  border-radius: 5px !important;
+}
+
+/* PDF Button */
+.buttons-pdf {
+  background: #dc3545 !important;
+  color: #fff !important;
+  border: 1px solid #dc3545 !important;
+  border-radius: 5px !important;
+}
+
+/* Print Button */
+.buttons-print {
+  background: #0d6efd !important;
+  color: #fff !important;
+  border: 1px solid #0d6efd !important;
+  border-radius: 5px !important;
+}
+
+/* Hover Effect */
+.dt-button:hover {
+  opacity: 0.9;
+}

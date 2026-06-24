@@ -168,7 +168,7 @@ if ($keyvalue > 0) {
 <script>
     $(document).ready(function() {
         $(".chosen-select").chosen();
-        $("#example").DataTable();
+        // $("#example").DataTable();
     });
 
     function funDel(id) {

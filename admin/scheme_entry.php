@@ -26,7 +26,6 @@ if (isset($_POST['submit'])) {
     $scheme_type = $obj->test_input($_POST['scheme_type']);
     $terms_conds = $obj->test_input($_POST['terms_conds']);
     $form_data = array(
-        // "company_id" => $company_id,
         'scheme_name' => $scheme_name,
         'from_date' => $from_date,
         'todate' => $todate,
@@ -282,11 +281,13 @@ if ($keyvalue > 0) {
     $(document).ready(function() {
         $(".chosen-select").chosen();
         fetch_data('<?php echo $keyvalue ?>');
+        changeQtyLabel();
+
     });
 
+    
 
     function delete_record(id) {
-        // alert(id);
         jQuery.ajax({
             type: 'POST',
             url: 'ajax/delete_master.php',
@@ -297,7 +298,6 @@ if ($keyvalue > 0) {
             },
             dataType: 'html',
             success: function(data) {
-                // alert(data);
                 fetch_data('<?php echo $keyvalue ?>');
             }
         });
@@ -313,7 +313,6 @@ if ($keyvalue > 0) {
             },
             dataType: 'html',
             success: function(data) {
-                // alert(data);
                 document.getElementById("fetch_data").innerHTML = data;
             }
         });
@@ -370,8 +369,6 @@ if ($keyvalue > 0) {
             },
             dataType: 'html',
             success: function(data) {
-                // alert(data);
-
                 if (data == 1 || data == 2) {
                     fetch_data(scheme_id);
                 } else if (data == 3) {
@@ -404,14 +401,8 @@ if ($keyvalue > 0) {
         }
     }
 
-    // page load par
-    changeQtyLabel();
-
-    // radio change par
     document.querySelectorAll('.scheme_type').forEach(function(radio) {
-
         radio.addEventListener('change', changeQtyLabel);
-
     });
 </script>
 

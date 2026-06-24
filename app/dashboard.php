@@ -4,6 +4,7 @@ $title    = 'Dashboard';
 $day     = date('d');
 $weekday = date('l');
 $month   = date('F');
+$month_digi   = date('m');
 $year    = date('Y');
 $suffix  = match (true) {
     in_array($day, [1, 21, 31]) => 'st',
@@ -31,13 +32,13 @@ $month_green = $Monthtotal   > 0 ? min(100, round(($monthvisit  / $Monthtotal)  
 $mn = date('n');
 $yr = date('Y');
 $monthly_target = $obj->getvalfield(
-    "monthly_target_details",
-    "SUM(target)",
+    "monthly_target",
+    "SUM(total_target)",
     "createdby=$loginid AND month=$mn AND year=$yr"
 ) ?: 0;
 $target_green = $monthly_target > 0 ? min(100, round(($Monthsales / $monthly_target) * 100, 2)) : 0;
 
-// ── Bar colour: <40% red · 40–74% blue · ≥75% green ──
+
 function barColor(float $pct): string
 {
     if ($pct >= 75) return '#27ae60';   // green
@@ -133,8 +134,7 @@ $actions = [
     $show_monthly_target ?
         ['icon' => 'bi-bullseye', 'label' => 'Monthly Target', 'href' => 'monthly_target.php', 'btn' => '+ Add']
         : null,
-
-    ['icon' => 'bi-whatsapp', 'label' => 'Send WhatsApp', 'href' => 'upcoming_beat.php',  'btn' => 'Send'],
+    ['icon' => 'bi-card-list', 'label' => 'Customer List', 'href' => 'customer-list.php',  'btn' => 'View'],
 ];
 ?>
 <!DOCTYPE html>
@@ -184,18 +184,19 @@ $actions = [
                     <div class="pc-val">₹<?= number_format($Monthsales) ?></div>
                 </div>
                 <div class="perf-card full">
-                    <div class="pc-label">Month Target vs Achievement</div>
-                    <div class="pc-bar">
-                        <span style="width:<?= $target_green ?>%;background:<?= barColor($target_green) ?>"></span>
-                    </div>
-                    <div class="pc-foot">
-                        <span>₹<?= number_format($Monthsales) ?> / ₹<?= number_format($monthly_target) ?></span>
-                        <span><?= $target_green ?>%</span>
-                    </div>
+                    <a href="route-wise-details.php">
+                        <div class="pc-label">Month Target vs Achievement</div>
+                        <div class="pc-bar">
+                            <span style="width:<?= $target_green ?>%;background:<?= barColor($target_green) ?>"></span>
+                        </div>
+                        <div class="pc-foot">
+                            <span>₹<?= number_format($Monthsales) ?> / ₹<?= number_format($monthly_target) ?></span>
+                            <span><?= $target_green ?>%</span>
+                        </div>
+                    </a>
                 </div>
 
             </div>
-
             <div class="pending-card" data-bs-toggle="offcanvas" data-bs-target="#pendingPayment" style="cursor:pointer">
                 <div class="pc-left">
                     <div class="pc-icon"><i class="bi bi-cash-stack"></i></div>
@@ -206,7 +207,6 @@ $actions = [
                 </div>
                 <div class="pc-amt">₹<?= number_format($pending_amount, 2) ?></div>
             </div>
-
             <?php if (!empty($schemes)): ?>
                 <div class="scheme-section">
                     <div class="ss-head">
@@ -287,7 +287,6 @@ $actions = [
                     <?php endforeach; ?>
                 </div>
             </div>
-
         </div>
     </section>
 

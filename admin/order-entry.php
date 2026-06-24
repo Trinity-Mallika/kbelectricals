@@ -20,47 +20,39 @@ if (!empty($res) && isset($res['short_name'])) {
     $short_name = $res['short_name'];
 }
 
-$billno = $obj->getquocode($tblname, "billno", $short_name, "1=1 and type='$type' ");
-$billdate = date("Y-m-d");
 if (isset($_POST['submit'])) {
-    $keyvalue = $obj->test_input($_POST['transaction_id']);
     $account_id = $obj->test_input($_POST['account_id']);
     $billno = $obj->test_input($_POST['billno']);
     $billdate = $obj->test_input($_POST['billdate']);
-    $gst = $obj->test_input($_POST['gst']);
-    $is_gst = $obj->test_input($_POST['is_gst']);
-    $freight = $obj->test_input($_POST['freight']);
-    $validity = $obj->test_input($_POST['validity']);
-    $payment = $obj->test_input($_POST['payment']);
     $remark = $obj->test_input($_POST['remark']);
     $cgst = $obj->test_input($_POST['cgst']);
     $sgst = $obj->test_input($_POST['sgst']);
     $gst_percent = $obj->test_input($_POST['gst_percent']);
+    $overall_gst_amt = $obj->test_input($_POST['overall_gst_amt']);
     $grand_total = $obj->test_input($_POST['grand_total']);
     $net_total_amt = $obj->test_input($_POST['net_total_amt']);
+    $is_gst = ($gst_percent > 0) ? 1 : 0;
+
     $form_data = array(
         "account_id" => $account_id,
         "type" => $type,
         "net_total_amt" => $net_total_amt,
         "cgst" => $cgst,
         "sgst" => $sgst,
+        "is_gst" => $is_gst,
         "gst_percent" => $gst_percent,
+        "overall_gst_amt" => $overall_gst_amt,
         "grand_total" => $grand_total,
         "remark" => $remark,
-        "gst" => $gst,
-        "is_gst" => $is_gst,
-        "freight" => $freight,
-        "validity" => $validity,
-        "payment" => $payment,
         "billno" => $billno,
         "billdate" => $billdate,
-        "createdby" => $loginid,
         "companyid" => $companyid,
         'createdate' => $createdate,
         "ipaddress" => $ipaddress,
     );
 
     if ($keyvalue == 0) {
+        $form_data["createdby"] = $loginid;
         $form_data["createdate"] = $createdate;
         $lastid = $obj->insert_record_lastid($tblname, $form_data);
         $obj->update_record('transaction_details', ['transaction_id' => 0, 'type' => $type, 'account_id' => $account_id, 'company_id' => $companyid, "createdby" => $loginid], ['transaction_id' => $lastid]);
@@ -87,14 +79,12 @@ if ($keyvalue > 0) {
     $remark = $sqledit['remark'];
     $billdate = $sqledit['billdate'];
     $billno = $sqledit['billno'];
-    $gst = $sqledit['gst'];
-    $is_gst = $sqledit['is_gst'];
-    $freight = $sqledit['freight'];
-    $validity = $sqledit['validity'];
-    $payment = $sqledit['payment'];
+    $gst_percent = $sqledit['gst_percent'];
 } else {
-    $remark = $gst = $freight = $validity = $payment = "";
-    $is_gst = 0;
+    $remark = "";
+    $gst_percent = 0;
+    $billno      = $obj->getcode($tblname, "billno", "1=1 and type='$type'");
+    $billdate = date("Y-m-d");
 }
 ?>
 <!DOCTYPE html>
@@ -179,17 +169,25 @@ if ($keyvalue > 0) {
                                             <strong><label>Order Date <span class="text-danger">*</span></label></strong>
                                             <input type="date" name="billdate" id="billdate" value="<?= $billdate ?>" class="form-control form-control-sm">
                                         </div>
-                                        <div class="col-md-3 mb-2 d-flex align-items-center">
-
-                                            <div class="form-check ms-2">
-                                                <input class="form-check-input" type="checkbox" id="gst_checkbox"
-                                                    <?= ($is_gst == 1) ? 'checked' : ''; ?>>
-                                                <label class="form-check-label" for="gst_checkbox">
-                                                    Show GST
-                                                </label>
+                                        <div class="col-md-3 mt-4">
+                                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                                <div class="form-check form-check-inline mb-0">
+                                                    <input class="form-check-input" type="checkbox" id="gst_enabled" onchange="toggleGSTMode()" value="1" checked>
+                                                    <label class="form-check-label small fw-semibold" for="gst_enabled">Show GST?</label>
+                                                </div>
+                                                <div id="gst_type_options" style="display:none;">
+                                                    <div class="form-check form-check-inline mb-0">
+                                                        <input class="form-check-input" type="radio" name="gst_mode" id="gst_productwise"
+                                                            value="productwise" onchange="toggleGSTMode()">
+                                                        <label class="form-check-label small" for="gst_productwise">Inclusive</label>
+                                                    </div>
+                                                    <div class="form-check form-check-inline mb-0">
+                                                        <input class="form-check-input" type="radio" name="gst_mode" id="gst_overall"
+                                                            value="overall" onchange="toggleGSTMode()">
+                                                        <label class="form-check-label small" for="gst_overall">Overall</label>
+                                                    </div>
+                                                </div>
                                             </div>
-
-                                            <input type="hidden" name="is_gst" id="is_gst" value="<?= $is_gst == 1 ? 1 : 0; ?>">
                                         </div>
                                         <div class="col-md-12 mb-2">
                                             <strong><label>Remarks</label></strong>
@@ -207,9 +205,9 @@ if ($keyvalue > 0) {
                             </div>
                             <div class="card-body">
                                 <div class="row">
-                                    <div class="col-md-3">
+                                    <div class="col-md-2">
                                         <strong> <label for="images">Brand Name <span class="text-danger fw-bold">*</span></label></strong>
-                                        <select type="text" class="form-control form-control-sm chosen-select" name="brand_id" id="brand_id" onchange="load_category_by_brand(this.value);">
+                                        <select type="text" class="form-control form-control-sm chosen-select" id="brand_id" onchange="load_category_by_brand(this.value);">
                                             <option value="">--Select Brand--</option>
                                             <?php
 
@@ -221,7 +219,7 @@ if ($keyvalue > 0) {
                                     </div>
 
                                     <!-- CATEGORY (EMPTY INITIALLY) -->
-                                    <div class="col-md-3">
+                                    <div class="col-md-2">
                                         <strong><label>Category Name<span class="text-danger">*</span></label></strong>
                                         <select class="form-select form-select-sm chosen-select" id="category_id" onchange="get_products(this.value)">
                                             <option value="">Select</option>
@@ -243,52 +241,47 @@ if ($keyvalue > 0) {
                                         </select>
                                     </div>
 
-                                    <div class="col-md-3 mb-2">
+                                    <div class="col-md-1 mb-2">
                                         <strong> <label for="images">Unit Name<span class="text-danger fw-bold">*</span></label></strong>
 
-                                        <input type="hidden" class="form-control form-control-sm " name="unit_id" id="unit_id">
-                                        <input type="text" class="form-control form-control-sm " name="unit_name" id="unit_name" readonly>
+                                        <input type="hidden" class="form-control form-control-sm " id="unit_id">
+                                        <input type="text" class="form-control form-control-sm " id="unit_name" readonly>
                                     </div>
 
-                                    <div class="col-md-2">
-                                        <strong><label>MRP</label></strong>
-                                        <input type="number" id="rate" class="form-control form-control-sm" onkeyup="calculate_total()">
+                                    <div class="col-md-2 mb-2">
+                                        <strong><label>Rate</label></strong>
+                                        <input type="number" id="rate" class="form-control form-control-sm" onkeyup="calculate_total()" placeholder="Enter Rate">
                                     </div>
-                                    <div class="col-md-2">
-                                        <strong><label>Update MRP</label></strong>
+                                    <div class="col-md-2 mb-2">
+                                        <strong><label>Update Rate</label></strong>
                                         <br>
                                         <input type="checkbox" id="update_mrp" class="form-check-input" value="1">
                                     </div>
-                                    <div class="col-md-2">
+                                    <div class="col-md-2 mb-2">
                                         <strong><label>Qty</label></strong>
-                                        <input type="number" id="qty" class="form-control form-control-sm" onkeyup="calculate_total()">
+                                        <input type="number" id="qty" class="form-control form-control-sm" onkeyup="calculate_total()" placeholder="Enter Qty">
                                     </div>
 
                                     <input type="hidden" id="sub_total">
                                     <input type="hidden" id="total_amt">
 
-                                    <div class="col-md-2">
+                                    <div class="col-md-2 mb-2">
                                         <strong><label>Discount<span class="text-danger"> (%)</span></label></strong>
-                                        <input type="number" id="discount" class="form-control form-control-sm" onkeyup="calculate_total()">
+                                        <input type="number" id="discount" class="form-control form-control-sm" onkeyup="calculate_total()" placeholder="Enter Discount(%)">
                                         <input type="hidden" id="discount_amt" class="form-control form-control-sm" readonly>
                                     </div>
-                                    <div class="col-md-2">
+                                    <div class="col-md-2 mb-2">
                                         <strong><label>Price After Disc.</label></strong>
                                         <input type="number" id="price_after_disc" class="form-control form-control-sm" readonly>
                                     </div>
-                                    <div class="col-md-2">
-                                        <strong> <label for="gst_id">GST <span class="text-danger fw-bold"></span></label></strong>
-                                        <select type="text" class="form-control form-control-sm chosen-select" id="gst_id" onchange="calculate_total()">
-                                            <option value="">--Select GST--</option>
-                                            <?php
-                                            $sql = $obj->executequery("select * from gst_master order by gst_name DESC ");
-                                            foreach ($sql as $key) {  ?>
-                                                <option value="<?php echo $key['gst_id'] ?>" data-percent="<?php echo $key['gst_percent'] ?>" <?= ($key['gst_id'] == 3) ? "selected" : "" ?>><?php echo $key['gst_name'] ?></option> <?php } ?>
-                                        </select>
-
+                                    <div class="col-md-2 mb-2" id="gst_block">
+                                        <input type="hidden" id="gst_id" value="3">
+                                        <input type="hidden" id="gst_percent" value="18">
+                                        <strong><label for="">Net Price After Disc.</label></strong>
+                                        <input type="number" id="price_after_disc_gst" class="form-control form-control-sm" placeholder="Net Price After Disc." readonly>
                                     </div>
                                     <input type="hidden" id="gst_amt">
-                                    <div class="col-md-2">
+                                    <div class="col-md-2 mb-2">
                                         <strong><label>Net Total</label></strong>
                                         <input type="number" id="net_total" class="form-control form-control-sm" readonly>
                                     </div>
@@ -332,6 +325,18 @@ if ($keyvalue > 0) {
                 <div class="modal-body">
                     <div class="row">
                         <div class="col-md-12 mb-2">
+                            <strong> <label for="user_id">Referred By<span class="text-danger fw-bold">*</span> </label></strong>
+                            <select id="user_id" class="chosen-select form-control form-control-sm">
+                                <option value="">--Select Referred By--</option>
+                                <?php
+                                $sql = $obj->executequery("select userid,fullname,usertype from user where status='1' order by userid asc ");
+                                foreach ($sql as $key) {
+                                ?>
+                                    <option value="<?= $key['userid'] ?>" data-type="<?= strtolower($key['usertype']) ?>"><?= $key['fullname'] ?></option>
+                                <?php } ?>
+                            </select>
+                        </div>
+                        <div class="col-md-12 mb-2">
                             <strong> <label for="account_name">Counter/Customer Name <span class="text-danger fw-bold">*</span></label></strong>
                             <input type="text" class="form-control form-control-sm" name="account_name" id="account_name" placeholder="Counter/Customer  Name" autocomplete="off">
                         </div>
@@ -360,20 +365,32 @@ if ($keyvalue > 0) {
                                 <?php } ?>
                             </select>
                         </div>
-                        <div class="col-md-12 mb-2">
-                            <strong> <label for="area_id">Area<span class="text-danger fw-bold">*</span> </label></strong>
-                            <select name="area_id" id="area_id" class="chosen-select form-control form-control-sm">
-                                <option value="">--Select Area--</option>
+                        <div class="col-md-12 mb-2" id="route_div" style="display:none;">
+                            <strong><label for="batch_no">Route Name <span class="text-danger fw-bold">*</span></label></strong>
+                            <select id="batch_no" class="chosen-select form-control form-control-sm">
+                                <option value="">--Select Route--</option>
                                 <?php
-                                $sql = $obj->executequery("select area_id,area_name from area_master order by area_name asc ");
-                                foreach ($sql as $key) {
-                                ?>
-                                    <option value="<?= $key['area_id'] ?>"><?= $key['area_name'] ?></option>
+                                $sql = $obj->executequery("SELECT batch_no,route_name FROM route WHERE companyid='$companyid' GROUP BY batch_no,route_name ORDER BY route_name ASC");
+                                foreach ($sql as $key) { ?>
+                                    <option value="<?= $key['batch_no'] ?>"><?= $key['route_name'] ?></option>
                                 <?php } ?>
                             </select>
-                            <script>
-                                document.getElementById('area_id').value = '<?php echo $area_id; ?>';
-                            </script>
+                        </div>
+                        <div class="col-md-12 mb-2">
+                            <strong>
+                                <label for="area_name">
+                                    Area <span class="text-danger fw-bold">*</span>
+                                </label>
+                            </strong>
+
+                            <input type="text"
+                                class="form-control form-control-sm"
+                                id="area_name"
+                                placeholder="Enter 3 characters to search area"
+                                autocomplete="off">
+                            <input type="hidden" id="area_id" name="area_id">
+                            <div id="area_list" class="list-group" style="display:none;position:absolute;z-index:9999;width:95%;max-height:200px;overflow-y:auto;">
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -398,10 +415,10 @@ if ($keyvalue > 0) {
                     <div class="row g-2">
                         <div class="col-12">
                             <label class="form-label">Brand <span class="text-danger fw-bold">*</span></label>
-                            <select id="p_brand_id" class="form-select form-select-sm" onchange="pm_load_category(this.value)">
+                            <select id="p_brand_id" class="chosen-select form-select form-select-sm" onchange="pm_load_category(this.value)">
                                 <option value="">-- Select Brand --</option>
                                 <?php
-                                $brands = $obj->executequery("SELECT * FROM category_master WHERE type='brand' ORDER BY cat_id DESC");
+                                $brands = $obj->executequery("SELECT * FROM category_master WHERE type='brand' ORDER BY cat_name asc");
                                 foreach ($brands as $b) {
                                     echo "<option value='{$b['cat_id']}'>{$b['cat_name']}</option>";
                                 } ?>
@@ -411,7 +428,7 @@ if ($keyvalue > 0) {
                         <!-- Category -->
                         <div class="col-12">
                             <label class="form-label">Category <span class="text-danger fw-bold">*</span></label>
-                            <select id="p_category_id" class="form-select form-select-sm">
+                            <select id="p_category_id" class=" chosen-select form-select form-select-sm">
                                 <option value="">-- Select Category --</option>
                             </select>
                         </div>
@@ -457,17 +474,152 @@ if ($keyvalue > 0) {
 <!-- Script tags -->
 <?php include('component/script.php'); ?>
 <script>
-    $('#gst_checkbox').change(function() {
-        if ($(this).is(':checked')) {
-            $('#is_gst').val(1);
-        } else {
-            $('#is_gst').val(0);
+    function toggleGSTMode() {
+        let enabled = $('#gst_enabled').is(':checked');
+
+        if (!enabled) {
+            $('#gst_type_options').hide();
+            $('#gst_id').val(0);
+            $('#gst_percent').val(0);
+            $('input[name="gst_mode"]').prop('checked', false);
+            $('#gst_id').val('');
+            calculate_total();
+            return;
         }
+
+        $('#gst_type_options').show();
+
+        let currentMode = $('input[name="gst_mode"]:checked').val();
+
+        if (currentMode === 'productwise') {
+            $('#gst_id').val(3);
+            $('#gst_percent').val(18);
+            $('#gst_block').show();
+        } else if (currentMode === 'overall') {
+            $('#gst_id').val(0);
+            $('#gst_percent').val(0);
+            $('#gst_block').hide();
+        } else {
+            $('input[name="gst_mode"][value="productwise"]').prop('checked', true);
+            $('#gst_id').val(3);
+            $('#gst_percent').val(18);
+            $('#gst_block').show();
+        }
+
+        fetch_data('<?php echo $keyvalue ?>');
+        calculate_total();
+    }
+
+    function toggleRoute() {
+        var user_type = $("#user_id option:selected").data("type");
+        var user_id = $("#user_id").val();
+        var counter_type = $("#common_id").val();
+
+        if (user_type == 'sales' && counter_type == '7') {
+            $("#route_div").show();
+            get_routes(user_id);
+        } else {
+            $("#route_div").hide();
+            $("#batch_no").val('').trigger("chosen:updated");
+        }
+    }
+
+    $(document).on("change", "#common_id,#user_id", function() {
+        toggleRoute();
     });
 
+    $(document).ready(function() {
+        toggleRoute();
+    });
+
+    function get_routes(user_id) {
+        $.ajax({
+            url: "ajax/get_routes.php",
+            type: "POST",
+            data: {
+                user_id: user_id
+            },
+            success: function(data) {
+                $("#batch_no").html(data);
+                $("#batch_no").trigger("chosen:updated");
+            }
+        });
+    }
+
+    $("#area_name").keyup(function() {
+
+        let term = $(this).val();
+
+        if (term.length < 1) {
+            $("#area_list").hide();
+            return;
+        }
+
+        $.ajax({
+            url: "ajax/get_area_list.php",
+            type: "POST",
+            data: {
+                term: term
+            },
+            success: function(data) {
+
+                if (data.trim() != '') {
+                    $("#area_list").html(data).show();
+                } else {
+                    $("#area_list").hide();
+                }
+            }
+        });
+
+    });
+
+    $(document).on("click", ".area-item", function() {
+
+        $("#area_id").val($(this).data("id"));
+        $("#area_name").val($(this).data("name"));
+
+        $("#area_list").hide();
+    });
+
+    $(document).click(function(e) {
+
+        if (!$(e.target).closest('#area_name,#area_list').length) {
+            $("#area_list").hide();
+        }
+
+    });
+
+    function lockGSTModeIfProductsExist() {
+        let productCount = $('#fetch_data table tbody tr').length;
+        let is_gst = checkExistingProductGST();
+        if (productCount > 0) {
+            if (is_gst > 0) {
+                $('#gst_overall').prop('disabled', true);
+            } else {
+                $('#gst_productwise').prop('disabled', true);
+            }
+
+        } else {
+            $('#gst_productwise').prop('disabled', false);
+            $('#gst_overall').prop('disabled', false);
+        }
+    }
+
+
+    function checkExistingProductGST() {
+        let found = false;
+        $('#fetch_data [data-gst-percent]').each(function() {
+            if (parseFloat($(this).data('gst-percent')) > 0) {
+                found = true;
+                return false;
+            }
+        });
+        return found;
+    }
+
+
+
     function pm_load_category(brand_id) {
-        const catSelect = document.getElementById('p_category_id');
-        catSelect.innerHTML = '<option value="">-- Select Category --</option>';
         if (!brand_id) return;
 
         $.ajax({
@@ -477,7 +629,7 @@ if ($keyvalue > 0) {
                 brand_id: brand_id
             },
             success: function(res) {
-                catSelect.innerHTML = res;
+                $('#p_category_id').html(res).trigger('chosen:updated');
             }
         });
     }
@@ -528,8 +680,8 @@ if ($keyvalue > 0) {
                 });
 
                 bootstrap.Modal.getInstance(document.getElementById('product_modal')).hide();
-                document.getElementById('p_brand_id').value = '';
-                document.getElementById('p_category_id').innerHTML = '<option value="">-- Select Category --</option>';
+                $('#p_brand_id').val('').trigger('chosen:updated');
+                $('#p_category_id').val('').trigger('chosen:updated');
                 document.getElementById('p_product_name').value = '';
                 document.getElementById('p_unit_id').value = '';
                 document.getElementById('p_mrp').value = '';
@@ -550,21 +702,34 @@ if ($keyvalue > 0) {
         $('#mobile_no').val('');
         $('#owner_name').val('');
         $('#o_mobile_no').val('');
-
+        $('#batch_no').val('').trigger('chosen:updated');
+        $('#user_id').val('').trigger('chosen:updated');
         $('#common_id').val('7').trigger('chosen:updated');
-        $('#area_id').val('').trigger('chosen:updated');
+        $('#area_name').val('');
+        $('#area_id').val('');
 
         $('#accountNameAdd').modal('show');
     }
 
     function save_account() {
 
+        var user_id = $('#user_id').val().trim();
         var account_name = $('#account_name').val().trim();
         var mobile_no = $('#mobile_no').val().trim();
         var owner_name = $('#owner_name').val().trim();
         var o_mobile_no = $('#o_mobile_no').val().trim();
         var common_id = $('#common_id').val();
+        var batch_no = $('#batch_no').val();
+        var area_name = $('#area_name').val().trim();
         var area_id = $('#area_id').val();
+
+        var user_type = $("#user_id option:selected").data("type");
+
+        if (user_id == '') {
+            alert('Select Referred By');
+            $('#user_id').focus();
+            return false;
+        }
 
         if (account_name == '') {
             alert('Enter Customer Name');
@@ -583,33 +748,46 @@ if ($keyvalue > 0) {
             return false;
         }
 
-        if (area_id == '') {
-            alert('Select Area');
+        if (user_type == 'sales' && common_id == '7' && batch_no == '') {
+            alert('Select Route');
+            $('#batch_no').focus();
             return false;
         }
+
+        if (area_name == '') {
+            alert('Enter Area Name');
+            $('#area_name').focus();
+            return false;
+        }
+
 
         $.ajax({
             url: "ajax_save_account.php",
             type: "POST",
             data: {
+                user_id: user_id,
                 account_name: account_name,
                 mobile_no: mobile_no,
                 owner_name: owner_name,
                 o_mobile_no: o_mobile_no,
                 common_id: common_id,
+                batch_no: batch_no,
+                area_name: area_name,
                 area_id: area_id
             },
             success: function(res) {
                 if ($.trim(res) != '') {
                     $('#accountNameAdd').modal('hide');
                     get_account_list($.trim(res));
+                    $('#user_id').val('').trigger('chosen:updated');
                     $('#account_name').val('');
                     $('#mobile_no').val('');
                     $('#owner_name').val('');
                     $('#o_mobile_no').val('');
                     $('#common_id').val('7').trigger('chosen:updated');
-                    $('#area_id').val('').trigger('chosen:updated');
-
+                    $('#batch_no').val('').trigger('chosen:updated');
+                    $('#area_name').val('');
+                    $('#area_id').val('');
                 } else {
                     alert('Unable to save record');
                 }
@@ -618,30 +796,14 @@ if ($keyvalue > 0) {
     }
 
     function get_account_list(account_id = '') {
-        location = 'quotation.php?account_id=' + account_id;
-        // $.ajax({
-        //     url: "ajax_fetch_account.php",
-        //     type: "POST",
-        //     data: {
-        //         account_id: account_id
-        //     },
-        //     success: function(res) {
-
-        //         $('#account_id').html(res);
-
-        //         if (account_id != '') {
-        //             $('#account_id').val(account_id);
-        //         }
-
-        //         $('#account_id').trigger('chosen:updated');
-        //     }
-        // });
-
+        if (account_id > 0) {
+            location = '?account_id=' + account_id;
+        }
     }
 
     function get_url1(account_id) {
         if (account_id > 0) {
-            location = 'quotation.php?account_id=' + account_id;
+            location = '?account_id=' + account_id;
         }
     }
 
@@ -649,7 +811,18 @@ if ($keyvalue > 0) {
         $(".chosen-select").chosen({
             width: "100%"
         });
+
+        let gst_percent = parseFloat('<?= $gst_percent ?>') || 0;
+        let is_gst = checkExistingProductGST();
+        if (gst_percent > 0) {
+            $('#gst_enabled').prop('checked', true);
+            $('#gst_overall').prop('checked', true);
+        } else if (is_gst == 1) {
+            $('#gst_enabled').prop('checked', true);
+        }
+
         fetch_data('<?php echo $keyvalue ?>');
+        toggleGSTMode();
     });
 
     function get_product_details(product_id) {
@@ -671,7 +844,6 @@ if ($keyvalue > 0) {
             }
         });
     }
-
 
     function load_category_by_brand(brand_id, category_id = 0) {
         let account_id = $('#account_id').val();
@@ -730,10 +902,9 @@ if ($keyvalue > 0) {
         let qty = parseFloat($('#qty').val()) || 0;
         let rate = parseFloat($('#rate').val()) || 0;
         let discP = parseFloat($('#discount').val()) || 0;
-        let gst_percent = parseFloat(
-            $('#gst_id option:selected').data('percent')
-        ) || 0;
 
+        let gst_percent = parseFloat($('#gst_percent').val()) || 0;
+        let gst_use = $('#gst_productwise').is('checked', true);
         let taxtype = $('#taxtype').val();
 
         let disc_per_unit = (rate * discP) / 100;
@@ -742,6 +913,7 @@ if ($keyvalue > 0) {
         let sub_total = price_after_disc * qty;
         let discount_amt = disc_per_unit * qty;
 
+        let price_after_disc_gst = price_after_disc * 1.18;
         let taxable = 0;
         let gst_amt = 0;
         let net_amt = 0;
@@ -756,6 +928,7 @@ if ($keyvalue > 0) {
             gst_amt = net_amt - taxable;
         }
 
+        $('#price_after_disc_gst').val(price_after_disc_gst.toFixed(2));
         $('#sub_total').val(sub_total.toFixed(2));
         $('#total_amt').val(taxable.toFixed(2));
         $('#discount_amt').val(discount_amt.toFixed(2));
@@ -784,29 +957,33 @@ if ($keyvalue > 0) {
         let company_id = '<?= $companyid; ?>';
         let account_id = '<?= $account_id; ?>';
         let type = '<?= $type; ?>';
+        let enabled = $('#gst_enabled').is(':checked');
+        let currentMode = '';
+
+        if (enabled) {
+            currentMode = $('input[name="gst_mode"]:checked').val() || '';
+        }
 
         jQuery.ajax({
             type: 'POST',
-            url: 'fetch_quotation_product.php',
+            url: 'fetch_order_product.php',
             data: {
                 account_id: account_id,
                 company_id: company_id,
                 transaction_id: transaction_id,
+                currentMode,
                 type: type,
             },
             dataType: 'html',
             success: function(data) {
                 document.getElementById("fetch_data").innerHTML = data;
-                calculateGST();
+                lockGSTModeIfProductsExist();
             }
         });
-
     }
 
-    function EditProduct(brand_id, category_id, product_id, unit_id, unit_name, qty, rate, sub_total, discount, delivery_status, total_amt, tran_detail_id, gst_id, taxtype, net_amt) {
-
+    function EditProduct(brand_id, category_id, product_id, unit_id, unit_name, qty, rate, sub_total, discount, total_amt, tran_detail_id, gst_id, taxtype, net_amt) {
         $('#brand_id').val(brand_id).trigger('chosen:updated');
-
         load_category_by_brand(brand_id, category_id);
         get_products(category_id, product_id);
         $('#qty').val(qty);
@@ -814,13 +991,10 @@ if ($keyvalue > 0) {
         $('#unit_id').val(unit_id);
         $('#unit_name').val(unit_name);
         $('#sub_total').val(sub_total);
-        $('#delivery_status').val(delivery_status);
         $('#discount').val(discount);
         $('#total_amt').val(total_amt);
-
         $('#gst_id').val(gst_id).trigger('chosen:updated');
         $('#net_total').val(net_amt);
-
         $('#m_tran_detail_id').val(tran_detail_id);
         $('#add_btn').val('Update');
         calculate_total();
@@ -847,12 +1021,9 @@ if ($keyvalue > 0) {
     }
 
 
-
     function add_product() {
         let update_mrp = document.getElementById('update_mrp').checked ? 1 : 0;
-        let delivery_status = document.getElementById('delivery_status').value;
         let product_id = document.getElementById('product_id').value.trim();
-
         let category_id = document.getElementById('category_id').value;
         let brand_id = document.getElementById('brand_id').value;
         let unit_id = document.getElementById('unit_id').value;
@@ -875,7 +1046,6 @@ if ($keyvalue > 0) {
         let account_id = '<?= $account_id; ?>';
 
         let type = '<?= $type; ?>';
-
 
 
         if (account_id == '') {
@@ -916,7 +1086,6 @@ if ($keyvalue > 0) {
                 product_id: product_id,
                 gst_amt: gst_amt,
                 category_id: category_id,
-                delivery_status: delivery_status,
                 brand_id: brand_id,
                 unit_id: unit_id,
                 qty: qty,
@@ -953,42 +1122,13 @@ if ($keyvalue > 0) {
                 $('#gst_amt').val('');
                 $('#unit_name').val('');
                 $('#rate').val('');
-                $('#delivery_status').val('');
                 $('#net_total').val('');
                 $('#discount').val('');
                 $('#discount_amt').val('');
                 $('#sub_total').val('');
                 $('#total_amt').val('');
-                $('#sub_total').val('');
             }
         });
-    }
-</script>
-<script>
-    function calculateGST() {
-
-        let net_total = parseFloat($('#net_total_amt').val()) || 0;
-        let gst_percent = parseFloat($('#gst_percent').val()) || 0;
-
-        if ($('#net_total_amt').length === 0) return;
-
-        let half_gst = gst_percent / 2;
-        let gst_amount = (net_total * gst_percent) / 100;
-        let cgst = gst_amount / 2;
-        let sgst = gst_amount / 2;
-        let grand_total = net_total + gst_amount;
-
-        if ($('#cgst_display').length) $('#cgst_display').text(cgst.toFixed(2));
-        if ($('#sgst_display').length) $('#sgst_display').text(sgst.toFixed(2));
-        if ($('#grand_total_display').length) $('#grand_total_display').text(grand_total.toFixed(2));
-
-        if ($('#cgst_percent_display').length) $('#cgst_percent_display').text(half_gst);
-        if ($('#sgst_percent_display').length) $('#sgst_percent_display').text(half_gst);
-
-        $('#cgst').val(cgst.toFixed(2));
-        $('#sgst').val(sgst.toFixed(2));
-        $('#grand_total').val(grand_total.toFixed(2));
-        $('#gst_percent_hidden').val(gst_percent);
     }
 </script>
 

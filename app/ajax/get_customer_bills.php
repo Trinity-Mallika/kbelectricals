@@ -11,7 +11,7 @@ $opening_amt = (float)$obj->getvalfield(
 
 $opening_paid = (float)$obj->getvalfield(
     "transaction_entry",
-    "IFNULL(SUM(grand_total),0)",
+    "IFNULL(SUM(grand_total + IFNULL(cash_disc,0)),0)",
     "account_id='$account_id'
      AND type='payment'
      AND pay_type='opening'"
@@ -32,31 +32,36 @@ if ($opening_pending > 0) {
               </option>';
 } else {
 
-    /* Show invoices only after opening balance is cleared */
     $res = $obj->executequery("
-        SELECT 
-            t.transaction_id,
-            t.billno,
-            t.invoice_no,
-            t.billdate,
-            t.grand_total AS total_amt,
-            IFNULL(SUM(p.grand_total),0) AS total_paid
+    SELECT 
+        t.transaction_id,
+        t.billno,
+        t.invoice_no,
+        t.billdate,
+        t.grand_total AS total_amt,
 
-        FROM transaction_entry t
+        IFNULL(
+            SUM(
+                p.grand_total + IFNULL(p.cash_disc,0)
+            ),
+            0
+        ) AS total_paid
 
-        LEFT JOIN transaction_entry p
-            ON p.ref_bill_id = t.transaction_id
-            AND p.type = 'payment'
-            AND p.pay_type = 'bill'
+    FROM transaction_entry t
 
-        WHERE t.account_id = '$account_id'
-        AND t.type = 'order'
-        AND t.is_approved = 1
-        AND t.invoice_no <> ''
+    LEFT JOIN transaction_entry p
+        ON p.ref_bill_id = t.transaction_id
+        AND p.type = 'payment'
+        AND p.pay_type = 'bill'
 
-        GROUP BY t.transaction_id
-        ORDER BY t.billdate ASC, t.transaction_id ASC
-    ");
+    WHERE t.account_id = '$account_id'
+    AND t.type = 'order'
+    AND t.is_approved = 1
+    AND t.invoice_no <> ''
+
+    GROUP BY t.transaction_id
+    ORDER BY t.billdate ASC, t.transaction_id ASC
+");
 
     foreach ($res as $row) {
 

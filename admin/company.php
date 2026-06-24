@@ -28,6 +28,7 @@ $account_branch = "";
 $pan = "";
 $dispatch_no = $accounts_no = $quo_no = "";
 $comp_logo = "";
+$website = "";
 
 if ($keyvalue > 0) {
     $btn_name = "Update";
@@ -49,6 +50,7 @@ if ($keyvalue > 0) {
     $bank_name = $sqledit['bank_name'];
     $pan = $sqledit['pan'];
     $comp_logo = $sqledit['comp_logo'];
+    $website = $sqledit['website'];
 }
 
 if (isset($_POST['submit'])) {
@@ -68,6 +70,7 @@ if (isset($_POST['submit'])) {
     $account_no = $obj->test_input($_POST['account_no']);
     $account_branch = $obj->test_input($_POST['account_branch']);
     $pan = $obj->test_input($_POST['pan']);
+    $website = $obj->test_input($_POST['website']);
 
     if ($keyvalue != 0)
         $form_data = array(
@@ -85,6 +88,7 @@ if (isset($_POST['submit'])) {
             'account_branch' => $account_branch,
             'term_cond' => $term_cond,
             'gst' => $gsttinno,
+            'website' => $website,
             'ipaddress' => $ipaddress,
             'lastupdated' => $createdate,
             'createdby' => $loginid,
@@ -216,7 +220,11 @@ if (isset($_POST['submit'])) {
                                             <strong> <label>Inquiry/Offer/Quotations No.</label></strong>
                                             <input type="text" class="form-control form-control-sm" name="quo_no" placeholder="Enter Inquiry/Offer/Quotations No." value="<?php echo $quo_no; ?>">
                                         </div>
-                                        <div class="col-md-6 mt-2">
+                                        <div class="col-md-3 mt-2">
+                                            <strong> <label>Website</label></strong>
+                                            <input type="text" class="form-control form-control-sm" name="website" placeholder="Enter Website" value="<?php echo $website; ?>">
+                                        </div>
+                                        <div class="col-md-3 mt-2">
                                             <strong> <label>Email</label></strong>
                                             <input type="email" class="form-control form-control-sm" name="email" placeholder="Enter Email" value="<?php echo $email; ?>">
                                         </div>

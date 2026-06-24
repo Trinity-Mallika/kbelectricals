@@ -22,7 +22,7 @@ $tblpkey = "transaction_id";
 $keyvalue = (isset($_GET["transaction_id"])) ? $obj->test_input($_GET["transaction_id"]) : 0;
 $type = "quotation";
 $sqledit = $obj->select_record($tblname, [$tblpkey => $keyvalue]);
-$company_id = $sqledit['companyid'];
+$company_id1 = $sqledit['companyid'];
 $account_id = $sqledit['account_id'];
 $account_name = $obj->getvalfield("account", "account_name", "account_id='$account_id'");
 $remark = $sqledit['remark'];
@@ -36,8 +36,24 @@ $gst_percent = $sqledit['gst_percent'];
 $freight = $sqledit['freight'];
 $validity = $sqledit['validity'];
 $grand_total = $sqledit['grand_total'];
+$selected_columns = !empty($sqledit['print_columns'])
+    ? explode(',', $sqledit['print_columns'])
+    : [];
 
-$compdata = $obj->select_record('company_setting', ['company_id' => $company_id]);
+$visibleColumns = 4; // S No, Item Description, Brand, Unit
+
+if (in_array('qty', $selected_columns)) $visibleColumns++;
+if (in_array('mrp', $selected_columns)) $visibleColumns++;
+if (in_array('discount', $selected_columns)) $visibleColumns++;
+if (in_array('price_after_disc', $selected_columns)) $visibleColumns++;
+if ($is_gst == 0 && in_array('net_price', $selected_columns)) $visibleColumns++;
+
+$visibleColumns++; // Total Value / Net Total
+$visibleColumns++; // Delivery
+
+$colspan = $visibleColumns - 2;
+
+$compdata = $obj->select_record('company_setting', ['company_id' => $company_id1]);
 $company_name = $compdata['company_name'];
 $mobile = $compdata['mobile'];
 $address = $compdata['address'];
@@ -52,6 +68,7 @@ $account_no = $compdata['account_no'];
 $ifsc_code = $compdata['ifcs_code'];
 $bank_name = $compdata['bank_name'];
 $pan = $compdata['pan'];
+$website = $compdata['website'];
 $comp_logo = $compdata['comp_logo'];
 $headerImg = __DIR__ . '/uploaded/company/' . $comp_logo;
 $companyInfo = '';
@@ -72,13 +89,15 @@ $mpdf->SetHTMLHeader('
 
             <table width="100%" style="font-size:9pt;border:none;">
                 <tr>
-                    <td align="right" style="border:none;">
-                        ' . (!empty($mobile) ? '<b>Mobile :</b> ' . $mobile . '<br>' : '') . '
-                        ' . (!empty($dispatch_no) ? '<b>Dispatch :</b> ' . $dispatch_no . '<br>' : '') . '
-                        ' . (!empty($accounts_no) ? '<b>Accounts :</b> ' . $accounts_no . '<br>' : '') . '
-                        ' . (!empty($quo_no) ? '<b>Inquiry :</b> ' . $quo_no . '<br>' : '') . '
-                        ' . (!empty($email) ? '<b>Email :</b> ' . $email . '<br>' : '') . '
-                        ' . (!empty($gsttinno) ? '<b>GSTIN :</b> ' . $gsttinno : '') . '
+                    <td align="right" style="border:none;margin-top:4px;">
+                      ' . (!empty($mobile) ? '<b>Owner:</b> ' . $mobile . ' | ' : '') . '
+' . (!empty($dispatch_no) ? '<b>Dispatch:</b> ' . $dispatch_no . ' | ' : '') . '
+' . (!empty($accounts_no) ? '<b>Accounts:</b> ' . $accounts_no . ' | ' : '') . '
+' . (!empty($quo_no) ? '<b>Enquiry:</b> ' . $quo_no . '<br>' : '') . '
+
+' . (!empty($email) ? '<b>Email:</b> ' . $email . ' | ' : '') . '
+' . (!empty($website) ? '<b>Web:</b> ' . $website . ' | ' : '') . '
+' . (!empty($gsttinno) ? '<b>GSTIN:</b> ' . $gsttinno : '') . '
                     </td>
                 </tr>
             </table>
@@ -156,7 +175,7 @@ ob_start();
                 TO: <b><?= strtoupper($account_name) ?></b><br>
                 Dear Sir,
             </td>
-            <td colspan="5"><b>Quotation No:</b> <?= $sqledit['billno'] ?><br>
+            <td colspan="5" class="right"><b>Quotation No:</b> <?= $sqledit['billno'] ?><br>
                 <b>Date:</b> <?= date('d M Y', strtotime($sqledit['billdate'])) ?>
             </td>
         </tr>
@@ -168,11 +187,27 @@ ob_start();
             <th>Item Description</th>
             <th>Brand</th>
             <th>Unit</th>
-            <th>Quantity</th>
-            <!-- <th>MRP</th>
-            <th>Discount</th> -->
-            <th class="right" width="120">Price After Disc.</th>
-            <th class="right"> <?= ($is_gst == 1) ? "Total Value" : "Net Total" ?></th>
+            <?php if (in_array('qty', $selected_columns)) { ?>
+                <th>Quantity</th>
+            <?php } ?>
+
+            <?php if (in_array('mrp', $selected_columns)) { ?>
+                <th class="right">MRP</th>
+            <?php } ?>
+
+            <?php if (in_array('discount', $selected_columns)) { ?>
+                <th class="right">Discount</th>
+            <?php } ?>
+
+            <?php if (in_array('price_after_disc', $selected_columns)) { ?>
+                <th class="right">Price After Disc.</th>
+            <?php } ?>
+
+            <?php if ($is_gst == 0 && in_array('net_price', $selected_columns)) { ?>
+                <th class="right">Net Price After Disc.</th>
+            <?php } ?>
+
+            <th class="right"><?= ($is_gst == 1) ? "Total Value" : "Net Total" ?></th>
             <th>Delivery</th>
         </tr>
 
@@ -188,7 +223,6 @@ LEFT JOIN category_master u ON u.cat_id=td.unit_id
 LEFT JOIN category_master c ON c.cat_id=td.category_id
 LEFT JOIN gst_master g ON g.gst_id = td.gst_id
 WHERE td.transaction_id='$keyvalue' order by td.tran_detail_id ASC";
-
         $res = $obj->executequery($sql);
         foreach ($res as $row) {
             $nettotal = ($is_gst == 1) ? $row['total_amt'] : $row['net_amt'];
@@ -198,10 +232,33 @@ WHERE td.transaction_id='$keyvalue' order by td.tran_detail_id ASC";
                 <td><b><?php echo $row['category'] ?></b><br><?= $row['product_name'] ?></td>
                 <td><?= $row['brand'] ?></td>
                 <td><?= $row['unit'] ?></td>
-                <td class="center"><?= $row['qty'] ?></td>
-                <!-- <td class="right"><?= number_format($row['rate'], 2) ?></td>
-                <td class="center"><?= $row['discount'] ?>%</td> -->
-                <td class="right">Rs. <?php echo $row['price_after_disc'] ?></td>
+                <?php if (in_array('qty', $selected_columns)) { ?>
+                    <td class="center"><?= $row['qty'] ?></td>
+                <?php } ?>
+
+                <?php if (in_array('mrp', $selected_columns)) { ?>
+                    <td class="right">
+                        Rs. <?= number_format($row['rate'], 2) ?>
+                    </td>
+                <?php } ?>
+
+                <?php if (in_array('discount', $selected_columns)) { ?>
+                    <td class="right">
+                        <?= $row['discount'] ?>%
+                    </td>
+                <?php } ?>
+
+                <?php if (in_array('price_after_disc', $selected_columns)) { ?>
+                    <td class="right">
+                        Rs. <?= number_format($row['price_after_disc'], 2) ?>
+                    </td>
+                <?php } ?>
+
+                <?php if ($is_gst == 0 && in_array('net_price', $selected_columns)) { ?>
+                    <td class="right">
+                        Rs. <?= number_format($row['price_after_disc'] * 1.18, 2) ?>
+                    </td>
+                <?php } ?>
                 <td class="right">
                     Rs. <?= number_format($nettotal, 2) ?>
                 </td>
@@ -211,7 +268,7 @@ WHERE td.transaction_id='$keyvalue' order by td.tran_detail_id ASC";
             $tax_amount += $row['gst_amt'];
         } ?>
         <tr>
-            <td colspan="6" class="right"><b>Total</b></td>
+            <td colspan="<?= $colspan ?>" class="right"><b>Total</b></td>
             <td class="right"><b>Rs. <?= number_format(round($total), 2) ?></b></td>
             <td></td>
         </tr>
@@ -233,8 +290,8 @@ WHERE td.transaction_id='$keyvalue' order by td.tran_detail_id ASC";
                 <b>Commercial Details</b><br><br>
 
                 <?php if ($is_gst == 1) { ?>
-                    GST : <?= $sqledit['gst'] ?> <?php if ($is_gst == 1) { ?>
-                        @18% Amount: <b>Rs. <?= number_format($tax_amount, 2) ?></b><br>
+                    GST : Extra <?php if ($is_gst == 1) { ?>
+                        @18%<br>
                     <?php } else { ?>
                         <br>
                     <?php } ?>
@@ -253,23 +310,16 @@ WHERE td.transaction_id='$keyvalue' order by td.tran_detail_id ASC";
                 <?php } ?>
 
             </td>
-
             <td width="50%" valign="top">
-
                 <b>Bank Details</b><br><br>
-
                 <?= !empty($bank_name) ? 'Bank : ' . $bank_name . '<br>' : '' ?>
                 <?= !empty($account_branch) ? 'Branch : ' . $account_branch . '<br>' : '' ?>
                 <?= !empty($ifsc_code) ? 'IFSC : ' . $ifsc_code . '<br>' : '' ?>
                 <?= !empty($account_no) ? 'A/C No : ' . $account_no . '<br>' : '' ?>
-
             </td>
-
         </tr>
-
     </table>
     <?php if (!empty($term_cond)) { ?>
-
         <table style="margin-top:12px;">
             <tr>
                 <td>
@@ -293,9 +343,11 @@ WHERE td.transaction_id='$keyvalue' order by td.tran_detail_id ASC";
             <td width="40%" style="border:none;text-align:right;">
                 <b>For, <?= strtoupper($company_name) ?></b>
 
-                <br><br><br><br>
-
-                Authorized Signatory
+                <br>
+                <div>
+                    <img src="uploaded/sign.png" alt="" width="150px" style=" margin-right:10px;">
+                    <p style="margin: 0px;">Authorized Signatory</p>
+                </div>
             </td>
 
         </tr>

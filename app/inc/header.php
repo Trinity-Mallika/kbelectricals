@@ -1,50 +1,57 @@
 <header class="rounded-4 ms-2 me-2">
     <div class="container">
-        <div class="row">
-            <div class="col-3 col-lg-3 col-mg-3">
-                <a href="dashboard.php">
-                    <h5 class="text-white text-start mt-1 mb-0  text-start">
-                        <i class="bi bi-house-door text-white"></i>
-                    </h5>
+        <div class="row align-items-center">
+
+            <div class="col-3 d-flex align-items-center">
+
+                <a href="dashboard.php" class="me-2">
+                    <i class="bi bi-house-door text-white fs-5"></i>
+                </a>
+
+                <a href="javascript:void(0)" onclick="refreshPage()" class="me-2">
+                    <i class="bi bi-arrow-clockwise text-white fs-5"></i>
                 </a>
 
             </div>
-            <div class="col-6 col-lg-6 col-mg-6">
-                <h6 class="text-white text-start mt-1 mb-0  text-center"> <?php echo $title; ?></h6>
+
+            <div class="col-6 text-center">
+                <h6 class="text-white mb-0"><?= $title ?></h6>
             </div>
-            <div class="col-3 col-lg-3 col-mg-3 justify-content-end d-flex">
-                <div class="dropdown">
-                    <button class="btn btn-sm position-relative p-0" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="background: transparent !important;">
-                        <i class="bi bi-bell fs-5 text-white "></i>
-                        <span class="position-absolute top-0 start-100 translate-middle bg-danger text-white border border-light rounded-circle d-flex align-items-center justify-content-center"
-                            style="width:20px; height:20px; font-size:12px; margin-left:-5px;">
-                            1
+
+            <div class="col-3 d-flex justify-content-end align-items-center">
+
+                <div class="dropdown me-2">
+                    <button class="btn btn-sm position-relative p-0"
+                        type="button"
+                        data-bs-toggle="dropdown"
+                        style="background:none;border:none;">
+
+                        <i class="bi bi-bell fs-5 text-white"></i>
+
+                        <span id="notificationCount"
+                            class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+                            style="font-size:10px;display:none;">
+                            0
                         </span>
                     </button>
-                    <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="#">Action</a></li>
-                        <li><a class="dropdown-item" href="#">Another action</a></li>
+
+                    <ul class="dropdown-menu dropdown-menu-end"
+                        id="notificationList">
+                        <li>
+                            <span class="dropdown-item-text text-muted">
+                                No Notifications
+                            </span>
+                        </li>
                     </ul>
                 </div>
-                <!-- <div class="dropdown">
-                    <a href="#dropdown" class=" position-relative">
-                        <i class="bi bi-bell fs-5 text-white "></i>
-                        <span class="position-absolute top-0 start-100 translate-middle bg-danger text-white border border-light rounded-circle d-flex align-items-center justify-content-center"
-                            style="width:20px; height:20px; font-size:12px; margin-left:-5px;">
-                            1
-                        </span>
-                    </a>
-                    <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="#">Action</a></li>
-                        <li><a class="dropdown-item" href="#">Another action</a></li>
-                        <li><a class="dropdown-item" href="#">Something else here</a></li>
-                    </ul>
-                </div> -->
-                &nbsp;&nbsp;
-                <a data-bs-toggle="offcanvas" href="#offcanvasExample" role="button" aria-controls="offcanvasExample">
-                    <i class="bi bi-list-nested fs-3 text-white "></i>
+
+                <a data-bs-toggle="offcanvas"
+                    href="#offcanvasExample">
+                    <i class="bi bi-list-nested fs-3 text-white"></i>
                 </a>
+
             </div>
+
         </div>
     </div>
 </header>
@@ -64,7 +71,6 @@
                 <div class="d-flex">
                     <div class="profile-bg">
                         <i class="bi bi-person-square fs-1 text-white mt-1"></i>
-                        <!-- <img src="img/user.jpg" alt="" width="50px"> -->
                     </div>
                     <div class="ms-3">
                         <h4 class="text-white mb-0">
@@ -101,18 +107,15 @@
                     <a href="order-list.php" class="mt-2">
                         <li class="list-group-item border-0"><span><i class="bi bi-list-columns-reverse"></i></span>&nbsp; Order List</li>
                     </a>
-                    <!-- <a href="my-order.php?status=Pending" class="mt-2">
-                        <li class="list-group-item border-0"><span><i class="bi bi-clock-history"></i></span>&nbsp; Pending Orders</li>
-                    </a>
-                    <a href="my-order.php?status=In Progress" class="mt-2">
-                        <li class="list-group-item border-0"><span><i class="bi bi-sort-up-alt"></i></span>&nbsp; In Progress</li>
-                    </a>
-                   -->
+
                     <a href="add_payment.php" class="mt-2">
                         <li class="list-group-item border-0"><span><i class="bi bi-credit-card"></i></span>&nbsp; Add Payment</li>
                     </a>
                     <a href="monthly_target.php" class="mt-2">
                         <li class="list-group-item border-0"><span><i class="bi bi-credit-card"></i></span>&nbsp; Monthly Target</li>
+                    </a>
+                    <a href="electrician.php" class="mt-2">
+                        <li class="list-group-item border-0"><span><i class="bi bi-credit-card"></i></span>&nbsp; Electrician</li>
                     </a>
                     <hr>
                     <a href="change-password.php" class="mt-2">

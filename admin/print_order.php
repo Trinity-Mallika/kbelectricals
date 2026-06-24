@@ -32,6 +32,8 @@ $remark       = $sqledit['remark'];
 $is_approved  = $sqledit['is_approved'];
 $approve_date = $sqledit['approve_date'] ?? '';
 $invoice_no   = $sqledit['invoice_no'];
+$is_gst   = $sqledit['is_gst'];
+$overall_gst_amt   = $sqledit['overall_gst_amt'];
 
 $compdata       = $obj->select_record('company_setting', ['company_id' => $company_id]);
 $company_name   = $compdata['company_name'];
@@ -47,7 +49,6 @@ $term_cond      = $compdata['term_cond'];
 $comp_logo      = $compdata['comp_logo'];
 $headerImg      = __DIR__ . '/uploaded/company/' . $comp_logo;
 
-/* ── Header (identical structure to quotation) ────────────────────── */
 $mpdf->SetHTMLHeader('
 <table width="100%" style="border:1px solid #000; font-size:10pt;">
 <tr>
@@ -63,7 +64,7 @@ $mpdf->SetHTMLHeader('
 </table>
 ');
 
-/* ── Footer (identical to quotation) ──────────────────────────────── */
+
 $footerHTML = '<table width="100%" style="text-align:center;"><tr>';
 foreach ($footerImages as $img) {
     $footerHTML .= '<td><img src="' . $img . '" style="height:12mm;margin-right:20px;"></td>';
@@ -71,7 +72,7 @@ foreach ($footerImages as $img) {
 $footerHTML .= '</tr></table>';
 $mpdf->SetHTMLFooter($footerHTML);
 
-/* ── Fetch line items ─────────────────────────────────────────────── */
+
 $sql = "
     SELECT
         td.*,
@@ -89,22 +90,23 @@ $sql = "
 ";
 $items = $obj->executequery($sql);
 
-/* ── Totals ───────────────────────────────────────────────────────── */
 $grand_total = 0;
 $total_qty   = 0;
+$tax_amount   = 0;
 foreach ($items as $row) {
     $grand_total += $row['total_amt'];
     $total_qty   += $row['qty'];
+    $tax_amount += $row['gst_amt'];
 }
 
-/* ── Helpers ──────────────────────────────────────────────────────── */
+$tax_amount = ($overall_gst_amt > 0) ? $overall_gst_amt : $tax_amount;
 function fmt_date($d)
 {
     return $d ? date('d M Y', strtotime($d)) : '—';
 }
 
-/* ── Build HTML ───────────────────────────────────────────────────── */
-ob_start(); ?>
+ob_start();
+?>
 <!DOCTYPE html>
 <html lang="en">
 
@@ -154,7 +156,6 @@ ob_start(); ?>
         }
 
         .badge-warn {
-            background: #ffeb9c;
             color: #9c6500;
             padding: 1px 6px;
             border-radius: 3px;
@@ -162,7 +163,6 @@ ob_start(); ?>
         }
 
         .badge-appr {
-            background: #c6efce;
             color: #276221;
             padding: 2px 8px;
             font-size: 9pt;
@@ -170,7 +170,6 @@ ob_start(); ?>
         }
 
         .badge-pend {
-            background: #ffeb9c;
             color: #9c6500;
             padding: 2px 8px;
             font-size: 9pt;
@@ -185,10 +184,7 @@ ob_start(); ?>
 </head>
 
 <body>
-
     <h2 class="center"><u>ORDER</u></h2>
-
-    <!-- TO / ORDER META -->
     <table>
         <tr>
             <td colspan="5">
@@ -206,10 +202,7 @@ ob_start(); ?>
                 <?php endif; ?>
             </td>
         </tr>
-
     </table>
-
-    <!-- PRODUCT TABLE -->
     <table>
         <thead>
             <tr>
@@ -244,17 +237,12 @@ ob_start(); ?>
                     <td class="center">
                         <?php if ($dispatched): ?>
                             <span class="badge-ok">Delivered</span>
-                            <?php if (!empty($row['dispatch_date'])): ?>
-                                <br><span class="muted"><?= fmt_date($row['dispatch_date']) ?></span>
-                            <?php endif; ?>
                         <?php else: ?>
                             <span class="badge-warn">Pending</span>
                         <?php endif; ?>
                     </td>
                 </tr>
             <?php endforeach; ?>
-
-            <!-- TOTAL ROW -->
             <tr class="total-row">
                 <td colspan="4" class="right">Total</td>
                 <td class="center"><?= $total_qty ?></td>
@@ -269,6 +257,13 @@ ob_start(); ?>
         <tr>
             <td colspan="11">Remark : <?= htmlspecialchars($remark) ?></td>
         </tr>
+        <?php if ($is_gst == 1) { ?>
+            <tr>
+                <td colspan="11">
+                    GST : Extra @18% </b><br>
+                </td>
+            </tr>
+        <?php } ?>
     </table>
 
     <table style="margin-top:6px; border:none;">

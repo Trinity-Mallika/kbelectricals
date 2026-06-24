@@ -7,58 +7,91 @@ $route_plan_ids = array_map('intval', $route_plan_ids);
 $route_plan_ids_sql = implode(',', $route_plan_ids);
 $companyid     = (int)$_POST['companyid'];
 
-$sql = "
-SELECT
+$sql = "SELECT
     x.sequence,
     x.account_id,
     x.account_name,
     SUM(x.pending_amount) AS pending_amount
 
-FROM (
+FROM
+(
     SELECT
         rc.sequence,
         a.account_id,
         a.account_name,
-
-        (
-            o.grand_total - COALESCE((
-                SELECT SUM(p.grand_total)
-                FROM transaction_entry p
-                WHERE p.ref_bill_id = o.transaction_id
-                  AND p.type = 'payment'
-                  AND p.companyid = '$companyid'
-            ), 0)
-        ) AS pending_amount
+        a.opening_balance AS pending_amount
 
     FROM route_plan rp
 
-    JOIN route_counter rc
+    INNER JOIN route_counter rc
         ON rc.batch_no = rp.batch_no
 
-    JOIN account a
+    INNER JOIN account a
         ON a.account_id = rc.account_id
 
-    JOIN transaction_entry o
+    WHERE rp.route_planid IN ($route_plan_ids_sql)
+      AND rp.companyid = '$companyid'
+      AND rc.companyid = '$companyid'
+      AND rc.is_active = 1
+
+
+    UNION ALL
+
+
+    SELECT
+        rc.sequence,
+        a.account_id,
+        a.account_name,
+        (
+            (
+                CASE
+                    WHEN o.invoice_no IS NOT NULL AND o.invoice_no <> ''
+                    THEN o.invoice_amt
+                    ELSE o.grand_total
+                    AND  o.is_approved=1
+                END
+            )
+            -
+            COALESCE
+            (
+                (
+                    SELECT SUM(p.grand_total)
+                    FROM transaction_entry p
+                    WHERE p.ref_bill_id = o.transaction_id
+                      AND p.type = 'payment'
+                      AND p.companyid = '$companyid'
+                ),
+                0
+            )
+        ) AS pending_amount
+
+    FROM route_plan rp
+    INNER JOIN route_counter rc
+        ON rc.batch_no = rp.batch_no
+    INNER JOIN account a
+        ON a.account_id = rc.account_id
+
+    INNER JOIN transaction_entry o
         ON o.account_id = a.account_id
         AND o.type = 'order'
         AND o.is_approved = '1'
         AND o.companyid = '$companyid'
 
-   WHERE rp.route_planid IN ($route_plan_ids_sql)
+    WHERE rp.route_planid IN ($route_plan_ids_sql)
       AND rp.companyid = '$companyid'
       AND rc.companyid = '$companyid'
       AND rc.is_active = 1
-) x
 
-WHERE x.pending_amount > 0
+) x
 
 GROUP BY
     x.sequence,
     x.account_id,
     x.account_name
 
-ORDER BY x.sequence ASC
-";
+HAVING SUM(x.pending_amount) > 0
+
+ORDER BY x.sequence ASC";
 
 $res = $obj->executequery($sql);
 

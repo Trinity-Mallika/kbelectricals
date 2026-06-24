@@ -2,7 +2,8 @@
 include("../adminsession.php");
 
 $products = json_decode($_POST['products'], true);
-$transaction_id = $_POST['transaction_id']; 
+$transaction_id = $_POST['transaction_id'];
+$account_id = $_POST['account_id'];
 
 foreach ($products as $row) {
 
@@ -24,11 +25,16 @@ foreach ($products as $row) {
 
     $arr = array(
         "tran_detail_id" => $tran_detail_id,
+        "transaction_id" => $transaction_id,
+        "account_id" => $account_id,
         "product_id"     => $product_id,
         "qty"            => $balance_qty,
         "dispatch_date"  => date('Y-m-d'),
         "remarks"        => 'Bulk Dispatch',
         "createdby"      => $_SESSION['userid'],
+        "ipaddress" => $ipaddress,
+        "companyid" => $companyid,
+        "sessionid" => $sessionid,
         "createdate"     => date('Y-m-d H:i:s')
     );
 
@@ -43,7 +49,6 @@ foreach ($products as $row) {
             SET is_dispatched='1'
             WHERE tran_detail_id='$tran_detail_id'
         ");
-
     } else {
 
         $obj->executequery("
@@ -66,7 +71,6 @@ if ($pending_count == 0) {
         SET dispatch_status='1'
         WHERE transaction_id='$transaction_id'
     ");
-
 } else {
     $obj->executequery("
         UPDATE transaction_entry

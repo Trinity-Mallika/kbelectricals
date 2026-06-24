@@ -17,8 +17,13 @@ if (isset($_POST['login'])) {
 	if ($user) {
 		$_SESSION['userid']   = $user['userid'];
 		$_SESSION['usertype'] = $user['usertype'];
-		echo "<script>location='admin/dashboard.php'</script>";
-		exit;
+		if ($user['usertype'] == "admin" || $user['usertype'] == "user") {
+			echo "<script>location='admin/dashboard.php'</script>";
+			exit;
+		} else {
+			echo "<script>location='index.php?msg=invalid'</script>";
+			exit;
+		}
 	}
 
 	echo "<script>location='index.php?msg=error'</script>";

@@ -7,24 +7,22 @@ $start = isset($_POST['start']) ? intval($_POST['start']) : 0;
 $from_date = $_POST['from_date'] ?? '';
 $to_date   = $_POST['to_date'] ?? '';
 
-// 🔥 WHERE CONDITION
 $where = "1=1";
 if (!empty($from_date) && !empty($to_date)) {
     $where .= " AND DATE(d.billdate) BETWEEN '$from_date' AND '$to_date'";
 }
 
-$sql = "
-SELECT 
+$sql = "SELECT 
     d.transaction_id,
     d.billdate,
     d.account_id,
-    d.billno,
+    d.billno, 
     SUM(td.qty) AS total_qty,
     ac.account_name
 FROM transaction_entry d
 LEFT JOIN transaction_details td ON d.transaction_id = td.transaction_id
 LEFT JOIN account ac ON d.account_id = ac.account_id
-WHERE $where AND d.type='Order'
+WHERE $where AND d.type='Order' and d.createdby='$loginid'
 GROUP BY d.transaction_id
 ORDER BY d.transaction_id DESC
 LIMIT $start, $limit

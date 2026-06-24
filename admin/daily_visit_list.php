@@ -199,10 +199,20 @@ if (!empty($account_id)) {
                                             <td><?php echo ucfirst($rowget['remarks']); ?></td>
 
                                             <td>
-                                                <small><?php echo $rowget['address']; ?></small><br>
-                                                <?php if ($rowget['latitude'] != '') { ?>
+                                                <?php if ($rowget['latitude'] != '' && $rowget['latitude'] != '0.00000000') { ?>
+                                                    <strong>In: </strong>
+                                                    <small><?php echo $rowget['address']; ?></small><br>
                                                     <a class="btn btn-sm btn-primary btn-map" target="_blank"
                                                         href="https://www.google.com/maps?q=<?php echo $rowget['latitude']; ?>,<?php echo $rowget['longitude']; ?>">
+                                                        Map
+                                                    </a>
+                                                <?php } ?><br>
+
+                                                <?php if ($rowget['latitude_out'] != '' && $rowget['latitude_out'] != '0.00000000') { ?>
+                                                    <strong>Out: </strong>
+                                                    <small><?php echo $rowget['address_out']; ?></small><br>
+                                                    <a class="btn btn-sm btn-primary btn-map" target="_blank"
+                                                        href="https://www.google.com/maps?q=<?php echo $rowget['latitude_out']; ?>,<?php echo $rowget['longitude_out']; ?>">
                                                         Map
                                                     </a>
                                                 <?php } ?>

@@ -35,9 +35,13 @@ if (!empty($qry)) {
     $billdate   = $sqledit['billdate'];
     $billno     = $sqledit['billno'];
     $total_qty = $sqledit['total_qty'];
+    $grand_total = $sqledit['grand_total'];
     $invoice_no = $sqledit['invoice_no'];
+    $invoice_amt = $sqledit['invoice_amt'];
+    $dispatch_status = $sqledit['dispatch_status'];
     $updateby = $sqledit['updateby'];
     $up_date = $sqledit['up_date'];
+    $is_gst      = $sqledit['is_gst'];
 }
 
 
@@ -102,74 +106,172 @@ if (isset($_REQUEST['dis_trans_details_id'])) {
                                 <?php if ($sqledit['is_approved'] == 1) { ?>
                                     <span class="badge bg-success px-3 py-2 me-2">Approved</span>
                                 <?php } else { ?>
+                                    <a href="order-entry.php?transaction_id=<?php echo $transaction_id; ?>" title="Edit" class="btn btn-sm btn-success me-2"> <i class="bi bi-pencil-square"></i> Edit </a>
+                                    <button type="button"
+                                        class="btn btn-sm btn-danger me-2"
+                                        onclick="funDel('<?= $transaction_id; ?>','<?= $transaction_id; ?>');">
+                                        <i class="bi bi-trash3-fill"></i> Delete
+                                    </button>
                                     <span class="badge bg-warning px-3 py-2 text-dark me-2" style="cursor: pointer;" onclick="order_approve('<?= $transaction_id; ?>')">Click to approve order</span>
                                 <?php } ?>
-                                <a href="javascript:history.back()" class="btn btn-sm btn-danger">Back</a>
+                                <a href="order_list.php" class="btn btn-sm btn-danger">Back</a>
                             </div>
                         </legend>
 
                         <div class="card">
-
                             <div class="card-header text-white">
                                 Order Details
                             </div>
-
                             <div class="card-body">
                                 <div class="row g-3">
+                                    <div class="col-lg-12">
+                                        <div class="card shadow-sm border-0 mb-3">
+                                            <div class="card-body">
 
-                                    <div class="col-md-3">
-                                        <div class="info-box">
-                                            <small>Counter</small>
-                                            <div><?= $account_name ?></div>
-                                        </div>
-                                    </div>
+                                                <div class="row">
 
-                                    <div class="col-md-3">
-                                        <div class="info-box">
-                                            <small>Order No</small>
-                                            <div class="text-primary fw-bold">#<?= $billno ?></div>
-                                        </div>
-                                    </div>
+                                                    <div class="col-md-8">
 
-                                    <div class="col-md-3">
-                                        <div class="info-box">
-                                            <small>Order Date</small>
-                                            <div><?= $obj->dateformatindia($billdate) ?></div>
-                                        </div>
-                                    </div>
+                                                        <h4 class="mb-1">
+                                                            <?= $account_name ?>
+                                                        </h4>
 
-                                    <div class="col-md-3">
-                                        <div class="info-box">
-                                            <small>Total Qty</small>
-                                            <div class="text-success fw-bold"><?= $total_qty ?></div>
-                                        </div>
-                                    </div>
+                                                        <div class="text-muted">
+                                                            <i class="bi bi-telephone"></i>
+                                                            <?= $mobile_no ?>
+                                                        </div>
 
-                                    <div class="col-md-1">
-                                        <div class="info-box d-flex justify-content-between align-items-center">
-                                            <div>
-                                                <small>Invoice No.</small><br>
-                                                <span id="invoice_display">
-                                                    <?php if (!empty($invoice_no)) { ?>
-                                                        <span class="badge bg-info px-3 py-2"><?= htmlspecialchars($invoice_no) ?></span>
-                                                    <?php } else { ?>
-                                                        <span class="badge bg-secondary px-3 py-2">Not Added</span>
-                                                    <?php } ?>
-                                                </span>
+                                                        <div class="mt-2">
+                                                            <span class="badge bg-light text-dark border">
+                                                                Order #<?= $billno ?>
+                                                            </span>
+
+                                                            <span class="badge bg-light text-dark border">
+                                                                <?= $obj->dateformatindia($billdate) ?>
+                                                            </span>
+
+                                                            <span class="badge bg-light text-dark border">
+                                                                Created By- <?= $sqledit['fullname'] ?>
+                                                            </span>
+                                                        </div>
+
+                                                    </div>
+
+                                                    <div class="col-md-4 text-end">
+
+                                                        <div class="h3 text-success mb-0">
+                                                            ₹<?= number_format($grand_total, 2) ?>
+                                                        </div>
+
+                                                        <small class="text-muted">
+                                                            Order Amount
+                                                        </small>
+
+                                                    </div>
+
+                                                </div>
+
                                             </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row g-3 mb-1">
+                                    <div class="col-md-3">
+                                        <div class="card border-0 bg-light">
+                                            <div class="card-body text-center">
+                                                <small class="text-muted">Total Qty</small>
+                                                <h3 class="mb-0 text-success">
+                                                    <?= $total_qty ?>
+                                                </h3>
+                                            </div>
+                                        </div>
+                                    </div>
 
-                                            <?php if ($sqledit['is_approved'] == 1) { ?>
-                                                <button class="btn btn-sm btn-outline-success inv-btn mt-4 ms-2"
-                                                    data-id="<?= $transaction_id ?>"
-                                                    data-order="<?= htmlspecialchars($billno) ?>"
-                                                    data-invoice="<?= htmlspecialchars($invoice_no) ?>">
+                                    <div class="col-md-3">
+                                        <div class="card border-0 bg-light">
+                                            <div class="card-body text-center">
+
+                                                <small class="text-muted d-block mb-2">
+                                                    Invoice No.
+                                                </small>
+
+                                                <div id="invoice_display">
+
                                                     <?php if (!empty($invoice_no)) { ?>
-                                                        <i class="bi bi-pencil-square"></i>
+
+                                                        <span class="badge bg-info fs-6 px-3 py-2">
+                                                            <?= htmlspecialchars($invoice_no) ?>
+
+                                                            <?php if ($sqledit['is_approved'] == 1) { ?>
+                                                                <i class="bi bi-pencil-square ms-2 inv-btn"
+                                                                    style="cursor:pointer"
+                                                                    data-id="<?= $transaction_id ?>"
+                                                                    data-order="<?= htmlspecialchars($billno) ?>"
+                                                                    data-invoice_amt="<?= ($invoice_amt == 0) ? $grand_total : $invoice_amt; ?>"
+                                                                    data-invoice="<?= htmlspecialchars($invoice_no) ?>">
+                                                                </i>
+                                                            <?php } ?>
+
+                                                        </span>
+
                                                     <?php } else { ?>
-                                                        <i class="bi bi-plus-square"></i>
+
+                                                        <span class="badge bg-secondary fs-6 px-3 py-2">
+
+                                                            Not Added
+
+                                                            <?php if ($sqledit['is_approved'] == 1) { ?>
+                                                                <i class="bi bi-plus-circle ms-2 inv-btn"
+                                                                    style="cursor:pointer"
+                                                                    data-id="<?= $transaction_id ?>"
+                                                                    data-order="<?= htmlspecialchars($billno) ?>"
+                                                                    data-invoice_amt="<?= ($invoice_amt == 0) ? $grand_total : $invoice_amt; ?>"
+                                                                    data-invoice="">
+                                                                </i>
+                                                            <?php } ?>
+
+                                                        </span>
+
                                                     <?php } ?>
-                                                </button>
-                                            <?php } ?>
+
+                                                </div>
+
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="card border-0 bg-light">
+                                            <div class="card-body text-center">
+                                                <small class="text-muted">Invoice Amount</small>
+
+                                                <h5 class="mb-0 text-primary">
+                                                    ₹<?= number_format($invoice_amt, 2) ?>
+                                                </h5>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-3">
+                                        <div class="card border-0 bg-light">
+                                            <div class="card-body text-center">
+
+                                                <small class="text-muted">Status</small>
+
+                                                <div class="mt-2">
+
+                                                    <?php if ($sqledit['is_approved'] == 1) { ?>
+                                                        <span class="badge bg-success fs-6">
+                                                            Approved
+                                                        </span>
+                                                    <?php } else { ?>
+                                                        <span class="badge bg-warning text-dark fs-6">
+                                                            Pending
+                                                        </span>
+                                                    <?php } ?>
+
+                                                </div>
+
+                                            </div>
                                         </div>
                                     </div>
 
@@ -178,39 +280,9 @@ if (isset($_REQUEST['dis_trans_details_id'])) {
                         </div>
                     </fieldset>
                 </div>
-
-                <div class="col-lg-12 mt-4">
-                    <div class="card">
-                        <div class="card-header text-white d-flex justify-content-between align-items-center">
-                            <span>Order Product Details</span>
-
-                            
-                            <button type="button"
-                                class="btn btn-sm btn-light text-primary fw-bold"
-                                onclick="bulk_dispatch()">
-                                <i class="bi bi-truck"></i> Click to Dispatch Product
-                            </button>
-                        </div>
-                        <div class="card-body">
-                            <div class="table-responsive">
-                                <table class="table table-bordered table-sm table-hover">
-                                    <thead>
-                                        <th class="text-center">S. No.</th>
-                                        <th>Brand Name</th>
-                                        <th>Category/Product Name</th>
-                                        <th>Unit</th>
-                                        <th>QTY</th>
-                                        <th>rate</th>
-                                        <th class="text-end"> Total</th>
-                                        <th class=""> Dispatch</th>
-                                        <th width="5%">
-                                            <input type="checkbox" id="check_all" title="Select All">
-                                        </th>
-                                    </thead>
-                                    <tbody>
-                                        <?php
-                                        $total = 0;
-                                        $sql = "SELECT 
+                <?php
+                $total = 0;
+                $sql = "SELECT 
     td.*,
     p.product_name,
     b.cat_name AS brand_name,
@@ -228,29 +300,93 @@ LEFT JOIN category_master u
 WHERE td.transaction_id = '$transaction_id'  AND td.type='order'
 ORDER BY td.tran_detail_id DESC
 ";
-                                        $i = 1;
-                                        $res = $obj->executequery($sql);
-                                        $row_count = count($res);
+                $i = 1;
+                $res = $obj->executequery($sql);
+                $row_count = count($res);
+                ?>
+                <div class="col-lg-12 mt-4">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center text-white">
 
+                            <div>
+                                <i class="bi bi-box-seam"></i>
+                                Order Products
+                            </div>
+
+                            <div>
+                                <span class="badge bg-light text-dark me-2">
+                                    <?= $row_count ?> Items
+                                </span>
+
+                                <?php if ($sqledit['is_approved'] == 1) { ?>
+                                    <?php if ($dispatch_status == 0) { ?>
+                                        <button type="button"
+                                            class="btn btn-sm btn-light text-primary fw-bold"
+                                            onclick="bulk_dispatch()">
+                                            <i class="bi bi-truck"></i>
+                                            Dispatch Selected
+                                        </button>
+                                    <?php } ?>
+                                <?php } ?>
+                            </div>
+
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-sm table-hover">
+                                    <thead>
+                                        <th class="text-center">S. No.</th>
+                                        <th>Brand</th>
+                                        <th>Category/Product Name</th>
+                                        <th>Unit</th>
+                                        <th class="text-end">Rate</th>
+                                        <th>Qty</th>
+                                        <th>Discount</th>
+                                        <th class="text-end">Price After Disc.</th>
+                                        <?php if ($is_gst == 0) { ?>
+                                            <th>GST</th>
+                                        <?php } ?>
+                                        <th class="text-end">Total Amount</th>
+                                        <th class=""> Dispatch</th>
+                                        <?php if ($dispatch_status == 0) { ?>
+                                            <th width="5%">
+                                                <input type="checkbox" id="check_all" title="Select All">
+                                            </th>
+                                        <?php } ?>
+                                    </thead>
+                                    <tbody>
+                                        <?php $net_total_amt = 0;
+                                        $colspan = 9;
                                         foreach ($res as $key) {
+                                            $gst_id = $key['gst_id'];
+                                            $sub_total   = (float)$key['sub_total'];
+                                            $gst_name = $obj->getvalfield("gst_master", "gst_name", "gst_id='$gst_id'");
                                         ?>
 
                                             <tr>
-
-                                                <td><?php echo $i++ ?></td>
+                                                <td class="text-center"><?php echo $i++ ?>.</td>
                                                 <td><?php echo $key['brand_name'] ?></td>
-                                                <td>
-                                                    <div class="fw-semibold"><?= $key['product_name'] ?></div>
-                                                    <small class="text-muted"><?= $key['category_name'] ?></small>
+                                                <td><b><?php echo $key['category_name'] ?></b><br><?php echo $key['product_name'] ?></td>
+                                                <td><?php echo $key['unit_name'] ?></td>
+                                                <td class="text-end">Rs. <?php echo $key['rate'] ?></td>
+                                                <td><?php echo $key['qty'] ?></td>
+                                                <td><?php
+                                                    echo (floor($key['discount']) == $key['discount'])
+                                                        ? (int)$key['discount'] . ' %'
+                                                        : $key['discount'] . ' %';
+                                                    ?></td>
+                                                <td class="text-end">Rs. <?php echo $key['price_after_disc'] ?></td>
+                                                <?php if ($is_gst == 0) { ?>
+                                                    <td>
+                                                        <?php
+                                                        echo ($gst_name) ? $gst_name : '0';
+                                                        ?>
+                                                    </td>
+                                                <?php } ?>
+                                                <td class="text-end">
+                                                    Rs. <?php echo number_format($key['net_amt'], 2); ?>
                                                 </td>
-
-                                                <td><?php echo $key['unit_name'] ?> </td>
-                                                <td><?php echo $key['qty'] ?> </td>
-                                                <td><?php echo $key['rate'] ?></td>
-                                                <td class="text-end"><?php echo number_format($key['total_amt'], 2) ?></td>
-
                                                 <td>
-
                                                     <?php if ($key['is_dispatched'] == 0) { ?>
                                                         <span class="badge bg-warning text-dark">Pending</span><br>
                                                         <?php if ($sqledit['is_approved'] == 1) { ?>
@@ -266,30 +402,57 @@ ORDER BY td.tran_detail_id DESC
                                                         <span class="badge bg-success">Delivered</span>
                                                     <?php } ?>
                                                 </td>
-
-                                                <td>
-                                                    <?php if ($sqledit['is_approved'] == 1) { ?>
-                                                        <?php if ($key['is_dispatched'] == 0) { ?>
-                                                            <input type="checkbox"
-                                                                class="dispatch_checkbox"
-                                                                data-tran_detail_id="<?php echo $key['tran_detail_id'] ?>"
-                                                                data-product_id="<?php echo $key['product_id'] ?>"
-                                                                data-qty="<?php echo $key['qty'] ?>">
+                                                <?php if ($dispatch_status == 0) { ?>
+                                                    <td>
+                                                        <?php if ($sqledit['is_approved'] == 1) { ?>
+                                                            <?php if ($key['is_dispatched'] == 0) { ?>
+                                                                <input type="checkbox"
+                                                                    class="dispatch_checkbox"
+                                                                    data-tran_detail_id="<?php echo $key['tran_detail_id'] ?>"
+                                                                    data-product_id="<?php echo $key['product_id'] ?>"
+                                                                    data-qty="<?php echo $key['qty'] ?>">
+                                                            <?php } ?>
                                                         <?php } ?>
-                                                    <?php } ?>
-                                                </td>
+                                                    </td>
+                                                <?php
+                                                } ?>
                                             </tr>
-                                        <?php
-                                            $total += $key['total_amt'];
+                                        <?php $net_total_amt += $key['net_amt'];
+                                            if ($is_gst == "1") {
+                                                $gst_percent = 18;
+                                                $cgst = ($net_total_amt * 9) / 100;
+                                                $sgst = ($net_total_amt * 9) / 100;
+                                                $gst_total = $cgst + $sgst;
+                                                $grand_total = $net_total_amt + $gst_total;
+                                            } else {
+                                                $cgst = 0;
+                                                $sgst = 0;
+                                                $gst_total = 0;
+                                                $grand_total = $net_total_amt;
+                                            }
                                         } ?>
                                     </tbody>
                                     <tfoot>
                                         <tr>
-                                            <td colspan="6" class="fw-bold text-end">Grand Total</td>
-                                            <td class="text-end"><?php echo number_format($total, 2) ?></td>
-                                            <td></td>
-                                            <td></td>
+                                            <th colspan="<?= $colspan - $is_gst ?>" class="text-end">Net Total</th>
+                                            <th class="text-end">Rs. <?php echo number_format(round($net_total_amt), 2); ?></th>
+                                            <th></th>
+                                            <th></th>
                                         </tr>
+                                        <?php if ($is_gst == "1") { ?>
+                                            <tr>
+                                                <th colspan="<?= $colspan - $is_gst ?>" class="text-end">GST @ 18%</th>
+                                                <th class="text-end">Rs. <?php echo number_format(round($gst_total), 2); ?></th>
+                                                <th></th>
+                                                <th></th>
+                                            </tr>
+                                            <tr>
+                                                <th colspan="<?= $colspan - $is_gst ?>" class="text-end">Grand Total</th>
+                                                <th class="text-end">Rs. <?php echo number_format(round($grand_total), 2); ?></th>
+                                                <th></th>
+                                                <th></th>
+                                            </tr>
+                                        <?php } ?>
                                     </tfoot>
                                 </table>
                             </div>
@@ -297,111 +460,114 @@ ORDER BY td.tran_detail_id DESC
                     </div>
                 </div>
             </div>
+            <!-- Content close-->
         </div>
-        <!-- Content close-->
-    </div>
 
-    <div class="modal fade" id="dispatchModal" tabindex="-1">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content">
+        <div class="modal fade" id="dispatchModal" tabindex="-1">
+            <div class="modal-dialog modal-lg modal-dialog-centered">
+                <div class="modal-content">
 
-                <div class="modal-header">
-                    <h5 class="modal-title">
-                        <i class="bi bi-truck"></i> Product Dispatch
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="dispatchForm">
-                        <input type="hidden" name="tran_detail_id" id="tran_detail_id">
-                        <input type="hidden" name="product_id" id="product_id">
-                        <div class="dispatch-box mb-3">
-                            <div class="row g-3">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="bi bi-truck"></i> Product Dispatch
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="dispatchForm">
+                            <input type="hidden" name="tran_detail_id" id="tran_detail_id">
+                            <input type="hidden" name="product_id" id="product_id">
+                            <div class="dispatch-box mb-3">
+                                <div class="row g-3">
 
-                                <div class="col-md-8">
-                                    <label class="form-label">Product</label>
-                                    <input type="text" id="product_name"
-                                        class="form-control" readonly>
-                                </div>
+                                    <div class="col-md-8">
+                                        <label class="form-label">Product</label>
+                                        <input type="text" id="product_name"
+                                            class="form-control" readonly>
+                                    </div>
 
-                                <div class="col-md-4">
-                                    <label class="form-label">Dispatch Date</label>
-                                    <input type="date" name="dispatch_date"
-                                        value="<?= date('Y-m-d') ?>"
-                                        class="form-control" readonly>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Dispatch Date</label>
+                                        <input type="date" name="dispatch_date"
+                                            value="<?= date('Y-m-d') ?>"
+                                            class="form-control" readonly>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        <div class="dispatch-box mb-3">
-                            <div class="row g-3">
-                                <div class="col-md-4">
-                                    <label class="form-label">Order Qty</label>
-                                    <input type="text" id="order_qty"
-                                        class="form-control text-center bg-light" readonly>
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label">Balance Qty</label>
-                                    <input type="text" id="balance_qty"
-                                        class="form-control text-center bg-light" readonly>
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label fw-bold text-primary">Dispatch Qty</label>
-                                    <input type="number" name="dispatch_qty"
-                                        id="dispatch_qty"
-                                        class="form-control text-center border-primary"
-                                        placeholder="Enter Qty"
-                                        required>
-                                </div>
+                            <div class="dispatch-box mb-3">
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <label class="form-label">Order Qty</label>
+                                        <input type="text" id="order_qty"
+                                            class="form-control text-center bg-light" readonly>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Balance Qty</label>
+                                        <input type="text" id="balance_qty"
+                                            class="form-control text-center bg-light" readonly>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label fw-bold text-primary">Dispatch Qty</label>
+                                        <input type="number" name="dispatch_qty"
+                                            id="dispatch_qty"
+                                            class="form-control text-center border-primary"
+                                            placeholder="Enter Qty"
+                                            required>
+                                    </div>
 
+                                </div>
                             </div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Remarks</label>
-                            <textarea name="remarks"
-                                id="remarks"
-                                class="form-control"
-                                rows="2"
-                                placeholder="Optional remarks..."></textarea>
-                        </div>
-                        <div class="text-center">
-                            <button type="button"
-                                class="btn btn-primary px-3"
-                                onclick="save_dispatch()">
-                                <i class="bi bi-check-circle"></i> Save
-                            </button>
-                        </div>
-                    </form>
-                    <hr>
-                    <h6 class="fw-bold mb-2">Dispatch History</h6>
-                    <div id="dispatch_history" class="history-box"></div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="modal fade" id="invoiceModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="invoiceModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h1 class="modal-title fs-5" id="invoiceModalLabel">Add Invoice No. For <span id="order_ref"></span></h1>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="row">
-                        <div class="col-lg-12">
-                            <strong><label for="">Invoice No.</label><span class="text-danger fw-bold">*</span></strong>
-                            <input type="text" id="invoice_no" class="form-control" placeholder="Enter Invoice No." autocomplete="off">
-                        </div>
+                            <div class="mb-3">
+                                <label class="form-label">Remarks</label>
+                                <textarea name="remarks"
+                                    id="remarks"
+                                    class="form-control"
+                                    rows="2"
+                                    placeholder="Optional remarks..."></textarea>
+                            </div>
+                            <div class="text-center">
+                                <button type="button"
+                                    class="btn btn-primary px-3"
+                                    onclick="save_dispatch()">
+                                    <i class="bi bi-check-circle"></i> Save
+                                </button>
+                            </div>
+                        </form>
+                        <hr>
+                        <h6 class="fw-bold mb-2">Dispatch History</h6>
+                        <div id="dispatch_history" class="history-box"></div>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <input type="hidden" id="transaction_id">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    <button type="button" class="btn btn-primary" onclick="save_invoice();">Save</button>
+            </div>
+        </div>
+
+        <div class="modal fade" id="invoiceModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="invoiceModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h1 class="modal-title fs-5" id="invoiceModalLabel">Add Invoice No. For <span id="order_ref"></span></h1>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-lg-12">
+                                <strong><label for="">Invoice No.</label><span class="text-danger fw-bold">*</span></strong>
+                                <input type="text" id="invoice_no" class="form-control" placeholder="Enter Invoice No." autocomplete="off">
+                            </div>
+                            <div class="col-lg-12">
+                                <strong><label for="">Invoice Amt</label><span class="text-danger fw-bold">*</span></strong>
+                                <input type="number" id="invoice_amt" class="form-control" placeholder="Enter Invoice Amt" autocomplete="off">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <input type="hidden" id="transaction_id">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-primary" onclick="save_invoice();">Save</button>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
 </body>
 
 <!-- script tag -->
@@ -416,22 +582,25 @@ ORDER BY td.tran_detail_id DESC
         let id = $(this).data('id');
         let order = $(this).data('order');
         let invoice = $(this).data('invoice');
+        let invoice_amt = $(this).data('invoice_amt');
 
-        add_invoice(id, order, invoice);
+        add_invoice(id, order, invoice, invoice_amt);
     });
 
-    function add_invoice(transaction_id, order_no, invoice = '') {
+    function add_invoice(transaction_id, order_no, invoice = '', invoice_amt) {
         $('#invoiceModal').modal('show');
 
         $('#transaction_id').val(transaction_id);
         $('#order_ref').text(order_no);
 
         $('#invoice_no').val(invoice).focus();
+        $('#invoice_amt').val(invoice_amt).focus();
     }
 
     function save_invoice() {
         let id = $('#transaction_id').val();
         let invoice = $('#invoice_no').val().trim();
+        let invoice_amt = $('#invoice_amt').val().trim();
 
         if (invoice === '') {
             alert('Invoice No. is required');
@@ -444,7 +613,8 @@ ORDER BY td.tran_detail_id DESC
             type: 'POST',
             data: {
                 transaction_id: id,
-                invoice_no: invoice
+                invoice_no: invoice,
+                invoice_amt: invoice_amt
             },
             beforeSend: function() {
                 $('#invoiceModal .btn-primary').prop('disabled', true).text('Saving...');
@@ -642,7 +812,7 @@ ORDER BY td.tran_detail_id DESC
 
         let approve = parseInt('<?= $sqledit['is_approved']; ?>') || 0;
         let transaction_id = parseInt('<?= $sqledit['transaction_id']; ?>') || 0;
-
+        var account_id = '<?php echo $account_id ?>';
         if (approve !== 1) {
             swal({
                 title: "Warning",
@@ -687,7 +857,8 @@ ORDER BY td.tran_detail_id DESC
                 type: "POST",
                 data: {
                     products: JSON.stringify(products),
-                    transaction_id
+                    transaction_id,
+                    account_id
                 },
 
                 beforeSend: function() {

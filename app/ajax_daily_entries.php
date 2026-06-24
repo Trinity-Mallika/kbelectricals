@@ -26,9 +26,9 @@ if (!$res || count($res) == 0) {
 }
 
 foreach ($res as $key) {
-    $day   = date('d', strtotime($key['follow_up_date']));
-    $month = date('M', strtotime($key['follow_up_date']));
-    $year  = date('Y', strtotime($key['follow_up_date']));
+    $day   = date('d', strtotime($key['createdate']));
+    $month = date('M', strtotime($key['createdate']));
+    $year  = date('Y', strtotime($key['createdate']));
 ?>
 
     <div class="entry-card">

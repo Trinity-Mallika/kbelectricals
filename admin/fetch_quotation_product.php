@@ -4,6 +4,7 @@ $grand_total = 0;
 $account_id = isset($_REQUEST['account_id']) ? $obj->test_input($_REQUEST['account_id']) : 0;
 $company_id = isset($_REQUEST['company_id']) ? $obj->test_input($_REQUEST['company_id']) : 0;
 $transaction_id = isset($_REQUEST['transaction_id']) ? $obj->test_input($_REQUEST['transaction_id']) : 0;
+$is_gst = isset($_REQUEST['is_gst']) ? $obj->test_input($_REQUEST['is_gst']) : 0;
 $type = isset($_REQUEST['type']) ? $obj->test_input($_REQUEST['type']) : '';
 $btn_name = ($obj->test_input($_REQUEST['transaction_id'])) ? 'Update' : 'Save';
 
@@ -12,11 +13,12 @@ if ($transaction_id > 0) {
     $cgst = $trasc_data['cgst'];
     $sgst = $trasc_data['sgst'];
     $gst_percent = $trasc_data['gst_percent'];
-
     $grand_total = $trasc_data['grand_total'];
     $net_total_amt = $trasc_data['net_total_amt'];
+    $selected_columns = !empty($trasc_data['print_columns']) ? explode(',', $trasc_data['print_columns']) : [];
 } else {
     $gst_percent = 0;
+    $selected_columns = [];
 }
 ?>
 <div class="table-responsive">
@@ -26,13 +28,45 @@ if ($transaction_id > 0) {
             <th>Brand</th>
             <th>Category/Product Name</th>
             <th>Unit</th>
-            <th>MRP</th>
-            <th>Qty</th>
-            <th>Discount</th>
-            <th>Price After Disc.</th>
-            <th>GST</th>
-            <th>TaxType</th>
-            <th>Net Total</th>
+            <th>
+                <label>
+                    <input type="checkbox" name="print_columns[]" value="mrp" <?= in_array('mrp', $selected_columns) ? 'checked' : '' ?>>
+                    MRP
+                </label>
+            </th>
+
+            <th>
+                <label>
+                    <input type="checkbox" name="print_columns[]" value="qty" <?= in_array('qty', $selected_columns) ? 'checked' : '' ?>>
+                    Qty
+                </label>
+            </th>
+
+            <th>
+                <label>
+                    <input type="checkbox" name="print_columns[]" value="discount" <?= in_array('discount', $selected_columns) ? 'checked' : '' ?>>
+                    Discount
+                </label>
+            </th>
+
+            <th>
+                <label>
+                    <input type="checkbox" name="print_columns[]" value="price_after_disc" <?= in_array('price_after_disc', $selected_columns) ? 'checked' : '' ?>>
+                    Price After Disc.
+                </label>
+            </th>
+
+            <?php if ($is_gst == 0) { ?>
+                <th>
+                    <label>
+                        <input type="checkbox" name="print_columns[]" value="net_price" <?= in_array('net_price', $selected_columns) ? 'checked' : '' ?>>
+                        Net Price After Disc.
+                    </label>
+                </th>
+            <?php } ?>
+
+            <th> <?php echo ($is_gst == 0) ? "Net Total" : "Total Value"; ?></th>
+            <th>Delivery</th>
             <th class="text-center">Action</th>
         </thead>
         <tbody>
@@ -41,6 +75,7 @@ if ($transaction_id > 0) {
             $cgst = 0;
             $sgst = 0;
             $i = 1;
+            $colspan = 9;
             $net_total_amt = 0;
             $sql = "SELECT td.*,p.product_name,b.cat_name AS brand_name,u.cat_name AS unit_name,c.cat_name AS category_name FROM transaction_details td
 LEFT JOIN product_master p ON p.product_id = td.product_id LEFT JOIN category_master b ON b.cat_id = td.brand_id AND b.type='brand' LEFT JOIN category_master c
@@ -51,37 +86,34 @@ LEFT JOIN product_master p ON p.product_id = td.product_id LEFT JOIN category_ma
             if ($count > 0) {
                 foreach ($res as $key) {
                     $gst_id = $key['gst_id'];
+                    $sub_total   = (float)$key['sub_total'];
                     $gst_name = $obj->getvalfield("gst_master", "gst_name", "gst_id='$gst_id'");
+                    $gst_percent = $obj->getvalfield("gst_master", "gst_percent", "gst_id='{$key['gst_id']}'");
+                    $nettotal = ($is_gst == 1) ? $key['total_amt'] : $key['net_amt'];
             ?>
-                    <tr>
+                    <tr data-subtotal="<?= $sub_total ?>" data-gst-percent="<?= $gst_percent ?>">
                         <td class="text-center"><?php echo $i++ ?>.</td>
                         <td><?php echo $key['brand_name'] ?></td>
                         <td><b><?php echo $key['category_name'] ?></b><br><?php echo $key['product_name'] ?></td>
                         <td><?php echo $key['unit_name'] ?></td>
                         <td class="text-end"><?php echo $key['rate'] ?></td>
-                        <td ><?php echo $key['qty'] ?></td>
+                        <td><?php echo $key['qty'] ?></td>
                         <td class="text-end"><?php
-                            echo (floor($key['discount']) == $key['discount'])
-                                ? (int)$key['discount'] . ' %'
-                                : $key['discount'] . ' %';
-                            ?></td>
+                                                echo (floor($key['discount']) == $key['discount'])
+                                                    ? (int)$key['discount'] . ' %'
+                                                    : $key['discount'] . ' %';
+                                                ?></td>
                         <td class="text-end"><?php echo $key['price_after_disc'] ?></td>
-                        <td>
-                            <?php
-                            echo ($gst_name) ? $gst_name : '0';
-                            ?>
-                        </td>
-
-                        <td>
-                            <?php
-                            echo ($gst_name) ? ucfirst($key['taxtype']) : '';
-                            ?>
-                        </td>
-
+                        <?php if ($is_gst == 0) { ?>
+                            <td class="text-end">
+                                <?php echo number_format($key['price_after_disc'] * 1.18, 2); ?>
+                            </td>
+                        <?php } ?>
                         <td class="text-end">
-                            <?php echo number_format($key['net_amt'], 2); ?>
+                            <?php echo number_format($nettotal, 2); ?>
                         </td>
-                        <td><a class="btn btn-success btn-sm" onclick="EditProduct(
+                        <td><?= $key['ready_stock'] ? 'Ready stock' : $key['delivery_status'] ?></td>
+                        <td class="text-center"><a class="btn btn-success btn-sm" onclick="EditProduct(
                     '<?php echo $key['brand_id'] ?>',
                     '<?php echo $key['category_id'] ?>',
                     '<?php echo $key['product_id'] ?>',
@@ -91,6 +123,7 @@ LEFT JOIN product_master p ON p.product_id = td.product_id LEFT JOIN category_ma
                     '<?php echo $key['rate'] ?>',
                     '<?php echo $key['sub_total'] ?>',
                     '<?php echo $key['discount'] ?>',
+                    '<?php echo $key['ready_stock'] ?>',
                     '<?php echo $key['delivery_status'] ?>',
                     '<?php echo $key['total_amt'] ?>',
                     '<?php echo $key['tran_detail_id'] ?>',
@@ -98,26 +131,46 @@ LEFT JOIN product_master p ON p.product_id = td.product_id LEFT JOIN category_ma
                     '<?php echo $key['taxtype'] ?>',
                    '<?php echo $key['net_amt'] ?>'
                 );"><i class="bi bi-pencil"></i></a>
-                            <a href="" class="btn btn-danger btn-sm" onclick="delete_record('<?php echo $key['tran_detail_id'] ?>');"><i class="bi bi-trash"></i></a>
+                            <a href="javascript:void(0)" class="btn btn-danger btn-sm" onclick="delete_record('<?php echo $key['tran_detail_id'] ?>');"><i class="bi bi-trash"></i></a>
                         </td>
 
                     </tr>
-                <?php $net_total_amt += $key['net_amt'];
+                <?php $net_total_amt += $nettotal;
                     $cgst = $net_total_amt * 0.09;
                     $sgst = $net_total_amt * 0.09;
                     $gst_total = $cgst + $sgst;
-                    $grand_total = $net_total_amt + ($net_total_amt * 0.18);
+                    $grand_total = $net_total_amt + $gst_total;
                 } ?>
 
         </tbody>
 
         <tfoot>
             <tr>
-                <th colspan="9" class="text-end">Net Total</th>
-                <th id="net_total_display" class="text-end"><?php echo number_format(round($net_total_amt), 2); ?></th>
+                <th colspan="<?= $colspan - $is_gst; ?>" class="text-end"><?php echo ($is_gst == 0) ? "Net Total" : "Total Basic Value"; ?></th>
+                <th id="net_total_display" class="text-end"><?php echo number_format($net_total_amt, 2); ?></th>
                 <th></th>
                 <th></th>
             </tr>
+            <?php if ($is_gst == 1) { ?>
+                <tr>
+                    <th colspan="<?= $colspan - $is_gst; ?>" class="text-end">SGST @ 9%</th>
+                    <th class="text-end">Rs. <?php echo number_format(round($cgst), 2); ?></th>
+                    <th></th>
+                    <th></th>
+                </tr>
+                <tr>
+                    <th colspan="<?= $colspan - $is_gst; ?>" class="text-end">CGST @ 9%</th>
+                    <th class="text-end">Rs. <?php echo number_format(round($sgst), 2); ?></th>
+                    <th></th>
+                    <th></th>
+                </tr>
+                <tr>
+                    <th colspan="<?= $colspan - $is_gst; ?>" class="text-end">Grand Total(inc. GST)</th>
+                    <th class="text-end">Rs. <?php echo number_format(round($grand_total), 2); ?></th>
+                    <th></th>
+                    <th></th>
+                </tr>
+            <?php } ?>
         </tfoot>
     <?php } ?>
     </table>

@@ -392,7 +392,8 @@ if (isset($_GET[$tblpkey])) {
 
     $(document).ready(function() {
         $(".chosen-select").chosen();
-        $('#example').DataTable();
+
+
     });
 </script>
 

@@ -21,11 +21,13 @@ ORDER BY td.scheme_details_id DESC
 $rows  = $obj->executequery($sql);
 $count = count($rows);
 
-function e($val) {
+function e($val)
+{
     return htmlspecialchars($val ?? '');
 }
 
-function formatUnit($qty, $type) {
+function formatUnit($qty, $type)
+{
     return $type === 'qty_wise'
         ? "$qty Qty"
         : ($type === 'amt_wise' ? "$qty Rs." : $qty);
@@ -45,57 +47,58 @@ function formatUnit($qty, $type) {
         </thead>
 
         <tbody>
-        <?php if ($count > 0): ?>
-            <?php $i = 1; foreach ($rows as $row): ?>
-                <tr>
-                    <td class="text-center"><?= $i++ ?></td>
+            <?php if ($count > 0): ?>
+                <?php $i = 1;
+                foreach ($rows as $row): ?>
+                    <tr>
+                        <td class="text-center"><?= $i++ ?></td>
 
-                    <td><?= e($row['product_name']) ?></td>
+                        <td><?= e($row['product_name']) ?></td>
 
-                    <td><?= formatUnit($row['qty'], $row['scheme_type']) ?></td>
+                        <td><?= formatUnit($row['qty'], $row['scheme_type']) ?></td>
 
-                    <td><?= e($row['output']) ?></td>
+                        <td><?= e($row['output']) ?></td>
 
-                    <td class="text-center">
-                        <button 
-                            class="btn btn-success btn-sm"
-                            onclick="EditProduct(
+                        <td class="text-center">
+                            <button
+                                class="btn btn-success btn-sm"
+                                onclick="EditProduct(
                                 '<?= e($row['product_id']) ?>',
                                 '<?= e($row['qty']) ?>',
                                 '<?= e($row['output']) ?>',
                                 '<?= e($row['scheme_details_id']) ?>'
                             )">
-                            <i class="bi bi-pencil"></i>
-                        </button>
+                                <i class="bi bi-pencil"></i>
+                            </button>
 
-                        <button 
-                            class="btn btn-danger btn-sm"
-                            onclick="delete_record('<?= e($row['scheme_details_id']) ?>')">
-                            <i class="bi bi-trash"></i>
-                        </button>
+                            <button
+                                class="btn btn-danger btn-sm"
+                                onclick="delete_record('<?= e($row['scheme_details_id']) ?>')">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+
+            <?php else: ?>
+                <tr>
+                    <td colspan="5" class="text-center text-muted">
+                        No records found
                     </td>
                 </tr>
-            <?php endforeach; ?>
-
-        <?php else: ?>
-            <tr>
-                <td colspan="5" class="text-center text-muted">
-                    No records found
-                </td>
-            </tr>
-        <?php endif; ?>
+            <?php endif; ?>
         </tbody>
     </table>
 </div>
 
 <div class="col-md-2 m-2">
-    <input 
+    <input
         type="submit"
+        name="submit"
+        value="<?= $btn_name ?>"
         onclick="return checkinputmaster('scheme_name,from_date,todate,scheme_type');"
         class="btn btn-theme btn-sm"
-        value="<?= $btn_name ?>"
-        <?= $count ? "" : "disabled" ?>
-    >
+        <?= $count ? "" : "disabled" ?>>
 
     <a href="scheme_entry.php" class="btn btn-danger btn-sm">Reset</a>
 </div>

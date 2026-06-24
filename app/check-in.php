@@ -22,8 +22,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $area_id = $obj->test_input($_POST['area_id']);
         $common_id = $obj->test_input($_POST['common_id']);
         $class = $obj->test_input($_POST['class']);
+        $owner_name       = $obj->test_input($_POST['owner_name'] ?? '');
+        $owner_mobile     = $obj->test_input($_POST['owner_mobile'] ?? '');
+        $latitude         = $obj->test_input($_POST['latitude'] ?? '');
+        $longitude        = $obj->test_input($_POST['longitude'] ?? '');
+        $location_address = $obj->test_input($_POST['location_address'] ?? '');
 
-        $type = ($common_id == -1) ? "employee" : "customer";
+        $type = "customer";
 
         if ($account_name == "" || $area_id == "" || $class == "") {
             echo "error";
@@ -42,20 +47,44 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             exit;
         }
 
+        $counter_image = '';
+        $visiting_image = '';
+
+        if (!empty($_FILES['counter_image']['tmp_name'])) {
+            $counter_image = $obj->uploadImage(
+                "../admin/uploaded/accounts/",
+                $_FILES['counter_image']
+            );
+        }
+
+        if (!empty($_FILES['visiting_image']['tmp_name'])) {
+            $visiting_image = $obj->uploadImage(
+                "../admin/uploaded/accounts/",
+                $_FILES['visiting_image']
+            );
+        }
+
         $form_data = [
-            'account_name' => $account_name,
-            'mobile_no' => $mobile_no,
-            'address' => $address,
-            'common_id' => $common_id,
-            'area_id' => $area_id,
-            'class' => $class,
-            'status' => "inactive",
-            'type' => $type,
-            'status1' => 0,
-            'createdby' => $loginid,
-            'companyid' => $companyid,
-            'ipaddress' => $ipaddress,
-            'createdate' => date('Y-m-d H:i:s')
+            'account_name'      => $account_name,
+            'mobile_no'         => $mobile_no,
+            'owner_name'        => $owner_name,
+            'o_mobile_no'      => $owner_mobile,
+            'address'           => $address,
+            'common_id'         => $common_id,
+            'area_id'           => $area_id,
+            'class'             => $class,
+            'latitude'          => $latitude,
+            'longitude'         => $longitude,
+            'location_address'  => $location_address,
+            'status'            => 'inactive',
+            'type'              => $type,
+            'status1'           => 0,
+            'createdby'         => $loginid,
+            'companyid'         => $companyid,
+            'ipaddress'         => $ipaddress,
+            'createdate' => date('Y-m-d H:i:s'),
+            'counter_image'     => $counter_image,
+            'visiting_image'    => $visiting_image,
         ];
 
         // INSERT INTO ACCOUNT
@@ -63,23 +92,24 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
         if ($account_id > 0) {
 
-            // AUTO SEQUENCE
-            $sequence = $obj->getvalfield(
-                "route_counter",
-                "IFNULL(MAX(sequence),0)+1",
-                "batch_no='$batch_no'"
-            );
+            if ($batch_no != '') {
 
-            // INSERT INTO ROUTE COUNTER
-            $obj->insert_record("route_counter", [
-                'batch_no' => $batch_no,
-                'account_id' => $account_id,
-                'sequence' => $sequence,
-                'createdate' => date('Y-m-d H:i:s'),
-                'ipaddress' => $ipaddress,
-                'companyid' => $companyid,
-                'createdby' => $loginid
-            ]);
+                $sequence = $obj->getvalfield(
+                    "route_counter",
+                    "IFNULL(MAX(sequence),0)+1",
+                    "batch_no='$batch_no'"
+                );
+
+                $obj->insert_record("route_counter", [
+                    'batch_no' => $batch_no,
+                    'account_id' => $account_id,
+                    'sequence' => $sequence,
+                    'createdate' => date('Y-m-d H:i:s'),
+                    'ipaddress' => $ipaddress,
+                    'companyid' => $companyid,
+                    'createdby' => $loginid
+                ]);
+            }
             echo "success";
         } else {
             echo "error";
@@ -99,13 +129,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         exit;
     }
 
-    // $openVisit = $obj->getvalfield(
-    //     "daily_entries",
-    //     "visit_id",
-    //     "createdby='$loginid'
-    //      AND visit_status='checked_in'
-    //      AND companyid='$companyid'"
-    // );
 
     $openVisit = $obj->getvalfield(
         "daily_entries",
@@ -120,21 +143,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         echo "open_visit";
         exit;
     }
-
-    // $exists = $obj->getvalfield(
-    //     "daily_entries",
-    //     "count(*)",
-    //     "account_id='$account_id'
-    //      AND createdby='$loginid'
-    //      AND DATE(createdate)=CURDATE()
-    //      AND companyid='$companyid'"
-    // );
-
-    // if ($exists > 0) {
-    //     echo "duplicate";
-    //     exit;
-    // }
-
 
 
     $createdate = date('Y-m-d H:i:s');
@@ -365,102 +373,117 @@ $openVisit = $obj->executequery("
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="row">
-                        <div class="col-lg-3 mb-2">
-                            <label for="" class="form-label"> Route Name<span class="text-danger fw-bold">*</span>
-                            </label>
-                            <select name="route_planid" id="route_planid"
-                                class="chosen-select form-control form-control-sm">
-                                <option value="">--Select Route Name--</option>
+                    <div class="row g-2">
+                        <div class="col-lg-12 col-12">
+                            <label class="form-label form-label-sm">Counter Type <span class="text-danger">*</span></label>
+                            <select id="common_id" class="chosen-select form-control form-control-sm" onchange="toggleFields(this.value)">
+                                <option value="">-- Select --</option>
                                 <?php
-
-
-                                $sql = $obj->executequery("SELECT
-                                        R.batch_no,
-                                        R.route_name,
-                                        GROUP_CONCAT(
-                                        R.day_of_week
-                                        ORDER BY FIELD(
-                                        day_of_week,
-                                        'Monday',
-                                        'Tuesday',
-                                        'Wednesday',
-                                        'Thursday',
-                                        'Friday',
-                                        'Saturday'
-                                        )
-                                        SEPARATOR ', '
-                                        ) AS days
-                                        FROM route as R left join route_plan as RP on R.batch_no=RP.batch_no
-                                        WHERE R.companyid='$companyid' AND RP.sales_executive_id='$loginid'
-                                        GROUP BY R.batch_no, R.route_name
-                                        ORDER BY R.route_name ASC
-                                        ");
-
-                                foreach ($sql as $key) { ?>
-                                    <option value="<?= $key['batch_no'] ?>"><?= $key['route_name'] ?> [<?= $key['days'] ?>]
+                                $sql = $obj->executequery("SELECT common_id, common_name FROM common_master WHERE type='acc_type' ORDER BY common_id ASC");
+                                foreach ($sql as $k): ?>
+                                    <option value="<?= $k['common_id'] ?>">
+                                        <?= htmlspecialchars($k['common_name']) ?>
                                     </option>
-                                <?php } ?>
+                                <?php endforeach; ?>
                             </select>
-                            <script>
-                                document.getElementById('route_planid').value = '<?php echo $route_plan_id; ?>';
-                            </script>
                         </div>
 
-                        <div class="col-lg-3 mb-2">
-                            <label for="" class="form-label">Counter Name <span
-                                    class="text-danger fw-bold">*</span></label>
-                            <input type="text" class="form-control shadow-sm" id="account_name" name="account_name"
-                                placeholder="Enter Counter Name">
+                        <div class="col-lg-12 col-12" id="route_div">
+                            <label class="form-label form-label-sm">Route Name <span class="text-danger">*</span></label>
+                            <select name="route_planid" id="route_planid" class="chosen-select form-control form-control-sm">
+                                <option value="">-- Select Route --</option>
+                                <?php
+                                $sql = $obj->executequery("
+                                SELECT R.batch_no, R.route_name,
+                                    GROUP_CONCAT(R.day_of_week
+                                        ORDER BY FIELD(day_of_week,'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday')
+                                        SEPARATOR ', ') AS days
+                                FROM route R
+                                LEFT JOIN route_plan RP ON R.batch_no = RP.batch_no
+                                WHERE R.companyid = '$companyid' AND RP.sales_executive_id = '$loginid'
+                                GROUP BY R.batch_no, R.route_name
+                                ORDER BY R.route_name ASC
+                            ");
+                                foreach ($sql as $k): ?>
+                                    <option value="<?= $k['batch_no'] ?>">
+                                        <?= htmlspecialchars($k['route_name']) ?> [<?= htmlspecialchars($k['days']) ?>]
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
                         </div>
-                        <div class="col-lg-3 mb-2">
-                            <label for="" class="form-label">Mobile Number <span
-                                    class="text-danger fw-bold"></span></label>
-                            <input type="text" class="form-control shadow-sm" id="mobile_no" name="mobile_no"
-                                placeholder="Enter Mobile Number" maxlength="10" pattern="[0-9]{10}"
-                                oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0,10);">
+
+                        <div class="col-lg-12 col-12">
+                            <label class="form-label form-label-sm">Area <span class="text-danger">*</span></label>
+                            <select name="area_id" id="area_id" class="chosen-select form-control form-control-sm">
+                                <option value="">-- Select Area --</option>
+                                <?php
+                                $sql = $obj->executequery("SELECT area_id, area_name FROM area_master ORDER BY area_name ASC");
+                                foreach ($sql as $k): ?>
+                                    <option value="<?= $k['area_id'] ?>">
+                                        <?= htmlspecialchars($k['area_name']) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
                         </div>
-                        <div class="col-lg-3 mb-2">
-                            <label for="" class="form-label"> Class <span class="text-danger fw-bold">*</span></label>
+
+                        <div class="col-lg-12 col-12">
+                            <label class="form-label form-label-sm">Class <span class="text-danger">*</span></label>
                             <select name="class" id="class" class="form-control form-control-sm">
-                                <option value="">--Select Class--</option>
+                                <option value="">-- Select Class --</option>
                                 <option value="A">A</option>
                                 <option value="B">B</option>
                                 <option value="C">C</option>
                             </select>
                         </div>
-                        <div class="col-lg-3 mb-2">
-                            <label for="" class="form-label"> Area <span class="text-danger fw-bold">*</span></label>
-                            <select name="area_id" id="area_id" class="chosen-select  form-control form-control-sm">
-                                <option value="">--Select Area--</option>
-                                <?php
-                                $sql = $obj->executequery("select area_id,area_name from area_master order by area_name asc ");
-                                foreach ($sql as $key) {
-                                ?>
-                                    <option value="<?= $key['area_id'] ?>"><?= $key['area_name'] ?></option>
-                                <?php } ?>
-                            </select>
+
+                        <div class="col-lg-12 col-12 mb-1">
+                            <label class="form-label form-label-sm">Counter Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-sm" id="account_name" name="account_name"
+                                placeholder="Enter Counter Name">
                         </div>
-                        <div class="col-lg-3 mb-2">
-                            <label for="" class="form-label"> Counter Type</label>
-                            <select name="common_id" id="common_id" class="chosen-select  form-control form-control-sm">
-                                <option value="">--Select Counter Type--</option>
-                                <?php
-                                $sql = $obj->executequery("select common_id,common_name from common_master where type='acc_type' order by common_id asc ");
-                                foreach ($sql as $key) {
-                                ?>
-                                    <option value="<?= $key['common_id'] ?>"><?= $key['common_name'] ?></option>
-                                <?php } ?>
-                            </select>
+
+                        <div class="col-lg-12 col-12 mb-1">
+                            <label class="form-label form-label-sm">WhatsApp Number <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-sm" id="mobile_no" name="mobile_no"
+                                placeholder="10-digit number" maxlength="10"
+                                oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,10)">
                         </div>
-                        <div class="col-lg-9 mb-3">
-                            <label for="" class="form-label">Address</label>
-                            <textarea class="form-control shadow-sm" id="address" name="address"
-                                placeholder="Enter Address"></textarea>
+
+                        <div class="col-lg-12 col-12 mb-1">
+                            <label class="form-label form-label-sm">Owner Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-sm" id="owner_name" name="owner_name"
+                                placeholder="Enter Owner Name">
                         </div>
-                        <div class="col-lg-3 text-center ">
-                            <button type="button" class="btn btn-primary" onclick="add_counter();">+Add</button>
+
+                        <div class="col-lg-12 col-12 mb-1">
+                            <label class="form-label form-label-sm">Owner Mobile No. <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-sm" id="owner_mobile" name="owner_mobile"
+                                placeholder="10-digit number" maxlength="10"
+                                oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,10)">
                         </div>
+
+                        <div class="col-lg-6 col-12 mb-1">
+                            <label class="form-label form-label-sm">Counter Image <span class="text-danger">*</span></label>
+                            <input type="file" class="form-control form-control-sm" id="counter_image" name="counter_image"
+                                accept="image/jpeg,image/png,image/webp">
+                        </div>
+
+                        <div class="col-lg-6 col-12 mb-1">
+                            <label class="form-label form-label-sm">Visiting Card Image <span class="text-danger">*</span></label>
+                            <input type="file" class="form-control form-control-sm" id="visiting_image" name="visiting_image"
+                                accept="image/jpeg,image/png,image/webp">
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label form-label-sm">Address</label>
+                            <textarea class="form-control form-control-sm" id="modal_address" name="address"
+                                rows="2" placeholder="Enter Address"></textarea>
+                        </div>
+
+                        <div class="col-12 mt-2">
+                            <button type="button" class="btn btn-primary w-100" onclick="add_counter();">+ Add Counter</button>
+                        </div>
+
                     </div>
                 </div>
             </div>
@@ -481,18 +504,166 @@ $openVisit = $obj->executequery("
         });
     });
 
+    function toggleFields(common_id) {
+
+        if (common_id == 7) {
+            $('#route_div').show();
+        } else {
+            $('#route_div').hide();
+            $('#route_planid').val('').trigger('chosen:updated');
+        }
+    }
+
     function add_counter() {
+
+        const common_id = $('#common_id').val();
+        const isCustomer = (common_id == 7);
+
+        if (!common_id) {
+            Swal.fire('Select Counter Type');
+            return;
+        }
+
+        if (isCustomer && !$('#route_planid').val()) {
+            Swal.fire('Select Route');
+            return;
+        }
+
+        if (!$('#area_id').val()) {
+            Swal.fire('Select Area');
+            $('#area_id').focus();
+            return;
+        }
+
+        if (!$('#class').val()) {
+            Swal.fire('Select Class');
+            $('#class').focus();
+            return;
+        }
+
+        if (!$('#account_name').val().trim()) {
+            Swal.fire('Enter Counter Name');
+            $('#account_name').focus();
+            return;
+        }
+
+        if (!$('#mobile_no').val()) {
+            Swal.fire('Enter Mobile No.');
+            $('#mobile_no').focus();
+            return;
+        }
+
+        if (!$('#owner_name').val()) {
+            Swal.fire('Enter Owner Name');
+            $('#owner_name').focus();
+            return;
+        }
+
+        if (!$('#owner_mobile').val()) {
+            Swal.fire('Enter Owner Mobile');
+            $('#owner_mobile').focus();
+            return;
+        }
+
+        if ($('#owner_mobile').val().length != 10) {
+            Swal.fire('Owner Mobile must be 10 digits');
+            $('#owner_mobile').focus();
+            return;
+        }
+
+        if ($('#counter_image')[0].files.length === 0) {
+            Swal.fire('Required', 'Counter Image is required.', 'warning');
+            return;
+        }
+
+        if ($('#visiting_image')[0].files.length === 0) {
+            Swal.fire('Required', 'Visiting Card Image is required.', 'warning');
+            return;
+        }
+
+        // --- Get Location First ---
+        if (!navigator.geolocation) {
+            Swal.fire('Error', 'Geolocation is not supported by this browser.', 'error');
+            return;
+        }
+
+        Swal.fire({
+            title: 'Getting Location...',
+            text: 'Please allow location access.',
+            allowOutsideClick: false,
+            didOpen: () => Swal.showLoading()
+        });
+
+        navigator.geolocation.getCurrentPosition(
+
+            function(position) {
+
+                const latitude = position.coords.latitude;
+                const longitude = position.coords.longitude;
+
+                // Reverse geocode via your location.php
+                fetch('location.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded'
+                        },
+                        body: new URLSearchParams({
+                            latitude,
+                            longitude
+                        })
+                    })
+                    .then(r => r.json())
+                    .then(data => {
+
+                        submitCounterForm(
+                            latitude,
+                            longitude,
+                            data.address || ''
+                        );
+
+                    })
+                    .catch(() => {
+                        Swal.fire('Error', 'Unable to fetch address. Check your internet connection.', 'error');
+                    });
+            },
+
+            function(error) {
+                let msg = 'Please allow location access to continue.';
+                if (error.code === error.PERMISSION_DENIED) {
+                    msg = 'Location permission denied. Please enable location access.';
+                }
+                Swal.fire('Location Required', msg, 'warning');
+            },
+
+            {
+                timeout: 10000,
+                maximumAge: 0
+            }
+        );
+    }
+
+    function submitCounterForm(latitude, longitude, address) {
 
         let formData = new FormData();
 
         formData.append('add_counter', 1);
         formData.append('route_planid', $('#route_planid').val());
+        formData.append('common_id', $('#common_id').val());
         formData.append('account_name', $('#account_name').val());
         formData.append('mobile_no', $('#mobile_no').val());
-        formData.append('address', $('#address').val());
+        formData.append('owner_name', $('#owner_name').val());
+        formData.append('owner_mobile', $('#owner_mobile').val());
+        formData.append('address', $('#modal_address').val());
         formData.append('area_id', $('#area_id').val());
-        formData.append('common_id', $('#common_id').val());
         formData.append('class', $('#class').val());
+        formData.append('latitude', latitude);
+        formData.append('longitude', longitude);
+        formData.append('location_address', address);
+
+        let counterImg = $('#counter_image')[0].files[0];
+        let visitingImg = $('#visiting_image')[0].files[0];
+        if (counterImg) formData.append('counter_image', counterImg);
+        if (visitingImg) formData.append('visiting_image', visitingImg);
 
         Swal.fire({
             title: 'Saving...',
@@ -506,26 +677,18 @@ $openVisit = $obj->executequery("
             data: formData,
             processData: false,
             contentType: false,
-
             success: function(res) {
-
                 res = res.trim();
-
                 if (res === 'success') {
-
-                    Swal.fire('Saved Successfully', '', 'success');
-
-                    // Reload dropdown
-                    location.reload();
-
+                    Swal.fire('Saved Successfully', '', 'success').then(() => location.reload());
                 } else if (res === 'duplicate') {
-
-                    Swal.fire('Duplicate Counter', '', 'warning');
-
+                    Swal.fire('Duplicate Counter', 'This counter already exists in this area.', 'warning');
                 } else {
-
                     Swal.fire('Error', res, 'error');
                 }
+            },
+            error: function() {
+                Swal.fire('Error', 'Unable to save counter. Please try again.', 'error');
             }
         });
     }

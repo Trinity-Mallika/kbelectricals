@@ -115,8 +115,14 @@ $to   = $todate . " 23:59:59";
                                             <th>Sr. No.</th>
                                             <th>Added By</th>
                                             <th>Route Name - Day</th>
+                                            <th>Create Date</th>
                                             <th>Counter Name</th>
                                             <th>Mobile No.</th>
+                                            <th>Owner Name</th>
+                                            <th>Owner Mobile</th>
+                                            <th>GPS Address</th>
+                                            <th>Counter Image</th>
+                                            <th>Visiting Card</th>
                                             <th>Counter Type</th>
                                             <th>Area</th>
                                             <th>Class</th>
@@ -128,9 +134,7 @@ $to   = $todate . " 23:59:59";
                                         <?php
                                         $slno = 1;
 
-                                        $where = "WHERE t.createdate BETWEEN '$from' AND '$to'
-          AND t.status1 = 0
-          AND t.companyid = '$companyid'";
+                                        $where = "WHERE t.createdate BETWEEN '$from' AND '$to' AND t.status1 = 0 ";
 
                                         if (!empty($createdby)) {
                                             $where .= " AND t.createdby = '$createdby'";
@@ -140,12 +144,7 @@ $to   = $todate . " 23:59:59";
                                             $where .= " AND t.account_id = '$account_id'";
                                         }
 
-                                        $qry = $obj->executequery("
-    SELECT
-        t.*,
-        a.area_name,
-        u.fullname,
-        r.route_name,
+                                        $qry = $obj->executequery("SELECT t.*,a.area_name,u.fullname,r.route_name,
 
         GROUP_CONCAT(
             DISTINCT r.day_of_week
@@ -197,8 +196,37 @@ $to   = $todate . " 23:59:59";
                                                 <td><?= $slno++; ?></td>
                                                 <td><?= $row_get['fullname']; ?></td>
                                                 <td><?= $row_get['route_name']; ?> - <?= $row_get['day_of_week'] ?></td>
+                                                <td><?= $obj->dateformatindia($row_get['createdate']); ?></td>
                                                 <td><?= $row_get['account_name']; ?></td>
                                                 <td><?= $row_get['mobile_no']; ?></td>
+                                                <td><?= $row_get['owner_name']; ?></td>
+
+                                                <td><?= $row_get['o_mobile_no']; ?></td>
+
+                                                <td style="min-width:250px;">
+                                                    <?= $row_get['location_address']; ?>
+                                                </td>
+                                                <td>
+                                                    <?php if (!empty($row_get['counter_image'])) { ?>
+                                                        <a href="../admin/uploaded/accounts/<?= $row_get['counter_image']; ?>"
+                                                            target="_blank">
+                                                            <img src="../admin/uploaded/accounts/<?= $row_get['counter_image']; ?>"
+                                                                width="50" height="50"
+                                                                style="object-fit:cover;border-radius:5px;">
+                                                        </a>
+                                                    <?php } ?>
+                                                </td>
+
+                                                <td>
+                                                    <?php if (!empty($row_get['visiting_image'])) { ?>
+                                                        <a href="../admin/uploaded/accounts/<?= $row_get['visiting_image']; ?>"
+                                                            target="_blank">
+                                                            <img src="../admin/uploaded/accounts/<?= $row_get['visiting_image']; ?>"
+                                                                width="50" height="50"
+                                                                style="object-fit:cover;border-radius:5px;">
+                                                        </a>
+                                                    <?php } ?>
+                                                </td>
                                                 <td><?= $row_get['common_name']; ?></td>
                                                 <td><?= $row_get['area_name']; ?></td>
                                                 <td><?= $row_get['class']; ?></td>

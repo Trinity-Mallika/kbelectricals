@@ -23,7 +23,12 @@ $res = $obj->executequery($sql);
 $html = '<div class="payment-list">';
 if (count($res) > 0) {
     foreach ($res as $key) {
-        $badgeClass = ($key['paymode'] == 'Cash') ? 'bg-success' : (($key['paymode'] == 'Online') ? 'bg-primary' : 'bg-warning');
+
+        $badgeClass = ($key['paymode'] == 'Cash')
+            ? 'bg-success'
+            : (($key['paymode'] == 'Online') ? 'bg-primary' : 'bg-warning');
+
+        $totalAdjusted = $key['grand_total'] + ($key['cash_disc'] ?? 0);
 
         $html .= '
     <div class="payment-row d-flex justify-content-between align-items-center">
@@ -31,13 +36,20 @@ if (count($res) > 0) {
         <div class="left">
             <div class="date">' . $obj->dateformatindia($key['billdate']) . '</div>
         </div>
+
         <div class="mode badge ' . $badgeClass . '">' . $key['paymode'] . '</div>
+
         <div class="amount text-end">
-            ₹ ' . number_format($key['grand_total'], 2) . '
+            ₹ ' . number_format($totalAdjusted, 2) . '
+            ' . ($key['cash_disc'] > 0 ? '
+                <div class="small text-success">
+                    Payment ₹ ' . number_format($key['grand_total'], 2) . '
+                    + Discount ₹ ' . number_format($key['cash_disc'], 2) . '
+                </div>
+            ' : '') . '
         </div>
 
-    </div>
-    ';
+    </div>';
     }
 } else {
     $html .= '

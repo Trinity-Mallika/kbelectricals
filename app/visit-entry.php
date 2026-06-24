@@ -44,8 +44,8 @@ function getDistanceMeters($lat1, $lon1, $lat2, $lon2)
     return $earthRadius * $c;
 }
 
-define('DIST_CLEAN',   30);
-define('DIST_WARN',    75);
+define('DIST_CLEAN',   200);
+define('DIST_WARN',    500);
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
@@ -90,7 +90,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
     $accountFields = ['dob', 'doa', 'no_of_kid', 'no_of_family'];
     $accform = prepareUpdateData($accountFields, $_POST, $acc_data, $obj);
-
+    if ($accform['dob'] || $accform['doa'] || $accform['no_of_kid'] || $accform['no_of_family']) {
+        $obj->update_record("account", ["account_id" => $account_id], $accform);
+    }
     $form_data = [
         'decision_maker_name' => $decision_maker_name,
         'mobile_no'           => $mobile_no,
@@ -125,18 +127,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $form_data['checkout_time'] = $createdate;
 
     $obj->update_record($tblname, ["entry_id" => $keyvalue], $form_data);
-
-    if (!empty($account_id) && !empty($accform)) {
-
-        $accform['lastupdated'] = $createdate;
-
-        $obj->update_record(
-            "m_account",
-            ["account_id" => $account_id],
-            $accform
-        );
-    }
-
 
     echo json_encode(['status' => 'updated']);
     exit;
@@ -217,8 +207,8 @@ if (isset($_GET[$tblpkey])) {
 
                         <!-- Optional account fields -->
                         <?php if (
-                            empty($acc_data['dob']) && empty($acc_data['doa']) &&
-                            empty($acc_data['no_of_kid']) && empty($acc_data['no_of_family'])
+                            empty($acc_data['dob']) || empty($acc_data['doa']) ||
+                            empty($acc_data['no_of_kid']) || empty($acc_data['no_of_family'])
                         ) { ?>
                             <div class="row">
                                 <?php if (empty($acc_data['dob'])) { ?>
@@ -318,8 +308,6 @@ if (isset($_GET[$tblpkey])) {
     <?php include("inc/js-file.php"); ?>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
-        const DIST_CLEAN = 30;
-        const DIST_WARN = 75;
         $(document).ready(function() {
             $(".chosen-select").chosen({
                 width: "100%",
@@ -471,7 +459,7 @@ if (isset($_GET[$tblpkey])) {
                             icon: 'error',
                             title: 'Too Far Away',
                             html: `You are <b>${res.distance} m</b> away from the check-in point.<br>
-                           Maximum allowed distance is <b>${DIST_WARN} m</b>.<br>
+                           Maximum allowed distance is <b>75 m</b>.<br>
                            Please move closer and try again.`
                         });
                         return enableBtn(btn);
@@ -482,7 +470,7 @@ if (isset($_GET[$tblpkey])) {
                             icon: 'warning',
                             title: 'Slightly Out of Range',
                             html: `You are <b>${res.distance} m</b> away from the check-in point.<br>
-                           Ideal checkout distance is within <b>${DIST_CLEAN} m</b>.<br><br>
+                           Ideal checkout distance is within <b>30 m</b>.<br><br>
                            Do you still want to checkout?`,
                             showCancelButton: true,
                             confirmButtonText: 'Yes, Checkout',

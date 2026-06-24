@@ -1,82 +1,201 @@
 <?php include("../adminsession.php");
+
 $title    = "Dashboard";
 $pagename = "dashboard.php";
-
 $today      = date('Y-m-d');
 $curMonth   = date('m');
 $curYear    = date('Y');
 $monthStart = date('Y-m-01');
 
-/* ── TODAY ─────────────────────────────────────────── */
 $totalCustomers   = $obj->getvalfield("account", "count(*)", "type='customer' and status1=1");
-$todayQuo     = $obj->getvalfield("transaction_entry", "count(*)", "DATE(createdate)='$today' and type='quotation' and companyid='$companyid'");
+$inactiveCustomers = $obj->getvalfield("account", "count(*)", "type='customer' and status1=0");
+$todayQuo         = $obj->getvalfield("transaction_entry", "count(*)", "DATE(createdate)='$today' and type='quotation' and companyid='$companyid'");
 $todayOrders      = $obj->getvalfield("transaction_entry", "count(*)", "billdate='$today' and type='order' and companyid='$companyid'");
 $todayCollection  = $obj->getvalfield("transaction_entry", "sum(grand_total)", "billdate='$today' and type='payment' and companyid='$companyid'") ?: 0;
 $pendingApprovals = $obj->getvalfield("transaction_entry", "count(*)", "type='order' and is_approved=0 and companyid='$companyid'");
 $pendingDispatch  = $obj->getvalfield("transaction_entry", "count(*)", "type='order' AND is_approved=1 AND dispatch_status=0 AND companyid='$companyid'");
 
-/* ── THIS MONTH ─────────────────────────────────────── */
 $monthOrders     = $obj->getvalfield("transaction_entry", "count(*)", "billdate>='$monthStart' and type='order' and companyid='$companyid'");
 $monthCollection = $obj->getvalfield("transaction_entry", "sum(grand_total)", "billdate>='$monthStart' and type='payment' and companyid='$companyid'") ?: 0;
 $monthVisits     = $obj->getvalfield("daily_entries", "count(*)", "DATE(createdate)>='$monthStart' and companyid='$companyid'");
-$activeEmployees = $obj->getvalfield("user", "count(*)", "status=1 and companyid='$companyid'");
 $activeSchemes   = $obj->getvalfield("scheme_entry", "count(*)", "todate>='$today' and companyid='$companyid'");
 
-/* ── BRAND-WISE TARGET vs ACHIEVEMENT ───────────────── */
-$brandTargets = $obj->executequery("
-SELECT
-    t.brand_name,
-    t.brand_target,
-    IFNULL(a.brand_achieved,0) AS brand_achieved
+$activeCounters = $obj->getvalfield("account a INNER JOIN transaction_entry t ON a.account_id = t.account_id", "COUNT(DISTINCT a.account_id)", "a.type='customer' AND t.type='order' and a.common_id=7");
 
-FROM
-(
-    SELECT
-        mtd.brand_id,
-        cm.cat_name AS brand_name,
-        SUM(mtd.target) AS brand_target
+$inactiveCounters = $obj->getvalfield("account a LEFT JOIN transaction_entry t ON a.account_id=t.account_id AND t.type='order'", "COUNT(DISTINCT a.account_id)", "a.type='customer' AND t.account_id IS NULL and a.common_id=7");
 
-    FROM monthly_target_details mtd
 
-    INNER JOIN category_master cm
-        ON cm.cat_id = mtd.brand_id
-        AND cm.type='brand'
-
-    WHERE mtd.month='$curMonth'
-      AND mtd.year='$curYear'
-      AND mtd.companyid='$companyid'
-
-    GROUP BY mtd.brand_id
-) t
-
-LEFT JOIN
-(
-    SELECT
-        td.brand_id,
-        SUM(td.total_amt) AS brand_achieved
-
-    FROM transaction_details td
-
-    INNER JOIN transaction_entry te
-        ON te.transaction_id=td.transaction_id
-
-    WHERE te.type='order'
-      AND te.is_approved=1
-      AND MONTH(te.billdate)='$curMonth'
-      AND YEAR(te.billdate)='$curYear'
-      AND te.companyid='$companyid'
-
-    GROUP BY td.brand_id
-) a
-ON a.brand_id=t.brand_id
-
-ORDER BY t.brand_target DESC
+$overduePayment = $obj->executequery("SELECT
+        COUNT(*)            AS overdue_count,
+        COALESCE(SUM(te.grand_total),0) AS overdue_amount
+    FROM transaction_entry te
+    WHERE te.type   = 'order'
+      AND te.is_approved = 1
+      AND te.companyid   = '$companyid'
+      AND DATEDIFF('$today', te.billdate) > 60
+      AND te.transaction_id NOT IN (
+          SELECT DISTINCT p.ref_bill_id
+          FROM transaction_entry p
+          WHERE p.type='payment'
+            AND p.companyid='$companyid'
+            AND p.ref_bill_id IS NOT NULL
+      )
 ");
-/* Overall target from monthly_target_details */
-$monthTarget  = array_sum(array_column($brandTargets, 'brand_target')) ?: 0;
-$targetPct    = $monthTarget > 0 ? min(100, round(($monthCollection / $monthTarget) * 100)) : 0;
+$overdueCount  = $overduePayment[0]['overdue_count']  ?? 0;
+$overdueAmount = $overduePayment[0]['overdue_amount'] ?? 0;
 
-/* ── PER-REP PERFORMANCE (this month) ───────────────── */
+$pendingSummary = $obj->executequery("
+SELECT
+    SUM(
+        CASE
+            WHEN is_approved = 1
+             AND dispatch_status = 0
+             AND DATEDIFF('$today', billdate) > 15
+            THEN 1 ELSE 0
+        END
+    ) AS disp_count,
+
+    SUM(
+        CASE
+            WHEN is_approved = 1
+             AND dispatch_status = 0
+             AND DATEDIFF('$today', billdate) > 15
+            THEN grand_total ELSE 0
+        END
+    ) AS disp_amount,
+
+    SUM(
+        CASE
+            WHEN is_approved = 1
+             AND (invoice_no IS NULL OR invoice_no = '')
+            THEN 1 ELSE 0
+        END
+    ) AS inv_count,
+
+    SUM(
+        CASE
+            WHEN is_approved = 1
+             AND (invoice_no IS NULL OR invoice_no = '')
+            THEN grand_total ELSE 0
+        END
+    ) AS inv_amount
+
+FROM transaction_entry
+WHERE type='order'
+  AND companyid='$companyid'
+");
+
+$longDispCount      = $pendingSummary[0]['disp_count'] ?? 0;
+$longDispAmount     = $pendingSummary[0]['disp_amount'] ?? 0;
+
+$invoicePendingCount  = $pendingSummary[0]['inv_count'] ?? 0;
+$repTargets = $obj->executequery("
+    SELECT
+        u.userid,
+        u.fullname,
+        COALESCE(mt.rep_target, 0) AS rep_target,
+        COALESCE(ach.rep_achieved, 0) AS rep_achieved
+    FROM user u
+
+    LEFT JOIN (
+        SELECT
+            createdby,
+            SUM(total_target) AS rep_target
+        FROM monthly_target
+        WHERE month='$curMonth'
+          AND year='$curYear'
+        GROUP BY createdby
+    ) mt ON mt.createdby = u.userid
+
+    LEFT JOIN (
+        SELECT
+            rp.sales_executive_id,
+            SUM(te.grand_total) AS rep_achieved
+        FROM route_plan rp
+
+        INNER JOIN route_counter rc
+            ON rc.batch_no = rp.batch_no
+           AND rc.is_active = 1
+
+        INNER JOIN transaction_entry te
+            ON te.account_id = rc.account_id
+           AND te.type = 'order'
+           AND te.is_approved = 1
+           AND MONTH(te.billdate) = '$curMonth'
+           AND YEAR(te.billdate) = '$curYear'
+
+        GROUP BY rp.sales_executive_id
+    ) ach ON ach.sales_executive_id = u.userid
+
+    WHERE u.companyid='$companyid'
+      AND u.status=1
+      AND u.usertype='sales'
+
+    ORDER BY mt.rep_target DESC
+");
+
+$schemeByCounter = $obj->executequery("SELECT
+        se.scheme_id,
+        se.scheme_name,
+        sd.qty        AS slab_qty,
+        sd.output,
+        te.account_id,
+        a.account_name,
+        SUM(oi.qty)   AS achieved
+    FROM scheme_entry se
+    JOIN scheme_details sd  ON sd.scheme_id = se.scheme_id
+    JOIN transaction_entry te
+         ON te.billdate BETWEEN se.from_date AND se.todate
+        AND te.type='order'
+        AND te.companyid='$companyid'
+    JOIN transaction_details oi
+         ON oi.transaction_id = te.transaction_id
+        AND oi.product_id = sd.product_id
+    JOIN account a ON a.account_id = te.account_id
+    WHERE se.todate >= '$today'
+      AND se.companyid='$companyid'
+    GROUP BY se.scheme_id, sd.qty, te.account_id
+    ORDER BY se.scheme_id, sd.qty ASC
+");
+
+$counterSchemes = [];
+foreach ($schemeByCounter as $row) {
+    $key = $row['scheme_id'] . '_' . $row['account_id'];
+    if (!isset($counterSchemes[$key])) {
+        $counterSchemes[$key] = [
+            'scheme_name'   => $row['scheme_name'],
+            'account_name'  => $row['account_name'],
+            'achieved'      => $row['achieved'],
+            'current_slab'  => 0,
+            'next_slab'     => 0,
+            'reward'        => ''
+        ];
+    }
+    if ($row['achieved'] >= $row['slab_qty']) {
+        $counterSchemes[$key]['current_slab'] = $row['slab_qty'];
+        $counterSchemes[$key]['reward']       = $row['output'];
+    }
+    if ($row['achieved'] < $row['slab_qty'] && $counterSchemes[$key]['next_slab'] == 0)
+        $counterSchemes[$key]['next_slab'] = $row['slab_qty'];
+}
+
+foreach ($counterSchemes as &$f) {
+    if ($f['next_slab'] > 0) {
+        $f['pct']     = min(99, round(($f['achieved'] / $f['next_slab']) * 100));
+        $f['balance'] = $f['next_slab'] - $f['achieved'];
+        $f['status']  = 'Running';
+    } else {
+        $f['pct']     = 100;
+        $f['balance'] = 0;
+        $f['status']  = 'Max Achieved';
+    }
+}
+unset($f);
+
+// Sort: closest to completing next slab first (highest pct first)
+usort($counterSchemes, fn($a, $b) => $b['pct'] <=> $a['pct']);
+
+// ── Existing queries kept ─────────────────────────────────────────────────
 $repPerf = $obj->executequery("
     SELECT
         u.userid,
@@ -103,9 +222,8 @@ $repPerf = $obj->executequery("
     ORDER BY collection DESC
 ");
 
-/* ── RECENT QUOTATION ──────────────────────────────────── */
 $recentQuo = $obj->executequery("
-    SELECT te.transaction_id,te.billno, te.billdate, te.grand_total, te.is_gst,
+    SELECT te.transaction_id, te.billno, te.billdate, te.grand_total, te.is_gst,
            a.account_name
     FROM transaction_entry te
     LEFT JOIN account a ON a.account_id = te.account_id
@@ -113,9 +231,8 @@ $recentQuo = $obj->executequery("
     ORDER BY te.createdate DESC LIMIT 8
 ");
 
-/* ── RECENT ORDERS ──────────────────────────────────── */
 $recentOrders = $obj->executequery("
-    SELECT te.transaction_id,te.billno, te.billdate, te.grand_total, te.is_approved,
+    SELECT te.transaction_id, te.billno, te.billdate, te.grand_total, te.is_approved,
            a.account_name, u.fullname AS salesrep
     FROM transaction_entry te
     LEFT JOIN account a ON a.account_id = te.account_id
@@ -124,7 +241,6 @@ $recentOrders = $obj->executequery("
     ORDER BY te.createdate DESC LIMIT 8
 ");
 
-/* ── TODAY FIELD ACTIVITY ────────────────────────────── */
 $todayActivity = $obj->executequery("
     SELECT u.fullname, COUNT(de.entry_id) AS visits,
            MAX(de.createdate) AS last_seen
@@ -134,7 +250,6 @@ $todayActivity = $obj->executequery("
     GROUP BY de.createdby ORDER BY visits DESC LIMIT 6
 ");
 
-/* ── KRA LEADERS (latest available month) ────────────── */
 $topKRA = $obj->executequery("
     SELECT u.fullname, mk.total_score, mk.achievement_pct, mk.month, mk.year
     FROM monthly_kra mk
@@ -146,10 +261,11 @@ $topKRA = $obj->executequery("
     ) AND mk.companyid='$companyid'
     ORDER BY mk.total_score DESC LIMIT 5
 ");
-$kraMonthLabel = !empty($topKRA) ? date('M Y', mktime(0, 0, 0, (int)$topKRA[0]['month'], 1, (int)$topKRA[0]['year'])) : date('M Y');
+$kraMonthLabel = !empty($topKRA)
+    ? date('M Y', mktime(0, 0, 0, (int)$topKRA[0]['month'], 1, (int)$topKRA[0]['year']))
+    : date('M Y');
 
-/* ── SALES TREND (last 6 months) ─────────────────────── */
-$salesTrend  = $obj->executequery("
+$salesTrend = $obj->executequery("
     SELECT DATE_FORMAT(billdate,'%b %y') AS mon, SUM(grand_total) AS total
     FROM transaction_entry
     WHERE type='payment' AND companyid='$companyid'
@@ -159,54 +275,6 @@ $salesTrend  = $obj->executequery("
 ");
 $trendLabels = array_column($salesTrend, 'mon');
 $trendData   = array_column($salesTrend, 'total');
-
-/* ── SCHEME PROGRESS ─────────────────────────────────── */
-$schemeSlabs = $obj->executequery("
-    SELECT se.scheme_id, se.scheme_name, sd.qty AS slab_qty, sd.output,
-           u.userid, u.fullname, SUM(oi.qty) AS achieved
-    FROM scheme_entry se
-    JOIN scheme_details sd ON sd.scheme_id = se.scheme_id
-    JOIN transaction_entry te
-         ON te.billdate BETWEEN se.from_date AND se.todate
-        AND te.type='order' AND te.companyid='$companyid'
-    JOIN transaction_details oi
-         ON oi.transaction_id = te.transaction_id
-        AND oi.product_id = sd.product_id
-    JOIN user u ON u.userid = te.createdby
-    WHERE se.todate >= '$today' AND se.companyid='$companyid'
-    GROUP BY se.scheme_id, sd.qty, u.userid ORDER BY sd.qty ASC
-");
-$final = [];
-foreach ($schemeSlabs as $row) {
-    $key = $row['scheme_id'] . '_' . $row['userid'];
-    if (!isset($final[$key])) {
-        $final[$key] = [
-            'scheme_name' => $row['scheme_name'],
-            'fullname' => $row['fullname'],
-            'achieved' => $row['achieved'],
-            'current_slab' => 0,
-            'next_slab' => 0,
-            'reward' => ''
-        ];
-    }
-    if ($row['achieved'] >= $row['slab_qty']) {
-        $final[$key]['current_slab'] = $row['slab_qty'];
-        $final[$key]['reward']       = $row['output'];
-    }
-    if ($row['achieved'] < $row['slab_qty'] && $final[$key]['next_slab'] == 0)
-        $final[$key]['next_slab'] = $row['slab_qty'];
-}
-foreach ($final as &$f) {
-    if ($f['next_slab'] > 0) {
-        $f['pct']     = min(99, round(($f['achieved'] / $f['next_slab']) * 100));
-        $f['balance'] = $f['next_slab'] - $f['achieved'];
-        $f['status']  = 'Running';
-    } else {
-        $f['pct'] = 100;
-        $f['balance'] = 0;
-        $f['status'] = 'Max Achieved';
-    }
-}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -214,6 +282,252 @@ foreach ($final as &$f) {
 <head>
     <?php include('component/css.php'); ?>
     <?php include('component/dashcss.php'); ?>
+    <style>
+        /* ── Rep target cards ── */
+        .rep-target-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 14px;
+            padding: 4px 0 8px;
+        }
+
+        .rep-target-card {
+            background: #fff;
+            border: 1px solid #e8eef4;
+            border-radius: 10px;
+            padding: 14px 16px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .rep-target-card::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: var(--blue);
+            border-radius: 10px 0 0 10px;
+        }
+
+        .rep-target-card.over::before {
+            background: #27ae60;
+        }
+
+        .rtc-name {
+            font-weight: 600;
+            font-size: .82rem;
+            color: #1e2a38;
+            margin-bottom: 6px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .rtc-nums {
+            display: flex;
+            justify-content: space-between;
+            font-size: .72rem;
+            color: var(--muted);
+            margin-bottom: 7px;
+        }
+
+        .rtc-nums strong {
+            color: #1e2a38;
+        }
+
+        .rtc-bar-wrap {
+            height: 6px;
+            background: #eef2f6;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 5px;
+        }
+
+        .rtc-bar-fill {
+            height: 100%;
+            background: var(--blue);
+            border-radius: 4px;
+            transition: width .4s ease;
+        }
+
+        .rtc-bar-fill.over {
+            background: #27ae60;
+        }
+
+        .rtc-pct {
+            font-size: .7rem;
+            font-weight: 700;
+            text-align: right;
+        }
+
+        /* ── Counter status pills ── */
+        .counter-status-row {
+            display: flex;
+            gap: 14px;
+            flex-wrap: wrap;
+            margin-bottom: 4px;
+        }
+
+        .cs-box {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #fff;
+            border: 1px solid #e8eef4;
+            border-radius: 10px;
+            padding: 14px 20px;
+            flex: 1;
+            min-width: 160px;
+        }
+
+        .cs-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+
+        .cs-icon.active {
+            background: #e8f8ef;
+            color: #27ae60;
+        }
+
+        .cs-icon.inactive {
+            background: #fef0ef;
+            color: #e74c3c;
+        }
+
+        .cs-label {
+            font-size: .72rem;
+            color: var(--muted);
+        }
+
+        .cs-val {
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: #1e2a38;
+            line-height: 1.1;
+        }
+
+        /* ── Alert cards (overdue / long dispatch) ── */
+        .alert-cards-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 14px;
+            margin-bottom: 4px;
+        }
+
+        .alert-card {
+            border-radius: 10px;
+            padding: 16px 18px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            border: 1px solid transparent;
+        }
+
+        .alert-card.danger {
+            background: #fff5f5;
+            border-color: #fac9c6;
+        }
+
+        .alert-card.warn {
+            background: #fffbf0;
+            border-color: #f9e4a0;
+        }
+
+        .alert-card.info {
+            background: #dbeff1;
+            border-color: #2fc4e9;
+        }
+
+        .alert-icon {
+            width: 46px;
+            height: 46px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            flex-shrink: 0;
+        }
+
+        .alert-card.danger .alert-icon {
+            background: #fde8e6;
+            color: #c0392b;
+        }
+
+        .alert-card.warn .alert-icon {
+            background: #fdf3d0;
+            color: #d68910;
+        }
+
+        .alert-label {
+            font-size: .72rem;
+            color: #888;
+            margin-bottom: 2px;
+        }
+
+        .alert-val {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #1e2a38;
+            line-height: 1.2;
+        }
+
+        .alert-sub {
+            font-size: .68rem;
+            color: #aaa;
+            margin-top: 2px;
+        }
+
+        /* ── Counter scheme table: "close to target" highlight ── */
+        .sch-hot {
+            background: #fffbf0 !important;
+        }
+
+        .close-badge {
+            display: inline-block;
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffe082;
+            border-radius: 20px;
+            font-size: .62rem;
+            font-weight: 700;
+            padding: 2px 8px;
+            margin-left: 4px;
+            vertical-align: middle;
+        }
+
+        .fire-badge {
+            display: inline-block;
+            background: #fde8e6;
+            color: #c0392b;
+            border: 1px solid #fac9c6;
+            border-radius: 20px;
+            font-size: .62px;
+            font-weight: 700;
+            padding: 2px 8px;
+            margin-left: 4px;
+            vertical-align: middle;
+        }
+
+        @media (max-width: 600px) {
+            .alert-cards-row {
+                grid-template-columns: 1fr;
+            }
+
+            .rep-target-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
 </head>
 
 <body class="bg-light">
@@ -228,104 +542,210 @@ foreach ($final as &$f) {
                 <div class="dash-title">Dashboard Overview</div>
                 <div class="dash-date"><i class="bi bi-calendar3 me-1"></i><?= date('l, d F Y') ?></div>
             </div>
-            <?php if ($usertype == "admin") { ?>
-                <!-- ── Row 1: Stat cards ── -->
-                <div class="stat-grid">
+
+
+
+            <!-- ── Row 1: Stat cards ── -->
+            <div class="stat-grid">
+                <?php if ($usertype == "admin") { ?>
                     <a href="accounts.php" class="stat-card" style="--c:#1a6ca8">
                         <div class="stat-label">Total Customers</div>
                         <div class="stat-value"><?= number_format($totalCustomers) ?></div>
                         <div class="stat-sub">Registered accounts</div>
                         <i class="bi bi-people stat-icon"></i>
                     </a>
-                    <a href="quotation_list.php" class="stat-card" style="--c:#27ae60">
-                        <div class="stat-label">Today's Quotation</div>
-                        <div class="stat-value"><?= number_format($todayQuo) ?></div>
-                        <i class="bi bi-file-earmark-text stat-icon"></i>
-                    </a>
-                    <a href="order_list.php" class="stat-card" style="--c:#f39c12">
-                        <div class="stat-label">Today's Orders</div>
-                        <div class="stat-value"><?= number_format($todayOrders) ?></div>
-                        <div class="stat-sub">
-                            <?php if ($pendingApprovals > 0): ?>
-                                <span class="pill pill-warn"><?= $pendingApprovals ?> pending</span>
-                            <?php else: ?>
-                                <span class="pill pill-ok">All approved</span>
-                            <?php endif; ?>
-                        </div>
-                        <i class="bi bi-cart3 stat-icon"></i>
-                    </a>
-                    <a href="payment_list.php" class="stat-card" style="--c:#8e44ad">
-                        <div class="stat-label">Today's Collection</div>
-                        <div class="stat-value">₹<?= number_format($todayCollection) ?></div>
-                        <div class="stat-sub">Cash + bank</div>
-                        <i class="bi bi-cash-stack stat-icon"></i>
-                    </a>
-                    <a href="order_list.php?filter=dispatch" class="stat-card" style="--c:#e74c3c">
-                        <div class="stat-label">Pending Dispatch</div>
-                        <div class="stat-value"><?= number_format($pendingDispatch) ?></div>
-                        <div class="stat-sub">Approved, not shipped</div>
-                        <i class="bi bi-truck stat-icon"></i>
-                    </a>
-                </div>
+                <?php } ?>
+                <a href="quotation_list.php" class="stat-card" style="--c:#27ae60">
+                    <div class="stat-label">Today's Quotation</div>
+                    <div class="stat-value"><?= number_format($todayQuo) ?></div>
+                    <i class="bi bi-file-earmark-text stat-icon"></i>
+                </a>
+                <a href="order_list.php" class="stat-card" style="--c:#f39c12">
+                    <div class="stat-label">Today's Orders</div>
+                    <div class="stat-value"><?= number_format($todayOrders) ?></div>
+                    <div class="stat-sub">
+                        <?php if ($pendingApprovals > 0): ?>
+                            <span class="pill pill-warn"><?= $pendingApprovals ?> pending</span>
+                        <?php else: ?>
+                            <span class="pill pill-ok">All approved</span>
+                        <?php endif; ?>
+                    </div>
+                    <i class="bi bi-cart3 stat-icon"></i>
+                </a>
+                <a href="payment_list.php" class="stat-card" style="--c:#8e44ad">
+                    <div class="stat-label">Today's Collection</div>
+                    <div class="stat-value">₹<?= number_format($todayCollection) ?></div>
+                    <div class="stat-sub">Cash + bank</div>
+                    <i class="bi bi-cash-stack stat-icon"></i>
+                </a>
+                <a href="order_list.php?status=0" class="stat-card" style="--c:#e74c3c">
+                    <div class="stat-label">Pending Dispatch</div>
+                    <div class="stat-value"><?= number_format($pendingDispatch) ?></div>
+                    <div class="stat-sub">Approved, not shipped</div>
+                    <i class="bi bi-truck stat-icon"></i>
+                </a>
+            </div>
 
-                <!-- ── Overall target strip ── -->
-                <!-- <div class="target-strip">
-                    <div class="ts-head">
-                        <div class="ts-title"><i class="bi bi-bullseye me-2" style="color:var(--blue)"></i>Monthly Target vs Collection — <?= date('F Y') ?></div>
-                        <div class="ts-pct"><?= $targetPct ?>%</div>
-                    </div>
-                    <div class="ts-bar-wrap">
-                        <div class="ts-bar-fill" style="width:<?= $targetPct ?>%"></div>
-                    </div>
-                    <div class="ts-meta">
-                        <span>Collected: <strong>₹<?= number_format($monthCollection) ?></strong></span>
-                        <span>Target: <strong>₹<?= $monthTarget > 0 ? number_format($monthTarget) : 'Not set' ?></strong></span>
-                        <span>Month Orders: <strong><?= number_format($monthOrders) ?></strong></span>
-                        <span>Month Visits: <strong><?= number_format($monthVisits) ?></strong></span>
-                        <span>Active Staff: <strong><?= $activeEmployees ?></strong></span>
-                        <span>Active Schemes: <strong><?= $activeSchemes ?></strong></span>
-                    </div>
-                </div> -->
-
-                <!-- ── Quick actions ── -->
-                <div class="mt-3 panel">
-                    <div class="panel-head"><span class="ph-title"><i class="bi bi-grid me-1"></i> Quick Actions</span></div>
-                    <div class="quick-grid">
+            <!-- ── Quick actions ── -->
+            <div class="mt-3 panel">
+                <div class="panel-head"><span class="ph-title"><i class="bi bi-grid me-1"></i> Quick Actions</span></div>
+                <div class="quick-grid">
+                    <?php if ($usertype == "admin") { ?>
                         <a href="accounts.php" class="quick-btn"><i class="bi bi-person-plus"></i>Add Customer</a>
-                        <!-- <a href="order_add.php" class="quick-btn"><i class="bi bi-cart-plus"></i>New Order</a>
-                        <a href="payment_list.php" class="quick-btn"><i class="bi bi-cash"></i>Payments</a> -->
-                        <a href="order_list.php?status=0" class="quick-btn"><i class="bi bi-hourglass-split"></i>Approve Orders</a>
-                        <a href="scheme_list.php" class="quick-btn"><i class="bi bi-tag"></i>Schemes</a>
+                    <?php } ?>
+                    <a href="order-entry.php" class="quick-btn"><i class="bi bi-cart-plus"></i>New Order</a>
+                    <a href="payment_list.php" class="quick-btn"><i class="bi bi-cash"></i>Payment List</a>
+                    <a href="order_list.php?status=0" class="quick-btn"><i class="bi bi-hourglass-split"></i>Approve Orders</a>
+                    <a href="scheme_list.php" class="quick-btn"><i class="bi bi-tag"></i>Schemes</a>
+                    <?php if ($usertype == "admin") { ?>
                         <a href="monthly_target_approval.php" class="quick-btn"><i class="bi bi-bullseye"></i>View Targets</a>
                         <a href="route.php" class="quick-btn"><i class="bi bi-map"></i>Routes</a>
                         <a href="user-master.php" class="quick-btn"><i class="bi bi-people"></i>Staff</a>
-                    </div>
+                    <?php } ?>
                 </div>
-
-                <!-- ── Brand-wise targets ── -->
-                <?php if (!empty($brandTargets)): ?>
-                    <div class="sec-label"><i class="bi bi-bar-chart-steps me-1"></i> Brand-wise Target vs Achievement — <?= date('F Y') ?></div>
+            </div>
+            <?php if ($usertype == "admin") { ?>
+                <?php if (!empty($repTargets)): ?>
+                    <div class="sec-label"><i class="bi bi-person-check me-1"></i> Sales Rep Target Achievement — <?= date('F Y') ?></div>
                     <div class="panel">
-                        <div class="brand-grid">
-                            <?php foreach ($brandTargets as $b):
-                                $bpct     = $b['brand_target'] > 0 ? min(100, round(($b['brand_achieved'] / $b['brand_target']) * 100)) : 0;
-                                $isOver   = $bpct >= 100;
+                        <div class="rep-target-grid">
+                            <?php foreach ($repTargets as $rt):
+                                $rpct   = $rt['rep_target'] > 0
+                                    ? min(100, round(($rt['rep_achieved'] / $rt['rep_target']) * 100))
+                                    : 0;
+                                $isOver = $rpct >= 100;
+                                $initials = implode('', array_map(
+                                    fn($w) => strtoupper($w[0]),
+                                    array_slice(explode(' ', $rt['fullname']), 0, 2)
+                                ));
                             ?>
-                                <div class="brand-card">
-                                    <div class="brand-name" title="<?= htmlspecialchars($b['brand_name']) ?>"><?= htmlspecialchars($b['brand_name']) ?></div>
-                                    <div class="brand-nums">
-                                        <span>Achieved: <strong>₹<?= number_format($b['brand_achieved']) ?></strong></span>
-                                        <span>Target: <strong>₹<?= number_format($b['brand_target']) ?></strong></span>
-                                    </div>
-                                    <div class="bpbar-wrap">
-                                        <div class="bpbar-fill <?= $isOver ? 'over' : '' ?>" style="width:<?= $bpct ?>%"></div>
-                                    </div>
-                                    <div class="brand-pct <?= $isOver ? '' : '' ?>" style="color:<?= $isOver ? '#27ae60' : 'var(--blue)' ?>"><?= $bpct ?>%</div>
+                                <div class="rep-target-card <?= $isOver ? 'over' : '' ?>">
+                                    <a href="monthly_target_view.php?createdby=<?= $rt['userid'] ?>&month=<?= $curMonth ?>&year=<?= $curYear ?>" style="text-decoration: none;" target="_blank">
+                                        <div class="rtc-name">
+                                            <span class="rep-avatar" style="display:inline-flex;width:26px;height:26px;font-size:.65rem;margin-right:6px;vertical-align:middle"><?= $initials ?></span>
+                                            <?= htmlspecialchars($rt['fullname']) ?>
+                                            <?php if ($isOver): ?>
+                                                <span class="pill pill-ok" style="font-size:.58rem;padding:1px 6px;margin-left:4px">✓ Done</span>
+                                            <?php endif; ?>
+                                        </div>
+                                        <div class="rtc-nums">
+                                            <span>Achieved: <strong>₹<?= number_format($rt['rep_achieved']) ?></strong></span>
+                                            <span>Target: <strong>₹<?= number_format($rt['rep_target']) ?></strong></span>
+                                        </div>
+                                        <div class="rtc-bar-wrap">
+                                            <div class="rtc-bar-fill <?= $isOver ? 'over' : '' ?>" style="width:<?= $rpct ?>%"></div>
+                                        </div>
+                                        <div class="rtc-pct" style="color:<?= $isOver ? '#27ae60' : 'var(--blue)' ?>"><?= $rpct ?>%</div>
+                                    </a>
                                 </div>
                             <?php endforeach; ?>
                         </div>
                     </div>
                 <?php endif; ?>
+
+                <div class="sec-label"><i class="bi bi-shop me-1"></i> Counter Status</div>
+                <div class="counter-status-row">
+                    <a href="counter_list.php?status=active" style="text-decoration: none;">
+                        <div class="cs-box">
+                            <div class="cs-icon active"><i class="bi bi-check-circle-fill"></i></div>
+                            <div>
+                                <div class="cs-label">Active Counters</div>
+                                <div class="cs-val"><?= number_format($activeCounters) ?></div>
+                            </div>
+                        </div>
+                    </a>
+                    <a href="counter_list.php?status=inactive" style="text-decoration: none;">
+                        <div class="cs-box">
+                            <div class="cs-icon inactive"><i class="bi bi-x-circle-fill"></i></div>
+                            <div>
+                                <div class="cs-label">Inactive Counters</div>
+                                <div class="cs-val"><?= number_format($inactiveCounters) ?></div>
+                            </div>
+                        </div>
+                    </a>
+                    <a href="counter_list.php" style="text-decoration: none;">
+                        <div class="cs-box" style="border-color:#e8eef4">
+                            <div class="cs-icon" style="background:#eef4fb;color:#1a6ca8"><i class="bi bi-people-fill"></i></div>
+                            <div>
+                                <div class="cs-label">Total Counters</div>
+                                <div class="cs-val"><?= number_format($activeCounters + $inactiveCounters) ?></div>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+                <div class="sec-label mt-3">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    Attention Required
+                </div>
+
+                <div class="alert-cards-row">
+
+                    <!-- Overdue Payment -->
+                    <div class="alert-card danger">
+                        <div class="alert-icon">
+                            <i class="bi bi-cash-coin"></i>
+                        </div>
+
+                        <div style="flex:1">
+                            <div class="alert-label">Payment Overdue > 60 Days</div>
+                            <div class="alert-val">₹<?= number_format($overdueAmount) ?></div>
+                            <div class="alert-sub">
+                                <?= number_format($overdueCount) ?> order(s) unpaid beyond 60 days
+                            </div>
+                        </div>
+
+                        <a href="order_list.php?overdue=60"
+                            class="btn btn-sm btn-outline-danger"
+                            style="font-size:.7rem;white-space:nowrap">
+                            View All
+                        </a>
+                    </div>
+
+                    <!-- Dispatch Pending -->
+                    <div class="alert-card warn">
+                        <div class="alert-icon">
+                            <i class="bi bi-truck"></i>
+                        </div>
+
+                        <div style="flex:1">
+                            <div class="alert-label">Dispatch Pending > 15 Days</div>
+                            <div class="alert-val">₹<?= number_format($longDispAmount) ?></div>
+                            <div class="alert-sub">
+                                <?= number_format($longDispCount) ?> order(s) approved but not dispatched
+                            </div>
+                        </div>
+
+                        <a href="order_list.php?dispatch_pending=1"
+                            class="btn btn-sm btn-outline-warning"
+                            style="font-size:.7rem;white-space:nowrap">
+                            View All
+                        </a>
+                    </div>
+
+                    <!-- Invoice Pending -->
+                    <div class="alert-card info">
+                        <div class="alert-icon">
+                            <i class="bi bi-receipt"></i>
+                        </div>
+
+                        <div style="flex:1">
+                            <div class="alert-label">Invoice Pending</div>
+                            <div class="alert-val">
+                                <?= number_format($invoicePendingCount) ?>
+                            </div>
+                            <div class="alert-sub">
+                                Approved orders without invoice
+                            </div>
+                        </div>
+
+                        <a href="order_list.php?invoice_pending=1"
+                            class="btn btn-sm btn-outline-primary"
+                            style="font-size:.7rem;white-space:nowrap">
+                            View All
+                        </a>
+                    </div>
+
+                </div>
 
                 <!-- ── Rep performance this month ── -->
                 <?php if (!empty($repPerf)): ?>
@@ -360,252 +780,52 @@ foreach ($final as &$f) {
                         <?php endforeach; ?>
                     </div>
                 <?php endif; ?>
-
-                <!-- ── Recent orders + Today's activity ── -->
-                <div class="sec-label"><i class="bi bi-activity me-1"></i> Live Activity</div>
-                <div class="g2">
-                    <div class="panel">
-                        <div class="panel-head">
-                            <span class="ph-title"><i class="bi bi-receipt me-1"></i> Recent Quotations</span>
-                            <a href="quotation_list.php">View all →</a>
-                        </div>
-                        <table class="mini-table">
-                            <thead>
+            <?php } ?>
+            <!-- ── Recent orders + Quotations ── -->
+            <div class="sec-label"><i class="bi bi-activity me-1"></i> Live Activity</div>
+            <div class="g2">
+                <div class="panel">
+                    <div class="panel-head">
+                        <span class="ph-title"><i class="bi bi-receipt me-1"></i> Recent Quotations</span>
+                        <a href="quotation_list.php">View all →</a>
+                    </div>
+                    <table class="mini-table">
+                        <thead>
+                            <tr>
+                                <th>Quotation No.</th>
+                                <th>Customer</th>
+                                <th>With GST</th>
+                                <th>Amount</th>
+                                <th>Print</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (empty($recentQuo)): ?>
                                 <tr>
-                                    <th>Quotation No.</th>
-                                    <th>Customer</th>
-                                    <th>With GST</th>
-                                    <th>Amount</th>
-                                    <th>Print</th>
+                                    <td colspan="5" class="empty-note">No quotation found</td>
                                 </tr>
-                            </thead>
-                            <tbody>
-                                <?php if (empty($recentQuo)): ?>
+                                <?php else: foreach ($recentQuo as $r): ?>
                                     <tr>
-                                        <td colspan="5" class="empty-note">No quotation found</td>
-                                    </tr>
-                                    <?php else: foreach ($recentQuo as $r): ?>
-                                        <tr>
-                                            <td>
-                                                <strong><?= htmlspecialchars($r['billno']) ?></strong>
-                                                <div style="font-size:.62rem;color:var(--muted)"><?= $obj->dateformatindia($r['billdate']) ?></div>
-                                            </td>
-                                            <td><?= htmlspecialchars($r['account_name']) ?></td>
-                                            <td><?= ($r['is_gst'] == 1) ? "Yes" : 'No' ?></td>
-                                            <td><strong>₹<?= number_format($r['grand_total']) ?></strong></td>
-                                            <td>
-                                                <div class="text-center">
-                                                    <a href="quotation_pdf.php?transaction_id=<?= $r['transaction_id'] ?>"
-                                                        class="fs-6" title="Click To Print" target="_blank">
-                                                        <i class="bi bi-printer"></i>
-                                                    </a>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                <?php endforeach;
-                                endif; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="panel">
-                        <div class="panel-head">
-                            <span class="ph-title"><i class="bi bi-receipt me-1"></i> Recent Orders</span>
-                            <a href="order_list.php">View all →</a>
-                        </div>
-                        <table class="mini-table">
-                            <thead>
-                                <tr>
-                                    <th>Bill No.</th>
-                                    <th>Customer</th>
-                                    <th>Rep</th>
-                                    <th>Amount</th>
-                                    <th>Status</th>
-                                    <th>Print</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php if (empty($recentOrders)): ?>
-                                    <tr>
-                                        <td colspan="5" class="empty-note">No orders found</td>
-                                    </tr>
-                                    <?php else: foreach ($recentOrders as $r): ?>
-                                        <tr>
-                                            <td>
-                                                <strong><?= htmlspecialchars($r['billno']) ?></strong>
-                                                <div style="font-size:.62rem;color:var(--muted)"><?= $obj->dateformatindia($r['billdate']) ?></div>
-                                            </td>
-                                            <td><?= htmlspecialchars($r['account_name']) ?></td>
-                                            <td><?= htmlspecialchars($r['salesrep'] ?? '—') ?></td>
-                                            <td><strong>₹<?= number_format($r['grand_total']) ?></strong></td>
-                                            <td>
-                                                <?php if ($r['is_approved']): ?>
-                                                    <span class="pill pill-ok">Approved</span>
-                                                <?php else: ?>
-                                                    <span class="pill pill-warn">Pending</span>
-                                                <?php endif; ?>
-                                            </td>
-                                            <td>
-                                                <div class="text-center">
-                                                    <a href="print_order.php?transaction_id=<?= $r['transaction_id'] ?>"
-                                                        class="fs-6" title="Click To Print" target="_blank">
-                                                        <i class="bi bi-printer"></i>
-                                                    </a>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                <?php endforeach;
-                                endif; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                    <!-- <div class="panel">
-                        <div class="panel-head">
-                            <span class="ph-title"><i class="bi bi-map me-1"></i> Today's Field Activity</span>
-                            <a href="daily_visit_list.php">View all →</a>
-                        </div>
-                        <?php if (empty($todayActivity)): ?>
-                            <div class="empty-note">No field activity today</div>
-                            <?php else: foreach ($todayActivity as $v):
-                                $ini = implode('', array_map(fn($w) => strtoupper($w[0]), array_slice(explode(' ', $v['fullname']), 0, 2)));
-                                $lastTime = !empty($v['last_seen']) ? date('h:i A', strtotime($v['last_seen'])) : '';
-                            ?>
-                                <div class="visit-row">
-                                    <div class="va-avatar"><?= $ini ?></div>
-                                    <div style="flex:1">
-                                        <div class="va-name"><?= htmlspecialchars($v['fullname']) ?></div>
-                                        <?php if ($lastTime): ?><div class="va-meta">Last at <?= $lastTime ?></div><?php endif; ?>
-                                    </div>
-                                    <div class="va-cnt"><?= $v['visits'] ?> visits</div>
-                                </div>
-                        <?php endforeach;
-                        endif; ?>
-                    </div> -->
-
-                </div>
-
-                <!-- ── Sales chart + KRA + Scheme ── -->
-                <div class="sec-label"><i class="bi bi-graph-up me-1"></i> Analytics & Performance</div>
-                <div class="g3">
-
-                    <div class="panel" style="grid-column:span 2">
-                        <div class="panel-head">
-                            <span class="ph-title"><i class="bi bi-bar-chart-line me-1"></i> Monthly Collection Trend (Last 6 Months)</span>
-                        </div>
-                        <div class="chart-wrap" style="height:210px">
-                            <canvas id="salesChart"></canvas>
-                        </div>
-                    </div>
-
-                    <div class="panel">
-                        <div class="panel-head">
-                            <span class="ph-title"><i class="bi bi-trophy me-1"></i> KRA Leaders — <?= $kraMonthLabel ?></span>
-                            <a href="monthly_kra_list.php">All →</a>
-                        </div>
-                        <?php if (empty($topKRA)): ?>
-                            <div class="empty-note">No KRA data available</div>
-                            <?php else:
-                            $rc = ['g', 's', 'b', '', ''];
-                            foreach ($topKRA as $i => $k): ?>
-                                <div class="kra-row">
-                                    <div class="kra-rank <?= $rc[$i] ?? '' ?>"><?= $i + 1 ?></div>
-                                    <div class="kra-name"><?= htmlspecialchars($k['fullname']) ?></div>
-                                    <div>
-                                        <div class="kra-score"><?= $k['total_score'] ?> pts</div>
-                                        <div class="kra-pct"><?= $k['achievement_pct'] ?>% achieved</div>
-                                    </div>
-                                </div>
-                        <?php endforeach;
-                        endif; ?>
-                    </div>
-
-                </div>
-
-                <!-- ── Scheme progress ── -->
-                <?php if (!empty($final)): ?>
-                    <div class="mt-3 panel">
-                        <div class="panel-head">
-                            <span class="ph-title"><i class="bi bi-gift me-1"></i> Scheme Progress</span>
-                            <a href="scheme_list.php">Manage →</a>
-                        </div>
-                        <table class="mini-table">
-                            <thead>
-                                <tr>
-                                    <th>Scheme</th>
-                                    <th>Employee</th>
-                                    <th>Achieved</th>
-                                    <th>Next Slab</th>
-                                    <th>Progress</th>
-                                    <th>Reward</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($final as $s): ?>
-                                    <tr>
-                                        <td><?= htmlspecialchars($s['scheme_name']) ?></td>
-                                        <td><?= htmlspecialchars($s['fullname']) ?></td>
-                                        <td><strong><?= number_format($s['achieved']) ?></strong></td>
-                                        <td><?= $s['next_slab'] > 0 ? number_format($s['next_slab']) . ' <span style="font-size:.62rem;color:var(--muted)">(need ' . number_format($s['balance']) . ' more)</span>' : '—' ?></td>
-                                        <td style="min-width:90px">
-                                            <div style="font-size:.68rem;color:var(--muted);margin-bottom:3px"><?= $s['pct'] ?>%</div>
-                                            <div class="sch-pct-wrap">
-                                                <div class="sch-pct-fill <?= $s['pct'] >= 100 ? 'done' : '' ?>" style="width:<?= $s['pct'] ?>%"></div>
+                                        <td>
+                                            <strong><?= htmlspecialchars($r['billno']) ?></strong>
+                                            <div style="font-size:.62rem;color:var(--muted)"><?= $obj->dateformatindia($r['billdate']) ?></div>
+                                        </td>
+                                        <td><?= htmlspecialchars($r['account_name']) ?></td>
+                                        <td><?= ($r['is_gst'] == 1) ? "Yes" : 'No' ?></td>
+                                        <td><strong>₹<?= number_format($r['grand_total']) ?></strong></td>
+                                        <td>
+                                            <div class="text-center">
+                                                <a href="quotation_pdf.php?transaction_id=<?= $r['transaction_id'] ?>"
+                                                    class="fs-6" title="Click To Print" target="_blank">
+                                                    <i class="bi bi-printer"></i>
+                                                </a>
                                             </div>
                                         </td>
-                                        <td>
-                                            <?php if ($s['status'] === 'Max Achieved'): ?>
-                                                <span class="pill pill-ok">Max ✓</span>
-                                            <?php elseif ($s['reward']): ?>
-                                                <span class="pill pill-blue"><?= htmlspecialchars($s['reward']) ?></span>
-                                            <?php else: ?>
-                                                <span style="color:var(--muted);font-size:.7rem">—</span>
-                                            <?php endif; ?>
-                                        </td>
                                     </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                <?php endif; ?>
-
-
-            <?php } else { ?>
-
-                <div class="stat-grid">
-                    <a href="javascript:void(0)" class="stat-card" style="--c:#1a6ca8">
-                        <div class="stat-label">Total Customers</div>
-                        <div class="stat-value"><?= number_format($totalCustomers) ?></div>
-                        <div class="stat-sub">Registered accounts</div>
-                        <i class="bi bi-people stat-icon"></i>
-                    </a>
-                    <a href="javascript:void(0)" class="stat-card" style="--c:#27ae60">
-                        <div class="stat-label">Today's Quotation</div>
-                        <div class="stat-value"><?= number_format($todayQuo) ?></div>
-                        <i class="bi bi-file-earmark-text stat-icon"></i>
-                    </a>
-                    <a href="order_list.php" class="stat-card" style="--c:#f39c12">
-                        <div class="stat-label">Today's Orders</div>
-                        <div class="stat-value"><?= number_format($todayOrders) ?></div>
-                        <div class="stat-sub">
-                            <?php if ($pendingApprovals > 0): ?>
-                                <span class="pill pill-warn"><?= $pendingApprovals ?> pending</span>
-                            <?php else: ?>
-                                <span class="pill pill-ok">All approved</span>
-                            <?php endif; ?>
-                        </div>
-                        <i class="bi bi-cart3 stat-icon"></i>
-                    </a>
-                    <a href="javascript:void(0)" class="stat-card" style="--c:#8e44ad">
-                        <div class="stat-label">Today's Collection</div>
-                        <div class="stat-value">₹<?= number_format($todayCollection) ?></div>
-                        <div class="stat-sub">Cash + bank</div>
-                        <i class="bi bi-cash-stack stat-icon"></i>
-                    </a>
-                    <a href="order_list.php?filter=dispatch" class="stat-card" style="--c:#e74c3c">
-                        <div class="stat-label">Pending Dispatch</div>
-                        <div class="stat-value"><?= number_format($pendingDispatch) ?></div>
-                        <div class="stat-sub">Approved, not shipped</div>
-                        <i class="bi bi-truck stat-icon"></i>
-                    </a>
+                            <?php endforeach;
+                            endif; ?>
+                        </tbody>
+                    </table>
                 </div>
                 <div class="panel">
                     <div class="panel-head">
@@ -632,7 +852,7 @@ foreach ($final as &$f) {
                                     <tr>
                                         <td>
                                             <strong><?= htmlspecialchars($r['billno']) ?></strong>
-                                            <div style="font-size:.62rem;color:var(--muted)"><?= $r['billdate'] ?></div>
+                                            <div style="font-size:.62rem;color:var(--muted)"><?= $obj->dateformatindia($r['billdate']) ?></div>
                                         </td>
                                         <td><?= htmlspecialchars($r['account_name']) ?></td>
                                         <td><?= htmlspecialchars($r['salesrep'] ?? '—') ?></td>
@@ -645,7 +865,7 @@ foreach ($final as &$f) {
                                             <?php endif; ?>
                                         </td>
                                         <td>
-                                            <div>
+                                            <div class="text-center">
                                                 <a href="print_order.php?transaction_id=<?= $r['transaction_id'] ?>"
                                                     class="fs-6" title="Click To Print" target="_blank">
                                                     <i class="bi bi-printer"></i>
@@ -658,6 +878,114 @@ foreach ($final as &$f) {
                         </tbody>
                     </table>
                 </div>
+            </div>
+
+            <!-- ── Sales chart + KRA ── -->
+            <div class="sec-label"><i class="bi bi-graph-up me-1"></i> Analytics & Performance</div>
+            <div class="g3">
+
+                <div class="panel" style="grid-column:span 2">
+                    <div class="panel-head">
+                        <span class="ph-title"><i class="bi bi-bar-chart-line me-1"></i> Monthly Collection Trend (Last 6 Months)</span>
+                    </div>
+                    <div class="chart-wrap" style="height:210px">
+                        <canvas id="salesChart"></canvas>
+                    </div>
+                </div>
+                <?php if ($usertype == "admin") { ?>
+                    <div class="panel">
+                        <div class="panel-head">
+                            <span class="ph-title"><i class="bi bi-trophy me-1"></i> KRA Leaders — <?= $kraMonthLabel ?></span>
+                            <a href="salesman_wise_report.php">All →</a>
+                        </div>
+                        <?php if (empty($topKRA)): ?>
+                            <div class="empty-note">No KRA data available</div>
+                            <?php else:
+                            $rc = ['g', 's', 'b', '', ''];
+                            foreach ($topKRA as $i => $k): ?>
+                                <div class="kra-row">
+                                    <div class="kra-rank <?= $rc[$i] ?? '' ?>"><?= $i + 1 ?></div>
+                                    <div class="kra-name"><?= htmlspecialchars($k['fullname']) ?></div>
+                                    <div>
+                                        <div class="kra-score"><?= $k['total_score'] ?> pts</div>
+                                        <div class="kra-pct"><?= $k['achievement_pct'] ?>% achieved</div>
+                                    </div>
+                                </div>
+                        <?php endforeach;
+                        endif; ?>
+                    </div>
+                <?php } ?>
+            </div>
+            <?php if ($usertype == "admin") { ?>
+                <?php if (!empty($counterSchemes)): ?>
+                    <div class="mt-3 panel">
+                        <div class="panel-head">
+                            <span class="ph-title"><i class="bi bi-gift me-1"></i> Scheme Progress by Counter</span>
+                            <a href="scheme_list.php">Manage →</a>
+                        </div>
+                        <p style="font-size:.72rem;color:var(--muted);margin:0 0 10px">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Counters sorted by progress. <span style="background:#fff3cd;padding:1px 6px;border-radius:4px;font-weight:600">Yellow rows</span> are ≥75% toward next slab — follow up now to push them over.
+                        </p>
+                        <table class="mini-table">
+                            <thead>
+                                <tr>
+                                    <th>Counter Name</th>
+                                    <th>Scheme</th>
+                                    <th>Achieved Qty</th>
+                                    <th>Next Slab</th>
+                                    <th>Balance Needed</th>
+                                    <th>Progress</th>
+                                    <th>Reward</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($counterSchemes as $s):
+                                    $isHot   = $s['pct'] >= 90 && $s['status'] !== 'Max Achieved';
+                                    $isClose = $s['pct'] >= 75 && $s['status'] !== 'Max Achieved';
+                                ?>
+                                    <tr class="<?= $isClose ? 'sch-hot' : '' ?>">
+                                        <td>
+                                            <strong><?= htmlspecialchars($s['account_name']) ?></strong>
+                                            <?php if ($isHot): ?>
+                                                <span class="close-badge">🔥 Hot</span>
+                                            <?php elseif ($isClose): ?>
+                                                <span class="close-badge">⚡ Close</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td><?= htmlspecialchars($s['scheme_name']) ?></td>
+                                        <td><strong><?= number_format($s['achieved']) ?></strong></td>
+                                        <td><?= $s['next_slab'] > 0 ? number_format($s['next_slab']) : '—' ?></td>
+                                        <td>
+                                            <?php if ($s['balance'] > 0): ?>
+                                                <span style="color:#c0392b;font-weight:600"><?= number_format($s['balance']) ?> more</span>
+                                            <?php else: ?>
+                                                <span style="color:#27ae60;font-weight:600">Completed</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td style="min-width:110px">
+                                            <div style="font-size:.68rem;color:var(--muted);margin-bottom:3px"><?= $s['pct'] ?>%</div>
+                                            <div class="sch-pct-wrap">
+                                                <div class="sch-pct-fill <?= $s['pct'] >= 100 ? 'done' : ($isClose ? 'close' : '') ?>"
+                                                    style="width:<?= $s['pct'] ?>%;<?= $isClose && $s['pct'] < 100 ? 'background:#f39c12' : '' ?>"></div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <?php if ($s['status'] === 'Max Achieved'): ?>
+                                                <span class="pill pill-ok">Max ✓</span>
+                                            <?php elseif ($s['reward']): ?>
+                                                <span class="pill pill-blue"><?= htmlspecialchars($s['reward']) ?></span>
+                                            <?php else: ?>
+                                                <span style="color:var(--muted);font-size:.7rem">—</span>
+                                            <?php endif; ?>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
+
             <?php } ?>
         </div><!-- /dash-wrap -->
     </div><!-- /main -->
@@ -718,10 +1046,6 @@ foreach ($final as &$f) {
                     }
                 }
             });
-        }
-
-        function open_pdf() {
-            window.location();
         }
     </script>
 </body>

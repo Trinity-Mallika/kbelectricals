@@ -1,26 +1,27 @@
 <?php include("appsession.php");
 
-$account_id     = isset($_REQUEST['account_id'])     ? $obj->test_input($_REQUEST['account_id'])     : 0;
-$product_id     = isset($_REQUEST['product_id'])     ? $obj->test_input($_REQUEST['product_id'])     : 0;
-$category_id    = isset($_REQUEST['category_id'])    ? $obj->test_input($_REQUEST['category_id'])    : 0;
-$type           = isset($_REQUEST['type'])           ? $obj->test_input($_REQUEST['type'])           : '';
-$brand_id       = isset($_REQUEST['brand_id'])       ? $obj->test_input($_REQUEST['brand_id'])       : 0;
-$unit_id        = isset($_REQUEST['unit_id'])        ? $obj->test_input($_REQUEST['unit_id'])        : 0;
-$unit_name      = isset($_REQUEST['unit_name'])      ? $obj->test_input($_REQUEST['unit_name'])      : '';
-$qty            = isset($_REQUEST['qty'])            ? $obj->test_input($_REQUEST['qty'])            : 0;
-$rate           = isset($_REQUEST['rate'])           ? $obj->test_input($_REQUEST['rate'])           : 0;
-$price_after_disc           = isset($_REQUEST['price_after_disc'])           ? $obj->test_input($_REQUEST['price_after_disc']) : 0;
-$discount       = isset($_REQUEST['discount'])       ? (float)$obj->test_input($_REQUEST['discount'])      : 0;
-$discount_amt   = isset($_REQUEST['discount_amt'])   ? (float)$obj->test_input($_REQUEST['discount_amt'])  : 0;
-$gst_id         = isset($_REQUEST['gst_id'])         ? $obj->test_input($_REQUEST['gst_id'])         : 0;
-$gst_amt         = isset($_REQUEST['gst_amt'])         ? $obj->test_input($_REQUEST['gst_amt'])         : 0;
-$sub_total      = isset($_REQUEST['sub_total'])      ? (float)$obj->test_input($_REQUEST['sub_total'])     : 0;
-$net_amt        = isset($_REQUEST['taxable_amt'])    ? (float)$obj->test_input($_REQUEST['taxable_amt'])   : 0;
-$total_amt      = isset($_REQUEST['total_amt'])      ? (float)$obj->test_input($_REQUEST['total_amt'])     : 0;
-$taxtype        = 'exclusive';
-$update_mrp = isset($_REQUEST['update_mrp']) ? $obj->test_input($_REQUEST['update_mrp']) : 0;
-$transaction_id = isset($_REQUEST['transaction_id']) ? $obj->test_input($_REQUEST['transaction_id']) : 0;
-$tran_detail_id = isset($_REQUEST['tran_detail_id']) ? $obj->test_input($_REQUEST['tran_detail_id']) : 0;
+$companyid          = $obj->getvalfield("user", "companyid", "userid='$loginid'");
+$account_id         = isset($_REQUEST['account_id'])     ? $obj->test_input($_REQUEST['account_id'])     : 0;
+$product_id         = isset($_REQUEST['product_id'])     ? $obj->test_input($_REQUEST['product_id'])     : 0;
+$category_id        = isset($_REQUEST['category_id'])    ? $obj->test_input($_REQUEST['category_id'])    : 0;
+$type               = isset($_REQUEST['type'])           ? $obj->test_input($_REQUEST['type'])           : '';
+$brand_id           = isset($_REQUEST['brand_id'])       ? $obj->test_input($_REQUEST['brand_id'])       : 0;
+$unit_id            = isset($_REQUEST['unit_id'])        ? $obj->test_input($_REQUEST['unit_id'])        : 0;
+$unit_name          = isset($_REQUEST['unit_name'])      ? $obj->test_input($_REQUEST['unit_name'])      : '';
+$qty                = isset($_REQUEST['qty'])            ? $obj->test_input($_REQUEST['qty'])            : 0;
+$rate               = isset($_REQUEST['rate'])           ? $obj->test_input($_REQUEST['rate'])           : 0;
+$price_after_disc   = isset($_REQUEST['price_after_disc'])           ? $obj->test_input($_REQUEST['price_after_disc']) : 0;
+$discount           = isset($_REQUEST['discount'])       ? (float)$obj->test_input($_REQUEST['discount'])      : 0;
+$discount_amt       = isset($_REQUEST['discount_amt'])   ? (float)$obj->test_input($_REQUEST['discount_amt'])  : 0;
+$gst_id             = isset($_REQUEST['gst_id'])         ? $obj->test_input($_REQUEST['gst_id'])         : 0;
+$gst_amt            = isset($_REQUEST['gst_amt'])         ? $obj->test_input($_REQUEST['gst_amt'])         : 0;
+$sub_total          = isset($_REQUEST['sub_total'])      ? (float)$obj->test_input($_REQUEST['sub_total'])     : 0;
+$total_amt          = isset($_REQUEST['total_amt'])      ? (float)$obj->test_input($_REQUEST['total_amt'])     : 0;
+$net_amt            = $total_amt;
+$taxtype            = 'exclusive';
+$update_mrp         = isset($_REQUEST['update_mrp']) ? $obj->test_input($_REQUEST['update_mrp']) : 0;
+$transaction_id     = isset($_REQUEST['transaction_id']) ? $obj->test_input($_REQUEST['transaction_id']) : 0;
+$tran_detail_id     = isset($_REQUEST['tran_detail_id']) ? $obj->test_input($_REQUEST['tran_detail_id']) : 0;
 
 if ($product_id > 0) {
 

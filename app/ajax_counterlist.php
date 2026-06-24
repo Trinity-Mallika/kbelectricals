@@ -14,7 +14,7 @@ SELECT
 FROM account a
 LEFT JOIN common_master cm ON cm.common_id = a.common_id
 LEFT JOIN area_master am ON am.area_id = a.area_id
-WHERE a.createdby='$loginid' and a.companyid='$companyid'
+WHERE a.createdby='$loginid'
 ";
 
 if (!empty($from_date) && !empty($to_date)) {
@@ -45,7 +45,7 @@ foreach ($res as $key) {
                 </td>
                 <td class="border-start">
                     <p class="ms-1 mb-0">
-                        <strong>Counter :</strong> <?php echo $key['account_name']; ?>
+                        <strong>Counter :</strong> <?= htmlspecialchars($key['account_name']) ?>
                     </p>
                     <p class="ms-1 mb-0">
                         <strong>Counter Type :</strong> <?= $key['common_name']; ?>
@@ -62,6 +62,21 @@ foreach ($res as $key) {
                     <p class="ms-1 mb-0">
                         <strong>Address :</strong> <?php echo $key['address']; ?>
                     </p>
+                    <?php if (!empty($key['location_address'])) { ?>
+                        <p class="ms-1 mb-0 text-success">
+                            <strong>GPS Location :</strong> <?= $key['location_address']; ?>
+                        </p>
+                    <?php } ?>
+
+                    <?php if (!empty($key['latitude']) && !empty($key['longitude'])) { ?>
+                        <p class="ms-1 mb-0">
+                            <a href="https://maps.google.com/?q=<?= $key['latitude']; ?>,<?= $key['longitude']; ?>"
+                                target="_blank"
+                                class="btn btn-sm btn-outline-primary mt-1">
+                                <i class="bi bi-geo-alt-fill"></i> View on Map
+                            </a>
+                        </p>
+                    <?php } ?>
                 </td>
                 <?php if ($key['status1'] == 0) { ?>
                     <td width="20px">

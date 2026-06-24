@@ -38,13 +38,14 @@
     }
 </style>
 
-
+<?php $comp_logo_side = $obj->getvalfield("company_setting", "comp_logo", "company_id='$companyid'");
+$sideImg = '/uploaded/company/' . $comp_logo_side; ?>
 
 <div class="offcanvas show shadow-sm text-white offcanvas-start sidebar-offcanvas" data-bs-scroll="true" data-bs-backdrop="false" tabindex="-1" id="staticBackdrop" aria-labelledby="staticBackdropLabel" style="width: 230px;background: #1a6ca8;">
 
     <div class="offcanvas-header shadow-sm">
 
-        <img src="../logo.png" alt="" class="w-100 rounded-2">
+        <img src="<?= ($sideImg != '') ? 'uploaded/company/' . $comp_logo_side : "../logo.png" ?>" alt="" class="w-100 rounded-2">
 
         <button type="button" class="btn-close d-lg-none" data-bs-dismiss="offcanvas" aria-label="Close"></button>
 
@@ -70,12 +71,12 @@
             <?php if ($usertype == "admin") { ?>
                 <li class="nav-item ">
 
-                    <a class="nav-link <?php echo ($pagename == "company.php" || $pagename == "upload_mrp_excel.php" || $pagename == "session-master.php" || $pagename == "area_master.php" || $pagename == "user-master.php" || $pagename == "category_master.php" || $pagename == "product_master.php" || $pagename == "brand_master.php" || $pagename == "unit_master.php" || $pagename == "accounts.php" || $pagename == "bank_master.php") ? "active" : ""; ?> " href="#" data-bs-toggle="collapse" data-bs-target="#master" aria-expanded="true">
+                    <a class="nav-link <?php echo ($pagename == "company.php" || $pagename == "setting.php" || $pagename == "upload_mrp_excel.php" || $pagename == "session-master.php" || $pagename == "area_master.php" || $pagename == "user-master.php" || $pagename == "category_master.php" || $pagename == "product_master.php" || $pagename == "brand_master.php" || $pagename == "unit_master.php" || $pagename == "accounts.php" || $pagename == "electrician.php" || $pagename == "bank_master.php") ? "active" : ""; ?> " href="#" data-bs-toggle="collapse" data-bs-target="#master" aria-expanded="true">
                         <i class="bi bi-pencil-square"></i> &nbsp; Master
                         <span class="float-end down"><i class="bi bi-chevron-right"></i></span>
                     </a>
 
-                    <div class="collapse <?php echo ($pagename == "company.php" || $pagename == "upload_mrp_excel.php" || $pagename == "session-master.php" || $pagename == "area_master.php" || $pagename == "user-master.php" || $pagename == "category_master.php" || $pagename == "product_master.php" || $pagename == "brand_master.php" || $pagename == "unit_master.php" || $pagename == "accounts.php" || $pagename == "bank_master.php") ? "show" : ""; ?>" id="master">
+                    <div class="collapse <?php echo ($pagename == "company.php" || $pagename == "setting.php" || $pagename == "upload_mrp_excel.php" || $pagename == "session-master.php" || $pagename == "area_master.php" || $pagename == "user-master.php" || $pagename == "category_master.php" || $pagename == "product_master.php" || $pagename == "brand_master.php" || $pagename == "unit_master.php" || $pagename == "accounts.php" || $pagename == "electrician.php" || $pagename == "bank_master.php") ? "show" : ""; ?>" id="master">
 
                         <ul class="btn-toggle-nav list-group list-unstyled fw-normal pb-1 small">
                             <li>
@@ -87,6 +88,17 @@
                                 </a>
 
                             </li>
+
+                            <li>
+
+                                <a href="setting.php" class="list-group-item bg-submenu list-group-item-action <?php echo ($pagename == "setting.php") ? "active" : ""; ?>">
+
+                                    <i class="bi bi-chevron-right"></i> &nbsp; Setting
+
+                                </a>
+
+                            </li>
+
                             <li>
 
                                 <a href="session-master.php" class="list-group-item bg-submenu list-group-item-action <?php echo ($pagename == "session-master.php") ? "active" : ""; ?>">
@@ -156,6 +168,11 @@
                                 </a>
                             </li>
                             <li>
+                                <a href="electrician.php" class="list-group-item bg-submenu list-group-item-action <?php echo ($pagename == "electrician.php") ? "active" : ""; ?>">
+                                    <i class="bi bi-chevron-right"></i> &nbsp; Electrician Master
+                                </a>
+                            </li>
+                            <li>
 
                                 <a href="bank_master.php" class="list-group-item bg-submenu list-group-item-action <?php echo ($pagename == "bank_master.php") ? "active" : ""; ?>">
 
@@ -183,7 +200,7 @@
                 <li class="nav-item ">
 
                     <a class="nav-link <?php echo ($pagename == "route_wise_counter.php" || $pagename == "route.php" || $pagename == "assign_route.php") ? "active" : ""; ?> " href="#" data-bs-toggle="collapse" data-bs-target="#route_setting" aria-expanded="true">
-                        <i class="bi bi-pin-map"></i>&nbsp; Route Setting
+                        <i class="bi bi-signpost-split"></i>&nbsp; Route Setting
                         <span class="float-end down"><i class="bi bi-chevron-right"></i></span>
                     </a>
 
@@ -223,7 +240,7 @@
 
                     <a class="nav-link <?php echo ($pagename == "kra_setting_report.php") ? "active" : ""; ?>" href="kra_setting_report.php">
 
-                        <i class="bi bi-graph-up-arrow"></i> &nbsp; KRA Setting
+                        <i class="bi bi-bullseye"></i> &nbsp; KRA Setting
                         <span class="float-end"><i class="bi bi-chevron-right"></i></span>
 
                     </a>
@@ -233,29 +250,7 @@
 
                     <a class="nav-link <?php echo ($pagename == "incentive_setting_report.php") ? "active" : ""; ?>" href="incentive_setting_report.php">
 
-                        <i class="bi bi-cash-stack"></i> &nbsp; Incentive Setting
-
-                        <span class="float-end"><i class="bi bi-chevron-right"></i></span>
-
-                    </a>
-
-                </li>
-                <li class="nav-item ">
-
-                    <a class="nav-link <?php echo ($pagename == "quotation.php" || $pagename == "quotation_list.php") ? "active" : ""; ?>" href="quotation.php">
-
-                        <i class="bi bi-receipt"></i> &nbsp; Quotation
-
-                        <span class="float-end"><i class="bi bi-chevron-right"></i></span>
-
-                    </a>
-
-                </li>
-                <li class="nav-item ">
-
-                    <a class="nav-link <?php echo ($pagename == "scheme_entry.php") ? "active" : ""; ?>" href="scheme_entry.php">
-
-                        <i class="bi bi-receipt"></i> &nbsp; Scheme Entry
+                        <i class="bi bi-cash-coin"></i> &nbsp; Incentive Setting
 
                         <span class="float-end"><i class="bi bi-chevron-right"></i></span>
 
@@ -263,27 +258,68 @@
 
                 </li>
             <?php } ?>
-
             <li class="nav-item ">
 
-                <a class="nav-link <?php echo ($pagename == "order_list.php") ? "active" : ""; ?>" href="order_list.php">
+                <a class="nav-link <?php echo ($pagename == "scheme_entry.php") ? "active" : ""; ?>" href="scheme_entry.php">
 
-                    <i class="bi bi-receipt"></i> &nbsp; Order List
+                    <i class="bi bi-gift"></i> &nbsp; Scheme Entry
 
                     <span class="float-end"><i class="bi bi-chevron-right"></i></span>
 
                 </a>
 
             </li>
+            <li class="nav-item ">
+
+                <a class="nav-link <?php echo ($pagename == "quotation.php" || $pagename == "quotation_list.php") ? "active" : ""; ?>" href="quotation.php">
+
+                    <i class="bi bi-file-earmark-text"></i> &nbsp; Quotation
+
+                    <span class="float-end"><i class="bi bi-chevron-right"></i></span>
+
+                </a>
+
+            </li>
+
+
+            <li class="nav-item ">
+
+                <a class="nav-link <?php echo ($pagename == "order_list.php"  || $pagename == "order-entry.php") ? "active" : ""; ?> " href="#" data-bs-toggle="collapse" data-bs-target="#neworder" aria-expanded="true">
+                    <i class="bi bi-cart-check"></i></i>&nbsp; Order
+                    <span class="float-end down"><i class="bi bi-chevron-right"></i></span>
+                </a>
+
+                <div class="collapse <?php echo ($pagename == "order_list.php"  || $pagename == "order-entry.php") ? "show" : ""; ?>" id="neworder">
+
+                    <ul class="btn-toggle-nav list-group list-unstyled fw-normal pb-1 small">
+                        <li>
+                            <a href="order-entry.php" class="list-group-item bg-submenu list-group-item-action <?php echo ($pagename == "order-entry.php") ? "active" : ""; ?>">
+                                <i class="bi bi-chevron-right"></i> &nbsp; Create Order
+                            </a>
+                        </li>
+                        <li>
+
+                            <a href="order_list.php" class="list-group-item bg-submenu list-group-item-action <?php echo ($pagename == "order_list.php") ? "active" : ""; ?>">
+
+                                <i class="bi bi-chevron-right"></i> &nbsp; Order List & Dispatch
+                            </a>
+
+                        </li>
+                    </ul>
+
+                </div>
+
+            </li>
+
             <?php if ($usertype == "admin") { ?>
                 <li class="nav-item ">
 
-                    <a class="nav-link <?php echo ($pagename == "daily_visit_list.php" || $pagename == "monthly_target_approval.php" || $pagename == "accounts_list.php" || $pagename == "payment_list.php") ? "active" : ""; ?> " href="#" data-bs-toggle="collapse" data-bs-target="#reports" aria-expanded="true">
-                        <i class="bi bi-bar-chart"></i>&nbsp; Reports
+                    <a class="nav-link <?php echo ($pagename == "daily_visit_list.php" || $pagename == "monthly_target_approval.php" || $pagename == "accounts_list.php" || $pagename == "payment_list.php" || $pagename == "salesman_wise_report.php") ? "active" : ""; ?> " href="#" data-bs-toggle="collapse" data-bs-target="#reports" aria-expanded="true">
+                        <i class="bi bi-bar-chart-line"></i>&nbsp; Reports
                         <span class="float-end down"><i class="bi bi-chevron-right"></i></span>
                     </a>
 
-                    <div class="collapse <?php echo ($pagename == "daily_visit_list.php" || $pagename == "monthly_target_approval.php" || $pagename == "accounts_list.php" || $pagename == "payment_list.php") ? "show" : ""; ?>" id="reports">
+                    <div class="collapse <?php echo ($pagename == "daily_visit_list.php" || $pagename == "monthly_target_approval.php" || $pagename == "accounts_list.php" || $pagename == "payment_list.php" || $pagename == "salesman_wise_report.php") ? "show" : ""; ?>" id="reports">
 
                         <ul class="btn-toggle-nav list-group list-unstyled fw-normal pb-1 small">
                             <li>
@@ -315,9 +351,55 @@
                                 </a>
 
                             </li>
+
+                            <li>
+
+                                <a href="salesman_wise_report.php" class="list-group-item bg-submenu list-group-item-action <?php echo ($pagename == "salesman_wise_report.php") ? "active" : ""; ?>">
+
+                                    <i class="bi bi-chevron-right"></i> &nbsp; Sales Man Wise Report
+                                </a>
+
+                            </li>
+
                         </ul>
 
                     </div>
+
+                </li>
+
+                <li class="nav-item ">
+
+                    <a class="nav-link <?php echo ($pagename == "store_location.php") ? "active" : ""; ?>" href="store_location.php">
+
+                        <i class="bi bi-cart-check"></i></i> &nbsp; Store Location
+
+                        <span class="float-end"><i class="bi bi-chevron-right"></i></span>
+
+                    </a>
+
+                </li>
+
+                <li class="nav-item ">
+
+                    <a class="nav-link <?php echo ($pagename == "qr-display.php") ? "active" : ""; ?>" href="qr-display.php">
+
+                        <i class="bi bi-cart-check"></i></i> &nbsp; QR Display
+
+                        <span class="float-end"><i class="bi bi-chevron-right"></i></span>
+
+                    </a>
+
+                </li>
+
+                <li class="nav-item ">
+
+                    <a class="nav-link <?php echo ($pagename == "payment.php") ? "active" : ""; ?>" href="payment.php">
+
+                        <i class="bi bi-cart-check"></i></i> &nbsp; Payment
+
+                        <span class="float-end"><i class="bi bi-chevron-right"></i></span>
+
+                    </a>
 
                 </li>
             <?php } ?>
@@ -325,7 +407,7 @@
 
                 <a class="nav-link <?php echo ($pagename == "change-password.php") ? "active" : ""; ?>" href="change-password.php">
 
-                    <i class="bi bi-lock"></i> &nbsp; Change Password
+                    <i class="bi bi-shield-lock"></i> &nbsp; Change Password
 
                     <span class="float-end"><i class="bi bi-chevron-right"></i></span>
 

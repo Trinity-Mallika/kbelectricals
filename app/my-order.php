@@ -11,60 +11,113 @@ $billno      = $obj->getcode($tblname, "billno", "1=1 and type='$type'");
 $data        = $obj->getRouteDashboardData($loginid, $companyid);
 $route_plan_id = $data['route_plan_id'];
 
-if (isset($_POST['add_counter'])) {
-    $batch_no     = $obj->test_input($_POST['route_planid']);
-    $account_name = $obj->test_input($_POST['account_name']);
-    $mobile_no    = $obj->test_input($_POST['mobile_no']);
-    $address      = $obj->test_input($_POST['address']);
-    $area_id      = $obj->test_input($_POST['area_id']);
-    $common_id    = $obj->test_input($_POST['common_id']);
-    $class        = $obj->test_input($_POST['class']);
-    $acc_type     = ($common_id == -1) ? "employee" : "customer";
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    if (isset($_POST['add_counter'])) {
 
-    if ($account_name == "" || $area_id == "" || $class == "") {
-        echo "error";
+        $batch_no = $obj->test_input($_POST['route_planid']);
+        $account_name = $obj->test_input($_POST['account_name']);
+        $mobile_no = $obj->test_input($_POST['mobile_no']);
+        $address = $obj->test_input($_POST['address']);
+        $area_id = $obj->test_input($_POST['area_id']);
+        $common_id = $obj->test_input($_POST['common_id']);
+        $class = $obj->test_input($_POST['class']);
+        $owner_name       = $obj->test_input($_POST['owner_name'] ?? '');
+        $owner_mobile     = $obj->test_input($_POST['owner_mobile'] ?? '');
+        $latitude         = $obj->test_input($_POST['latitude'] ?? '');
+        $longitude        = $obj->test_input($_POST['longitude'] ?? '');
+        $location_address = $obj->test_input($_POST['location_address'] ?? '');
+
+        $type = "customer";
+
+        if ($account_name == "" || $area_id == "" || $class == "") {
+            echo "error";
+            exit;
+        }
+
+        // Duplicate check
+        $count = $obj->getvalfield(
+            "account",
+            "count(*)",
+            "account_name='$account_name' AND area_id='$area_id'"
+        );
+
+        if ($count > 0) {
+            echo "duplicate";
+            exit;
+        }
+
+        $counter_image = '';
+        $visiting_image = '';
+
+        if (!empty($_FILES['counter_image']['tmp_name'])) {
+            $counter_image = $obj->uploadImage(
+                "../admin/uploaded/accounts/",
+                $_FILES['counter_image']
+            );
+        }
+
+        if (!empty($_FILES['visiting_image']['tmp_name'])) {
+            $visiting_image = $obj->uploadImage(
+                "../admin/uploaded/accounts/",
+                $_FILES['visiting_image']
+            );
+        }
+
+        $form_data = [
+            'account_name'      => $account_name,
+            'mobile_no'         => $mobile_no,
+            'owner_name'        => $owner_name,
+            'o_mobile_no'      => $owner_mobile,
+            'address'           => $address,
+            'common_id'         => $common_id,
+            'area_id'           => $area_id,
+            'class'             => $class,
+            'latitude'          => $latitude,
+            'longitude'         => $longitude,
+            'location_address'  => $location_address,
+            'status'            => 'inactive',
+            'type'              => $type,
+            'status1'           => 0,
+            'createdby'         => $loginid,
+            'companyid'         => $companyid,
+            'ipaddress'         => $ipaddress,
+            'counter_image'     => $counter_image,
+            'visiting_image'    => $visiting_image,
+        ];
+
+        // INSERT INTO ACCOUNT
+        $account_id = $obj->insert_record_lastid("account", $form_data);
+
+        if ($account_id > 0) {
+
+            if ($batch_no != '') {
+
+                $sequence = $obj->getvalfield(
+                    "route_counter",
+                    "IFNULL(MAX(sequence),0)+1",
+                    "batch_no='$batch_no'"
+                );
+
+                $obj->insert_record("route_counter", [
+                    'batch_no' => $batch_no,
+                    'account_id' => $account_id,
+                    'sequence' => $sequence,
+                    'createdate' => date('Y-m-d H:i:s'),
+                    'ipaddress' => $ipaddress,
+                    'companyid' => $companyid,
+                    'createdby' => $loginid
+                ]);
+            }
+            echo "success";
+        } else {
+            echo "error";
+        }
+
         exit;
     }
-
-    $count = $obj->getvalfield("account", "count(*)", "account_name='$account_name' AND area_id='$area_id'");
-    if ($count > 0) {
-        echo "duplicate";
-        exit;
-    }
-
-    $account_id = $obj->insert_record_lastid("account", [
-        'account_name' => $account_name,
-        'mobile_no'    => $mobile_no,
-        'address'      => $address,
-        'common_id'    => $common_id,
-        'area_id'      => $area_id,
-        'class'        => $class,
-        'status'       => "inactive",
-        'type'         => $acc_type,
-        'status1'      => 0,
-        'createdby'    => $loginid,
-        'companyid'    => $companyid,
-        'ipaddress'    => $ipaddress,
-        'createdate'   => date('Y-m-d H:i:s')
-    ]);
-
-    if ($account_id > 0) {
-        $sequence = $obj->getvalfield("route_counter", "IFNULL(MAX(sequence),0)+1", "batch_no='$batch_no'");
-        $obj->insert_record("route_counter", [
-            'batch_no'   => $batch_no,
-            'account_id' => $account_id,
-            'sequence'   => $sequence,
-            'createdate' => date('Y-m-d H:i:s'),
-            'ipaddress'  => $ipaddress,
-            'companyid'  => $companyid,
-            'createdby'  => $loginid
-        ]);
-        echo "success";
-    } else {
-        echo "error";
-    }
-    exit;
 }
+
+
 
 if (isset($_POST['account_id'])) {
     $keyvalue    = $obj->test_input($_POST['transaction_id']);
@@ -78,7 +131,7 @@ if (isset($_POST['account_id'])) {
     $address     = $obj->test_input($_POST['address']);
     $overall_gst_pct = $obj->test_input($_POST['overall_gst_pct']);
     $overall_gst_amt = $obj->test_input($_POST['overall_gst_amt']);
-
+    $is_gst = $overall_gst_pct ? 1 : 0;
 
     $form_data = [
         "account_id"       => $account_id,
@@ -89,6 +142,7 @@ if (isset($_POST['account_id'])) {
         "grand_total"      => $grand_total,
         "gst_percent"  => $overall_gst_pct,
         "overall_gst_amt"  => $overall_gst_amt,
+        "is_gst"  => $is_gst,
         'longitude'        => $longitude,
         'latitude'         => $latitude,
         'address'          => $address,
@@ -123,12 +177,16 @@ if (isset($_POST['account_id'])) {
 }
 if ($keyvalue > 0) {
     $sqledit     = $obj->select_record($tblname, [$tblpkey => $keyvalue]);
-    $account_id = $sqledit['account_id'];
+    $account_id  = $sqledit['account_id'];
     $billdate    = $sqledit['billdate'];
     $remark      = $sqledit['remark'];
     $billno      = $sqledit['billno'];
+    $is_gst      = $sqledit['is_gst'];
+    $lowergst = $obj->getvalfield("transaction_details", "gst_id", "transaction_id='$keyvalue' order by gst_id desc");
 } else {
     $billdate    = date('Y-m-d');
+    $is_gst      = "";
+    $lowergst      = "";
     $remark      = "";
 }
 ?>
@@ -178,7 +236,7 @@ if ($keyvalue > 0) {
                             JOIN account a        ON a.account_id = rc.account_id
                             LEFT JOIN common_master cm ON cm.common_id = a.common_id AND cm.type = 'acc_type'
                             LEFT JOIN area_master am   ON am.area_id = a.area_id
-                            WHERE rp.companyid = '$companyid' AND rc.companyid = '$companyid'
+                            WHERE rp.sales_executive_id = '$loginid'
                             ORDER BY a.account_name ASC
                         ");
                             foreach ($res as $key) {
@@ -200,18 +258,18 @@ if ($keyvalue > 0) {
                     <div class="col-8">
                         <div class="d-flex align-items-center gap-2 mt-1 flex-wrap">
                             <div class="form-check form-check-inline mb-0">
-                                <input class="form-check-input" type="checkbox" id="gst_enabled" onchange="toggleGSTMode()">
+                                <input class="form-check-input" type="checkbox" id="gst_enabled" onchange="toggleGSTMode()" <?= ($is_gst || $lowergst) ? 'checked' : '' ?>>
                                 <label class="form-check-label small fw-semibold" for="gst_enabled">Apply GST?</label>
                             </div>
                             <div id="gst_type_options" style="display:none;">
                                 <div class="form-check form-check-inline mb-0">
                                     <input class="form-check-input" type="radio" name="gst_mode" id="gst_productwise"
-                                        value="productwise" onchange="toggleGSTMode()">
+                                        value="productwise" onchange="toggleGSTMode()" <?= ($lowergst) ? 'checked' : '' ?>>
                                     <label class="form-check-label small" for="gst_productwise">Per Item</label>
                                 </div>
                                 <div class="form-check form-check-inline mb-0">
                                     <input class="form-check-input" type="radio" name="gst_mode" id="gst_overall"
-                                        value="overall" onchange="toggleGSTMode()">
+                                        value="overall" onchange="toggleGSTMode()" <?= ($is_gst) ? 'checked' : '' ?>>
                                     <label class="form-check-label small" for="gst_overall">Overall</label>
                                 </div>
                             </div>
@@ -307,7 +365,7 @@ if ($keyvalue > 0) {
                                 <option value="<?= $key['gst_id'] ?>"
                                     data-sgst="<?= $key['sgst'] ?>"
                                     data-cgst="<?= $key['cgst'] ?>"
-                                    data-percent="<?= $key['sgst'] + $key['cgst'] ?>">
+                                    data-percent="<?= $key['gst_percent'] ?>" <?= ($key['gst_id'] == 3) ? "selected" : "" ?>>
                                     <?= $key['gst_name'] ?>
                                 </option>
                             <?php } ?>
@@ -342,6 +400,7 @@ if ($keyvalue > 0) {
                 <input type="hidden" id="gst_amt">
                 <input type="hidden" id="taxable_amt">
                 <input type="hidden" id="total_amt_hidden">
+                <input type="hidden" id="net_amt">
                 <input type="hidden" id="tran_detail_id">
 
             </div>
@@ -351,87 +410,126 @@ if ($keyvalue > 0) {
     </section>
 
     <!-- ── Add Counter Modal ── -->
-    <div class="modal fade" id="staticBackdrop" data-bs-backdrop="static" data-bs-keyboard="false"
-        tabindex="-1" aria-labelledby="staticBackdropLabel" aria-hidden="true">
+    <div class="modal fade" id="staticBackdrop" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1"
+        aria-labelledby="staticBackdropLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Add New Counter</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <h1 class="modal-title fs-5" id="staticBackdropLabel">Add New Counter</h1>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="row">
-                        <div class="col-12 mb-2">
-                            <label class="form-label">Route Name <span class="text-danger fw-bold">*</span></label>
-                            <select id="route_planid" class="chosen-select form-control form-control-sm">
+                    <div class="row g-2">
+                        <div class="col-lg-12 col-12">
+                            <label class="form-label form-label-sm">Counter Type <span class="text-danger">*</span></label>
+                            <select id="common_id" class="chosen-select form-control form-control-sm" onchange="toggleFields(this.value)">
+                                <option value="">-- Select --</option>
+                                <?php
+                                $sql = $obj->executequery("SELECT common_id, common_name FROM common_master WHERE type='acc_type' ORDER BY common_id ASC");
+                                foreach ($sql as $k): ?>
+                                    <option value="<?= $k['common_id'] ?>">
+                                        <?= htmlspecialchars($k['common_name']) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <div class="col-lg-12 col-12" id="route_div">
+                            <label class="form-label form-label-sm">Route Name <span class="text-danger">*</span></label>
+                            <select name="route_planid" id="route_planid" class="chosen-select form-control form-control-sm">
                                 <option value="">-- Select Route --</option>
                                 <?php
                                 $sql = $obj->executequery("
                                 SELECT R.batch_no, R.route_name,
-                                       GROUP_CONCAT(R.day_of_week ORDER BY FIELD(day_of_week,
-                                           'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday')
-                                           SEPARATOR ', ') AS days
-                                FROM route AS R
-                                LEFT JOIN route_plan AS RP ON R.batch_no = RP.batch_no
-                                WHERE R.companyid='$companyid' AND RP.sales_executive_id='$loginid'
+                                    GROUP_CONCAT(R.day_of_week
+                                        ORDER BY FIELD(day_of_week,'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday')
+                                        SEPARATOR ', ') AS days
+                                FROM route R
+                                LEFT JOIN route_plan RP ON R.batch_no = RP.batch_no
+                                WHERE R.companyid = '$companyid' AND RP.sales_executive_id = '$loginid'
                                 GROUP BY R.batch_no, R.route_name
                                 ORDER BY R.route_name ASC
                             ");
-                                foreach ($sql as $key) {
-                                    echo "<option value='{$key['batch_no']}'>{$key['route_name']} [{$key['days']}]</option>";
-                                } ?>
+                                foreach ($sql as $k): ?>
+                                    <option value="<?= $k['batch_no'] ?>">
+                                        <?= htmlspecialchars($k['route_name']) ?> [<?= htmlspecialchars($k['days']) ?>]
+                                    </option>
+                                <?php endforeach; ?>
                             </select>
-                            <script>
-                                document.getElementById('route_planid').value = '<?= $route_plan_id ?>';
-                            </script>
                         </div>
-                        <div class="col-6 mb-2">
-                            <label class="form-label">Counter Name <span class="text-danger fw-bold">*</span></label>
-                            <input type="text" class="form-control" id="m_account_name" placeholder="Counter Name">
+
+                        <div class="col-lg-12 col-12">
+                            <label class="form-label form-label-sm">Area <span class="text-danger">*</span></label>
+                            <select name="area_id" id="area_id" class="chosen-select form-control form-control-sm">
+                                <option value="">-- Select Area --</option>
+                                <?php
+                                $sql = $obj->executequery("SELECT area_id, area_name FROM area_master ORDER BY area_name ASC");
+                                foreach ($sql as $k): ?>
+                                    <option value="<?= $k['area_id'] ?>">
+                                        <?= htmlspecialchars($k['area_name']) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
                         </div>
-                        <div class="col-6 mb-2">
-                            <label class="form-label">Mobile Number</label>
-                            <input type="text" class="form-control" id="m_mobile_no" placeholder="10-digit mobile"
-                                maxlength="10" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,10);">
-                        </div>
-                        <div class="col-6 mb-2">
-                            <label class="form-label">Class <span class="text-danger fw-bold">*</span></label>
-                            <select id="m_class" class="form-control">
-                                <option value="">-- Select --</option>
+
+                        <div class="col-lg-12 col-12">
+                            <label class="form-label form-label-sm">Class <span class="text-danger">*</span></label>
+                            <select name="class" id="class" class="form-control form-control-sm">
+                                <option value="">-- Select Class --</option>
                                 <option value="A">A</option>
                                 <option value="B">B</option>
                                 <option value="C">C</option>
                             </select>
                         </div>
-                        <div class="col-6 mb-2">
-                            <label class="form-label">Area <span class="text-danger fw-bold">*</span></label>
-                            <select id="m_area_id" class="chosen-select form-control form-control-sm">
-                                <option value="">-- Select Area --</option>
-                                <?php
-                                $sql = $obj->executequery("SELECT area_id, area_name FROM area_master ORDER BY area_name ASC");
-                                foreach ($sql as $key) {
-                                    echo "<option value='{$key['area_id']}'>{$key['area_name']}</option>";
-                                } ?>
-                            </select>
+
+                        <div class="col-lg-12 col-12 mb-1">
+                            <label class="form-label form-label-sm">Counter Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-sm" id="account_name" name="account_name"
+                                placeholder="Enter Counter Name">
                         </div>
-                        <div class="col-6 mb-2">
-                            <label class="form-label">Counter Type</label>
-                            <select id="m_common_id" class="chosen-select form-control form-control-sm">
-                                <option value="">-- Select Type --</option>
-                                <?php
-                                $sql = $obj->executequery("SELECT common_id, common_name FROM common_master WHERE type='acc_type' ORDER BY common_id ASC");
-                                foreach ($sql as $key) {
-                                    echo "<option value='{$key['common_id']}'>{$key['common_name']}</option>";
-                                } ?>
-                            </select>
+
+                        <div class="col-lg-12 col-12 mb-1">
+                            <label class="form-label form-label-sm">WhatsApp Number <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-sm" id="mobile_no" name="mobile_no"
+                                placeholder="10-digit number" maxlength="10"
+                                oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,10)">
                         </div>
-                        <div class="col-12 mb-3">
-                            <label class="form-label">Address</label>
-                            <textarea class="form-control" id="m_address" placeholder="Enter Address" rows="2"></textarea>
+
+                        <div class="col-lg-12 col-12 mb-1">
+                            <label class="form-label form-label-sm">Owner Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-sm" id="owner_name" name="owner_name"
+                                placeholder="Enter Owner Name">
                         </div>
-                        <div class="col-12 text-end">
-                            <button type="button" class="btn btn-primary px-4" onclick="add_counter();">+ Add Counter</button>
+
+                        <div class="col-lg-12 col-12 mb-1">
+                            <label class="form-label form-label-sm">Owner Mobile No. <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-sm" id="owner_mobile" name="owner_mobile"
+                                placeholder="10-digit number" maxlength="10"
+                                oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,10)">
                         </div>
+
+                        <div class="col-lg-6 col-12 mb-1">
+                            <label class="form-label form-label-sm">Counter Image <span class="text-danger">*</span></label>
+                            <input type="file" class="form-control form-control-sm" id="counter_image" name="counter_image"
+                                accept="image/jpeg,image/png,image/webp">
+                        </div>
+
+                        <div class="col-lg-6 col-12 mb-1">
+                            <label class="form-label form-label-sm">Visiting Card Image <span class="text-danger">*</span></label>
+                            <input type="file" class="form-control form-control-sm" id="visiting_image" name="visiting_image"
+                                accept="image/jpeg,image/png,image/webp">
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label form-label-sm">Address</label>
+                            <textarea class="form-control form-control-sm" id="modal_address" name="address"
+                                rows="2" placeholder="Enter Address"></textarea>
+                        </div>
+
+                        <div class="col-12 mt-2">
+                            <button type="button" class="btn btn-primary w-100" onclick="add_counter();">+ Add Counter</button>
+                        </div>
+
                     </div>
                 </div>
             </div>
@@ -531,6 +629,7 @@ if ($keyvalue > 0) {
             document.getElementById('account_id').value = '<?= $account_id ?>';
             $('#account_id').trigger('chosen:updated');
             fetch_data();
+            toggleGSTMode();
         });
 
         $(document).on('input change', '#qty, #rate, #discount', function() {
@@ -567,7 +666,6 @@ if ($keyvalue > 0) {
             $('#tran_detail_id').val(0);
             $('#gst_percent').val(0);
             $('#add_btn').text('ADD');
-            $('#gst_id').val('').trigger('change');
             restoreLastSelection();
             $('#product_id').val('').trigger('chosen:updated');
         }
@@ -589,7 +687,6 @@ if ($keyvalue > 0) {
                 $('#gst_block').hide();
                 $('#overall_gst_row').hide();
                 $('input[name="gst_mode"]').prop('checked', false);
-                $('#gst_id').val('');
                 $('#gst_percent, #gst_amt, #taxable_amt').val(0);
                 updateOverallGST();
                 recalcTotal();
@@ -598,15 +695,20 @@ if ($keyvalue > 0) {
 
             $('#gst_type_options').show();
 
-            let hasProductGST = checkExistingProductGST();
+            let result = checkExistingProductGST();
 
-            if (hasProductGST) {
-                $('#gst_overall').prop('disabled', true)
-                    .closest('.form-check')
-                    .attr('title', 'Items already have product-wise GST');
+            if (result.gstFound) {
+                $('#gst_overall').prop('disabled', true);
                 $('#gst_productwise').prop('disabled', false);
 
                 if ($('input[name="gst_mode"]:checked').val() !== 'productwise') {
+                    $('#gst_productwise').prop('checked', true);
+                }
+            } else if (result.productFound) {
+                $('#gst_overall').prop('disabled', false);
+                $('#gst_productwise').prop('disabled', true);
+
+                if (!$('input[name="gst_mode"]:checked').val()) {
                     $('#gst_productwise').prop('checked', true);
                 }
             } else {
@@ -616,6 +718,7 @@ if ($keyvalue > 0) {
                 if (!$('input[name="gst_mode"]:checked').val()) {
                     $('#gst_productwise').prop('checked', true);
                 }
+
             }
 
             let currentMode = $('input[name="gst_mode"]:checked').val();
@@ -645,16 +748,22 @@ if ($keyvalue > 0) {
         }
 
         function checkExistingProductGST() {
-            let found = false;
+            let gstFound = false;
+            let productFound = false;
+
             $('#show_order [data-gst-percent]').each(function() {
+                productFound = true;
+
                 if (parseFloat($(this).data('gst-percent')) > 0) {
-                    found = true;
-                    return false;
+                    gstFound = true;
                 }
             });
-            return found;
-        }
 
+            return {
+                gstFound: gstFound,
+                productFound: productFound
+            };
+        }
         /* ── Per-line recalc ────────────────────────────── */
         function calculate_total() {
 
@@ -996,6 +1105,7 @@ if ($keyvalue > 0) {
             let sub_total = $('#sub_total_hidden').val(); // ← fixed
             let taxable_amt = parseFloat($('#taxable_amt').val()) || 0;
             let total_amt = $('#total_amt_hidden').val();
+            let net_total = $('#net_total').val();
             let tran_detail_id = $('#tran_detail_id').val() || 0;
             let transaction_id = $('#transaction_id').val();
             let update_mrp = document.getElementById('update_mrp').checked ? 1 : 0;
@@ -1061,6 +1171,7 @@ if ($keyvalue > 0) {
                     gst_id,
                     gst_percent,
                     gst_amt,
+                    net_total,
                     update_mrp
                 },
                 success(data) {
@@ -1102,20 +1213,6 @@ if ($keyvalue > 0) {
             });
         }
 
-        function resetProductForm() {
-            ['brand_id', 'category_id', 'product_id', 'gst_id'].forEach(id =>
-                $('#' + id).val('').trigger('chosen:updated')
-            );
-            $('#unit_name, #qty, #rate, #price_after_disc').val('');
-            $('#total_amt_hidden, #taxable_amt, #gst_amt').val(0);
-            $('#sub_total_hidden, #discount_amt_hidden').val(0);
-            $('#total_amt').text('0.00');
-            $('#unit_id').val(0);
-            $('#discount').val(0);
-            $('#tran_detail_id').val(0);
-            $('#gst_percent').val(0);
-            $('#add_btn').text('ADD');
-        }
 
         function EditProduct(category_id, product_id, brand_id, unit_id, unit_name,
             qty, rate, discount, gst_id, tran_detail_id) {
@@ -1129,7 +1226,7 @@ if ($keyvalue > 0) {
             $('#qty').val(qty);
             $('#rate').val(rate);
             $('#discount').val(discount || 0);
-            $('#gst_id').val(gst_id || '').trigger('change');
+            $('#gst_id').val(gst_id).trigger('change');
             $('#tran_detail_id').val(tran_detail_id);
             $('#add_btn').text('Update');
 
@@ -1140,40 +1237,199 @@ if ($keyvalue > 0) {
             });
         }
 
-        function openModal() {
-            $('#staticBackdrop').modal('show');
+        function toggleFields(common_id) {
+
+            if (common_id == 7) {
+                $('#route_div').show();
+            } else {
+                $('#route_div').hide();
+                $('#route_planid').val('').trigger('chosen:updated');
+            }
         }
 
         function add_counter() {
+
+            const common_id = $('#common_id').val();
+            const isCustomer = (common_id == 7);
+
+            if (!common_id) {
+                Swal.fire('Select Counter Type');
+                return;
+            }
+
+            if (isCustomer && !$('#route_planid').val()) {
+                Swal.fire('Select Route');
+                return;
+            }
+
+            if (!$('#area_id').val()) {
+                Swal.fire('Select Area');
+                $('#area_id').focus();
+                return;
+            }
+
+            if (!$('#class').val()) {
+                Swal.fire('Select Class');
+                $('#class').focus();
+                return;
+            }
+
+            if (!$('#account_name').val().trim()) {
+                Swal.fire('Enter Counter Name');
+                $('#account_name').focus();
+                return;
+            }
+
+            if (!$('#mobile_no').val()) {
+                Swal.fire('Enter Mobile No.');
+                $('#mobile_no').focus();
+                return;
+            }
+
+            if (!$('#owner_name').val()) {
+                Swal.fire('Enter Owner Name');
+                $('#owner_name').focus();
+                return;
+            }
+
+            if (!$('#owner_mobile').val()) {
+                Swal.fire('Enter Owner Mobile');
+                $('#owner_mobile').focus();
+                return;
+            }
+
+            if ($('#owner_mobile').val().length != 10) {
+                Swal.fire('Owner Mobile must be 10 digits');
+                $('#owner_mobile').focus();
+                return;
+            }
+
+            if ($('#counter_image')[0].files.length === 0) {
+                Swal.fire('Required', 'Counter Image is required.', 'warning');
+                return;
+            }
+
+            if ($('#visiting_image')[0].files.length === 0) {
+                Swal.fire('Required', 'Visiting Card Image is required.', 'warning');
+                return;
+            }
+
+            // --- Get Location First ---
+            if (!navigator.geolocation) {
+                Swal.fire('Error', 'Geolocation is not supported by this browser.', 'error');
+                return;
+            }
+
+            Swal.fire({
+                title: 'Getting Location...',
+                text: 'Please allow location access.',
+                allowOutsideClick: false,
+                didOpen: () => Swal.showLoading()
+            });
+
+            navigator.geolocation.getCurrentPosition(
+
+                function(position) {
+
+                    const latitude = position.coords.latitude;
+                    const longitude = position.coords.longitude;
+
+                    // Reverse geocode via your location.php
+                    fetch('location.php', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded'
+                            },
+                            body: new URLSearchParams({
+                                latitude,
+                                longitude
+                            })
+                        })
+                        .then(r => r.json())
+                        .then(data => {
+
+                            submitCounterForm(
+                                latitude,
+                                longitude,
+                                data.address || ''
+                            );
+
+                        })
+                        .catch(() => {
+                            Swal.fire('Error', 'Unable to fetch address. Check your internet connection.', 'error');
+                        });
+                },
+
+                function(error) {
+                    let msg = 'Please allow location access to continue.';
+                    if (error.code === error.PERMISSION_DENIED) {
+                        msg = 'Location permission denied. Please enable location access.';
+                    }
+                    Swal.fire('Location Required', msg, 'warning');
+                },
+
+                {
+                    timeout: 10000,
+                    maximumAge: 0
+                }
+            );
+        }
+
+        function submitCounterForm(latitude, longitude, address) {
+
             let formData = new FormData();
+
             formData.append('add_counter', 1);
             formData.append('route_planid', $('#route_planid').val());
-            formData.append('account_name', $('#m_account_name').val());
-            formData.append('mobile_no', $('#m_mobile_no').val());
-            formData.append('address', $('#m_address').val());
-            formData.append('area_id', $('#m_area_id').val());
-            formData.append('common_id', $('#m_common_id').val());
-            formData.append('class', $('#m_class').val());
+            formData.append('common_id', $('#common_id').val());
+            formData.append('account_name', $('#account_name').val());
+            formData.append('mobile_no', $('#mobile_no').val());
+            formData.append('owner_name', $('#owner_name').val());
+            formData.append('owner_mobile', $('#owner_mobile').val());
+            formData.append('address', $('#modal_address').val());
+            formData.append('area_id', $('#area_id').val());
+            formData.append('class', $('#class').val());
+            formData.append('latitude', latitude);
+            formData.append('longitude', longitude);
+            formData.append('location_address', address);
+
+            let counterImg = $('#counter_image')[0].files[0];
+            let visitingImg = $('#visiting_image')[0].files[0];
+            if (counterImg) formData.append('counter_image', counterImg);
+            if (visitingImg) formData.append('visiting_image', visitingImg);
 
             Swal.fire({
                 title: 'Saving...',
                 allowOutsideClick: false,
                 didOpen: () => Swal.showLoading()
             });
+
             $.ajax({
                 url: 'my-order.php',
                 type: 'POST',
                 data: formData,
                 processData: false,
                 contentType: false,
-                success(res) {
+                success: function(res) {
                     res = res.trim();
-                    if (res === 'success') Swal.fire('Saved!', 'Counter added successfully', 'success').then(() => location.reload());
-                    else if (res === 'duplicate') Swal.fire('Duplicate', 'Counter already exists in this area', 'warning');
-                    else Swal.fire('Error', 'Could not add counter', 'error');
+                    if (res === 'success') {
+                        Swal.fire('Saved Successfully', '', 'success').then(() => location.reload());
+                    } else if (res === 'duplicate') {
+                        Swal.fire('Duplicate Counter', 'This counter already exists in this area.', 'warning');
+                    } else {
+                        Swal.fire('Error', res, 'error');
+                    }
+                },
+                error: function() {
+                    Swal.fire('Error', 'Unable to save counter. Please try again.', 'error');
                 }
             });
         }
+
+        function openModal() {
+            $("#staticBackdrop").modal("show");
+        }
+
 
         /* ── Save order header ──────────────────────────── */
         function getLocationAndProceed(btn) {

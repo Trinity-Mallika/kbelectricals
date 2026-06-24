@@ -60,6 +60,14 @@ if (isset($_POST['submit'])) {
         "ipaddress" => $ipaddress,
     );
 
+    $print_columns = '';
+
+    if (isset($_POST['print_columns'])) {
+        $print_columns = implode(',', $_POST['print_columns']);
+    }
+
+    $form_data['print_columns'] = $print_columns;
+
     if ($keyvalue == 0) {
         $form_data["createdate"] = $createdate;
         $lastid = $obj->insert_record_lastid($tblname, $form_data);
@@ -95,6 +103,7 @@ if ($keyvalue > 0) {
 } else {
     $remark = $gst = $freight = $validity = $payment = "";
     $is_gst = 0;
+    $selected_columns = [];
 }
 ?>
 <!DOCTYPE html>
@@ -294,17 +303,7 @@ if ($keyvalue > 0) {
                                         <strong><label>Price After Disc.</label></strong>
                                         <input type="number" id="price_after_disc" class="form-control form-control-sm" readonly>
                                     </div>
-                                    <div class="col-md-2">
-                                        <strong> <label for="gst_id">GST <span class="text-danger fw-bold"></span></label></strong>
-                                        <select type="text" class="form-control form-control-sm chosen-select" id="gst_id" onchange="calculate_total()">
-                                            <option value="">--Select GST--</option>
-                                            <?php
-                                            $sql = $obj->executequery("select * from gst_master order by gst_name DESC ");
-                                            foreach ($sql as $key) {  ?>
-                                                <option value="<?php echo $key['gst_id'] ?>" data-percent="<?php echo $key['gst_percent'] ?>" <?= ($key['gst_id'] == 3) ? "selected" : "" ?>><?php echo $key['gst_name'] ?></option> <?php } ?>
-                                        </select>
-
-                                    </div>
+                                    <input type="hidden" id="gst_id" value="3">
                                     <input type="hidden" id="gst_amt">
                                     <div class="col-md-2">
                                         <strong><label>Net Total</label></strong>
@@ -359,23 +358,6 @@ if ($keyvalue > 0) {
                 <div class="modal-body">
                     <div class="row">
                         <div class="col-md-12 mb-2">
-                            <strong> <label for="account_name">Counter/Customer Name <span class="text-danger fw-bold">*</span></label></strong>
-                            <input type="text" class="form-control form-control-sm" name="account_name" id="account_name" placeholder="Counter/Customer  Name" autocomplete="off">
-                        </div>
-                        <div class="col-md-12 mb-2">
-                            <strong> <label for="mobile_no">Whatsapp No. <span class="text-danger fw-bold">*</span></label> </strong>
-                            <input type="text" class="form-control form-control-sm" name="mobile_no" id="mobile_no" placeholder="Whatsapp No." maxlength="10" autocomplete="off">
-                        </div>
-                        <div class="col-md-12 mb-2">
-                            <strong> <label for="account_name">Owner Name <span class="text-danger fw-bold"></span></label></strong>
-                            <input type="text" class="form-control form-control-sm" name="owner_name" id="owner_name" placeholder="Owner Name" autocomplete="off">
-                        </div>
-                        <div class="col-md-12 mb-2">
-                            <strong> <label for="mobile_no">Owner Mobile No. <span class="text-danger fw-bold"></span></label> </strong>
-                            <input type="text" class="form-control form-control-sm" name="o_mobile_no" id="o_mobile_no" placeholder="Owner Mobile No." maxlength="10" autocomplete="off">
-                        </div>
-
-                        <div class="col-md-12 mb-2">
                             <strong> <label for="common_id">Counter Type<span class="text-danger fw-bold">*</span> </label></strong>
                             <select name="common_id" id="common_id" class="chosen-select form-control form-control-sm">
                                 <option value="">--Select Counter Type--</option>
@@ -388,19 +370,97 @@ if ($keyvalue > 0) {
                             </select>
                         </div>
                         <div class="col-md-12 mb-2">
-                            <strong> <label for="area_id">Area<span class="text-danger fw-bold">*</span> </label></strong>
-                            <select name="area_id" id="area_id" class="chosen-select form-control form-control-sm">
-                                <option value="">--Select Area--</option>
+                            <strong> <label for="user_id">Referred By<span class="text-danger fw-bold">*</span> </label></strong>
+                            <select id="user_id" class="chosen-select form-control form-control-sm">
+                                <option value="">--Select Referred By--</option>
                                 <?php
-                                $sql = $obj->executequery("select area_id,area_name from area_master order by area_name asc ");
+                                $sql = $obj->executequery("select userid,fullname,usertype from user where status='1' order by userid asc ");
                                 foreach ($sql as $key) {
                                 ?>
-                                    <option value="<?= $key['area_id'] ?>"><?= $key['area_name'] ?></option>
+                                    <option value="<?= $key['userid'] ?>" data-type="<?= strtolower($key['usertype']) ?>"><?= $key['fullname'] ?></option>
                                 <?php } ?>
                             </select>
-                            <script>
-                                document.getElementById('area_id').value = '<?php echo $area_id; ?>';
-                            </script>
+                        </div>
+                        <div id="electrician_div" style="display:none;">
+                            <div class="col-md-12 mb-2">
+                                <strong>
+                                    <label for="electrician_name">
+                                        Electrician Name <span class="text-danger fw-bold">*</span>
+                                    </label>
+                                </strong>
+                                <input type="text" class="form-control form-control-sm"
+                                    id="electrician_name"
+                                    placeholder="Electrician Name">
+                            </div>
+
+                            <div class="col-md-12 mb-2">
+                                <strong>
+                                    <label for="electrician_mobile">
+                                        Electrician Whatsapp No. <span class="text-danger fw-bold">*</span>
+                                    </label>
+                                </strong>
+                                <input type="text" class="form-control form-control-sm"
+                                    id="electrician_mobile"
+                                    maxlength="10"
+                                    placeholder="Electrician Whatsapp No.">
+                            </div>
+                            <div class="col-md-12 mb-2">
+                                <strong><label for="account_id_map">Counter Name <span class="text-danger fw-bold">*</span></label></strong>
+                                <select id="account_id_map" class="chosen-select form-control form-control-sm">
+                                    <option value="">--Select Counter--</option>
+                                    <?php
+                                    $sql = $obj->executequery("SELECT account_name,account_id FROM account WHERE type='customer' ORDER BY account_name ASC");
+                                    foreach ($sql as $key) { ?>
+                                        <option value="<?= $key['account_id'] ?>"><?= $key['account_name'] ?></option>
+                                    <?php } ?>
+                                </select>
+                            </div>
+                        </div>
+                        <div id="normal_customer_fields">
+                            <div class="col-md-12 mb-2">
+                                <strong> <label for="account_name">Counter/Customer Name <span class="text-danger fw-bold">*</span></label></strong>
+                                <input type="text" class="form-control form-control-sm" name="account_name" id="account_name" placeholder="Counter/Customer  Name" autocomplete="off">
+                            </div>
+                            <div class="col-md-12 mb-2">
+                                <strong> <label for="mobile_no">Whatsapp No. <span class="text-danger fw-bold">*</span></label> </strong>
+                                <input type="text" class="form-control form-control-sm" name="mobile_no" id="mobile_no" placeholder="Whatsapp No." maxlength="10" autocomplete="off">
+                            </div>
+                            <div class="col-md-12 mb-2">
+                                <strong> <label for="account_name">Owner Name <span class="text-danger fw-bold"></span></label></strong>
+                                <input type="text" class="form-control form-control-sm" name="owner_name" id="owner_name" placeholder="Owner Name" autocomplete="off">
+                            </div>
+                            <div class="col-md-12 mb-2">
+                                <strong> <label for="mobile_no">Owner Mobile No. <span class="text-danger fw-bold"></span></label> </strong>
+                                <input type="text" class="form-control form-control-sm" name="o_mobile_no" id="o_mobile_no" placeholder="Owner Mobile No." maxlength="10" autocomplete="off">
+                            </div>
+
+                            <div class="col-md-12 mb-2" id="route_div" style="display:none;">
+                                <strong><label for="batch_no">Route Name <span class="text-danger fw-bold">*</span></label></strong>
+                                <select id="batch_no" class="chosen-select form-control form-control-sm">
+                                    <option value="">--Select Route--</option>
+                                    <?php
+                                    $sql = $obj->executequery("SELECT batch_no,route_name FROM route WHERE companyid='$companyid' GROUP BY batch_no,route_name ORDER BY route_name ASC");
+                                    foreach ($sql as $key) { ?>
+                                        <option value="<?= $key['batch_no'] ?>"><?= $key['route_name'] ?></option>
+                                    <?php } ?>
+                                </select>
+                            </div>
+                            <div class="col-md-12 mb-2">
+                                <strong>
+                                    <label for="area_name">
+                                        Area <span class="text-danger fw-bold">*</span>
+                                    </label>
+                                </strong>
+
+                                <input type="text"
+                                    class="form-control form-control-sm"
+                                    id="area_name"
+                                    placeholder="Enter 3 characters to search area"
+                                    autocomplete="off">
+                                <input type="hidden" id="area_id" name="area_id">
+                                <div id="area_list" class="list-group" style="display:none;position:absolute;z-index:9999;width:95%;max-height:200px;overflow-y:auto;">
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -501,6 +561,7 @@ if ($keyvalue > 0) {
         } else {
             $('#is_gst').val(0);
         }
+        fetch_data('<?php echo $keyvalue ?>');
     });
 
     function pm_load_category(brand_id) {
@@ -582,37 +643,133 @@ if ($keyvalue > 0) {
         });
     }
 
+    function toggleRoute() {
+        var user_type = $("#user_id option:selected").data("type");
+        var user_id = $("#user_id").val();
+        var counter_type = $("#common_id").val();
+
+        if (counter_type == '6') {
+            $("#electrician_div").show();
+            $("#normal_customer_fields").hide();
+            $("#account_name,#mobile_no,#owner_name,#o_mobile_no,#area_name").val('');
+        } else {
+            $("#electrician_div").hide();
+            $("#electrician_name,#electrician_mobile").val('');
+            $("#normal_customer_fields").show();
+        }
+        // Route for Counter
+        if (user_type == 'sales' && counter_type == '7') {
+            $("#route_div").show();
+            get_routes(user_id);
+        } else {
+            $("#route_div").hide();
+            $("#batch_no").val('').trigger("chosen:updated");
+        }
+
+
+    }
+    $(document).on("change", "#common_id,#user_id", function() {
+        toggleRoute();
+    });
+
+    $(document).ready(function() {
+        toggleRoute();
+    });
+
+    function get_routes(user_id) {
+        $.ajax({
+            url: "ajax/get_routes.php",
+            type: "POST",
+            data: {
+                user_id: user_id
+            },
+            success: function(data) {
+                $("#batch_no").html(data);
+                $("#batch_no").trigger("chosen:updated");
+            }
+        });
+    }
+
+    $("#area_name").keyup(function() {
+
+        let term = $(this).val();
+
+        if (term.length < 1) {
+            $("#area_list").hide();
+            return;
+        }
+
+        $.ajax({
+            url: "ajax/get_area_list.php",
+            type: "POST",
+            data: {
+                term: term
+            },
+            success: function(data) {
+
+                if (data.trim() != '') {
+                    $("#area_list").html(data).show();
+                } else {
+                    $("#area_list").hide();
+                }
+            }
+        });
+
+    });
+
+    $(document).on("click", ".area-item", function() {
+
+        $("#area_id").val($(this).data("id"));
+        $("#area_name").val($(this).data("name"));
+
+        $("#area_list").hide();
+    });
+
+    $(document).click(function(e) {
+
+        if (!$(e.target).closest('#area_name,#area_list').length) {
+            $("#area_list").hide();
+        }
+
+    });
+
+
     function add_account() {
 
         $('#account_name').val('');
         $('#mobile_no').val('');
         $('#owner_name').val('');
         $('#o_mobile_no').val('');
-
+        $('#batch_no').val('').trigger('chosen:updated');
+        $('#user_id').val('').trigger('chosen:updated');
         $('#common_id').val('7').trigger('chosen:updated');
-        $('#area_id').val('').trigger('chosen:updated');
+        $('#area_name').val('');
+        $('#area_id').val('');
 
         $('#accountNameAdd').modal('show');
     }
 
     function save_account() {
 
+        var user_id = $('#user_id').val().trim();
         var account_name = $('#account_name').val().trim();
         var mobile_no = $('#mobile_no').val().trim();
         var owner_name = $('#owner_name').val().trim();
         var o_mobile_no = $('#o_mobile_no').val().trim();
         var common_id = $('#common_id').val();
+        var batch_no = $('#batch_no').val();
+        var area_name = $('#area_name').val().trim();
         var area_id = $('#area_id').val();
 
-        if (account_name == '') {
-            alert('Enter Customer Name');
-            $('#account_name').focus();
-            return false;
-        }
+        var electrician_name = $('#electrician_name').val().trim();
+        var electrician_mobile = $('#electrician_mobile').val().trim();
+        var account_id_map = $('#account_id_map').val().trim();
 
-        if (mobile_no == '') {
-            alert('Enter Whatsapp No.');
-            $('#mobile_no').focus();
+        var user_type = $("#user_id option:selected").data("type");
+
+        if (user_id == '') {
+            alert('Select Referred By');
+            $('#user_id').focus();
             return false;
         }
 
@@ -621,32 +778,95 @@ if ($keyvalue > 0) {
             return false;
         }
 
-        if (area_id == '') {
-            alert('Select Area');
-            return false;
+        // Electrician Validation
+        if (common_id == '6') {
+
+            if (electrician_name == '') {
+                alert('Enter Electrician Name');
+                $('#electrician_name').focus();
+                return false;
+            }
+
+            if (electrician_mobile == '') {
+                alert('Enter Electrician Whatsapp No.');
+                $('#electrician_mobile').focus();
+                return false;
+            }
+
+            if (account_id_map == '') {
+                alert('Select a Counter Name');
+                $('#account_id_map').focus();
+                return false;
+            }
+
+        } else {
+
+            if (account_name == '') {
+                alert('Enter Customer Name');
+                $('#account_name').focus();
+                return false;
+            }
+
+            if (mobile_no == '') {
+                alert('Enter Whatsapp No.');
+                $('#mobile_no').focus();
+                return false;
+            }
+
+            if (user_type == 'sales' && common_id == '7' && batch_no == '') {
+                alert('Select Route');
+                $('#batch_no').focus();
+                return false;
+            }
+
+            if (area_name == '') {
+                alert('Enter Area Name');
+                $('#area_name').focus();
+                return false;
+            }
         }
 
         $.ajax({
             url: "ajax_save_account.php",
             type: "POST",
             data: {
+                user_id: user_id,
                 account_name: account_name,
                 mobile_no: mobile_no,
                 owner_name: owner_name,
                 o_mobile_no: o_mobile_no,
                 common_id: common_id,
-                area_id: area_id
+                batch_no: batch_no,
+                area_name: area_name,
+                area_id: area_id,
+                electrician_name: electrician_name,
+                electrician_mobile: electrician_mobile,
+                account_id_map: account_id_map,
             },
             success: function(res) {
-                if ($.trim(res) != '') {
+                res = $.trim(res);
+                if (res == 'duplicate') {
+                    alert('Customer/Electrician already exists');
+                    return false;
+                }
+
+                if (res != '') {
+
                     $('#accountNameAdd').modal('hide');
-                    get_account_list($.trim(res));
+                    get_account_list(res);
+
+                    $('#user_id').val('').trigger('chosen:updated');
                     $('#account_name').val('');
                     $('#mobile_no').val('');
                     $('#owner_name').val('');
                     $('#o_mobile_no').val('');
+                    $('#electrician_name').val('');
+                    $('#electrician_mobile').val('');
+                    $('#account_id_map').val('').trigger('chosen:updated');
                     $('#common_id').val('7').trigger('chosen:updated');
-                    $('#area_id').val('').trigger('chosen:updated');
+                    $('#batch_no').val('').trigger('chosen:updated');
+                    $('#area_name').val('');
+                    $('#area_id').val('');
 
                 } else {
                     alert('Unable to save record');
@@ -657,24 +877,6 @@ if ($keyvalue > 0) {
 
     function get_account_list(account_id = '') {
         location = 'quotation.php?account_id=' + account_id;
-        // $.ajax({
-        //     url: "ajax_fetch_account.php",
-        //     type: "POST",
-        //     data: {
-        //         account_id: account_id
-        //     },
-        //     success: function(res) {
-
-        //         $('#account_id').html(res);
-
-        //         if (account_id != '') {
-        //             $('#account_id').val(account_id);
-        //         }
-
-        //         $('#account_id').trigger('chosen:updated');
-        //     }
-        // });
-
     }
 
     function get_url1(account_id) {
@@ -768,9 +970,7 @@ if ($keyvalue > 0) {
         let qty = parseFloat($('#qty').val()) || 0;
         let rate = parseFloat($('#rate').val()) || 0;
         let discP = parseFloat($('#discount').val()) || 0;
-        let gst_percent = parseFloat(
-            $('#gst_id option:selected').data('percent')
-        ) || 0;
+        let gst_percent = 18;
 
         let taxtype = $('#taxtype').val();
 
@@ -822,6 +1022,7 @@ if ($keyvalue > 0) {
         let company_id = '<?= $companyid; ?>';
         let account_id = '<?= $account_id; ?>';
         let type = '<?= $type; ?>';
+        let is_gst = document.getElementById('is_gst').value;
 
         jQuery.ajax({
             type: 'POST',
@@ -830,6 +1031,7 @@ if ($keyvalue > 0) {
                 account_id: account_id,
                 company_id: company_id,
                 transaction_id: transaction_id,
+                is_gst: is_gst,
                 type: type,
             },
             dataType: 'html',
@@ -847,16 +1049,15 @@ if ($keyvalue > 0) {
 
         load_category_by_brand(brand_id, category_id);
         get_products(category_id, product_id);
-        $(document).ready(function() {
 
-            if ($('#ready_stock').is(':checked')) {
-                $('#delivery_div').hide();
-            } else {
-                $('#delivery_div').show();
-            }
-
-        });
         $('#ready_stock').prop('checked', ready_stock == 1);
+
+        if ($('#ready_stock').is(':checked')) {
+            $('#delivery_div').hide();
+        } else {
+            $('#delivery_div').show();
+        }
+
         $('#qty').val(qty);
         $('#rate').val(rate);
         $('#unit_id').val(unit_id);
@@ -865,12 +1066,11 @@ if ($keyvalue > 0) {
         $('#delivery_status').val(delivery_status);
         $('#discount').val(discount);
         $('#total_amt').val(total_amt);
-
-        $('#gst_id').val(gst_id).trigger('chosen:updated');
         $('#net_total').val(net_amt);
 
         $('#m_tran_detail_id').val(tran_detail_id);
         $('#add_btn').val('Update');
+
         calculate_total();
     }
 
@@ -917,7 +1117,7 @@ if ($keyvalue > 0) {
         let discount_amt = document.getElementById('discount_amt').value.trim();
 
         let tran_detail_id = document.getElementById('m_tran_detail_id').value;
-        let gst_id = document.getElementById('gst_id').value;
+        let gst_id = 3;
         let taxtype = document.getElementById('taxtype').value;
         let net_amt = document.getElementById('net_total').value;
         let transaction_id = '<?php echo $keyvalue ?>';
@@ -1009,6 +1209,7 @@ if ($keyvalue > 0) {
                 $('#gst_amt').val('');
                 $('#unit_name').val('');
                 $('#rate').val('');
+                $('#price_after_disc').val('');
                 $('#delivery_status').val('');
                 $('#net_total').val('');
                 $('#discount').val('');

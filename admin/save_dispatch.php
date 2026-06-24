@@ -58,6 +58,9 @@ $arr = array(
     "dispatch_date"  => $dispatch_date,
     "remarks"        => $remarks,
     "createdby"     => $_SESSION['userid'],
+    "ipaddress" => $ipaddress,
+    "companyid" => $companyid,
+    "sessionid" => $sessionid,
     "createdate"   => date('Y-m-d H:i:s')
 );
 

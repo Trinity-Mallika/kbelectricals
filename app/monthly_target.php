@@ -401,6 +401,7 @@ if (!empty($_GET['week_day'])) {
             },
 
             success: function(res) {
+            console.log(res);
                 hide_loader();
 
                 if (res == 1) {
@@ -487,7 +488,6 @@ if (!empty($_GET['week_day'])) {
                 target_id: target_id,
             },
             success: function(res) {
-                alert(res);
                 hide_loader();
                 if (res == 1 || res == 2) {
                     $("#tragetAdd").modal('hide');

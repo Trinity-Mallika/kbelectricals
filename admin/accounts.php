@@ -12,6 +12,7 @@ $action = (isset($_GET["action"])) ? $obj->test_input($_GET["action"]) : "";
 
 
 if (isset($_POST['submit'])) {
+    $user_id = $obj->test_input($_POST['user_id']);
     $account_name = $obj->test_input($_POST['account_name']);
     $owner_name = $obj->test_input($_POST['owner_name']);
     $o_mobile_no = $obj->test_input($_POST['o_mobile_no']);
@@ -46,6 +47,7 @@ if (isset($_POST['submit'])) {
         if ($keyvalue == 0) {
 
             $form_data = array(
+                'userid' => $user_id,
                 'account_name' => $account_name,
                 'owner_name' => $owner_name,
                 'o_mobile_no' => $o_mobile_no,
@@ -63,6 +65,7 @@ if (isset($_POST['submit'])) {
                 'opening_balance' => $opening_balance,
                 'opening_date' => $opening_date,
                 'status1' => 1,
+                'createdby' => $loginid,
                 'ipaddress' => $ipaddress,
                 "companyid" => $companyid,
                 'createdate' => $createdate
@@ -74,6 +77,7 @@ if (isset($_POST['submit'])) {
 
             //update
             $form_data = array(
+                'userid' => $user_id,
                 'account_name' => $account_name,
                 'owner_name' => $owner_name,
                 'o_mobile_no' => $o_mobile_no,
@@ -118,6 +122,7 @@ if (isset($_GET[$tblpkey])) {
     $where = array($tblpkey => $keyvalue);
 
     $sqledit = $obj->select_record($tblname, $where);
+    $user_id  =  $sqledit['userid'];
     $account_name  =  $sqledit['account_name'];
     $owner_name  =  $sqledit['owner_name'];
     $o_mobile_no  =  $sqledit['o_mobile_no'];
@@ -137,7 +142,7 @@ if (isset($_GET[$tblpkey])) {
 } else {
 
     $account_name = $owner_name = $opening_balance = $o_mobile_no = $mobile_no = $address = $area_id =  "";
-    $type = $class = $no_of_kid = $no_of_family = $doa = $dob = "";
+    $type = $class = $no_of_kid = $no_of_family = $doa = $dob = $user_id = "";
     $common_id = "7";
     $status = "active";
     $opening_date = date('Y-m-d');
@@ -209,18 +214,33 @@ if (isset($_GET[$tblpkey])) {
                                 <div class="card-body">
                                     <div class="row">
                                         <div class="col-md-3 mb-2">
+                                            <strong> <label for="user_id">Referred By<span class="text-danger fw-bold">*</span> </label></strong>
+                                            <select name="user_id" id="user_id" class="chosen-select form-control form-control-sm">
+                                                <option value="">--Select Referred By--</option>
+                                                <?php
+                                                $sql = $obj->executequery("select userid,fullname,usertype from user where status='1' order by userid asc ");
+                                                foreach ($sql as $key) {
+                                                ?>
+                                                    <option value="<?= $key['userid'] ?>" data-type="<?= strtolower($key['usertype']) ?>"><?= $key['fullname'] ?></option>
+                                                <?php } ?>
+                                            </select>
+                                            <script>
+                                                document.getElementById('user_id').value = '<?php echo $user_id; ?>';
+                                            </script>
+                                        </div>
+                                        <div class="col-md-3 mb-2">
                                             <strong> <label for="account_name">Counter / Customer Name <span class="text-danger fw-bold">*</span></label></strong>
                                             <input type="text" class="form-control form-control-sm" name="account_name" id="account_name" placeholder="Counter/Customer Name" value="<?php echo $account_name; ?>" autocomplete="off">
-                                        </div>
-
-                                        <div class="col-md-3 mb-2">
-                                            <strong> <label for="account_name">Owner Name <span class="text-danger fw-bold"></span></label></strong>
-                                            <input type="text" class="form-control form-control-sm" name="owner_name" id="owner_name" placeholder="Owner Name" value="<?php echo $owner_name; ?>" autocomplete="off">
                                         </div>
                                         <div class="col-md-3 mb-2">
                                             <strong> <label for="mobile_no">Whatsapp No. <span class="text-danger fw-bold">*</span></label> </strong>
                                             <input type="text" class="form-control form-control-sm" name="mobile_no" id="mobile_no" placeholder="Whatsapp No." value="<?php echo $mobile_no; ?>" maxlength="10" autocomplete="off">
                                         </div>
+                                        <div class="col-md-3 mb-2">
+                                            <strong> <label for="account_name">Owner Name <span class="text-danger fw-bold"></span></label></strong>
+                                            <input type="text" class="form-control form-control-sm" name="owner_name" id="owner_name" placeholder="Owner Name" value="<?php echo $owner_name; ?>" autocomplete="off">
+                                        </div>
+
                                         <div class="col-md-3 mb-2">
                                             <strong> <label for="mobile_no">Owner Mobile No. <span class="text-danger fw-bold"></span></label> </strong>
                                             <input type="text" class="form-control form-control-sm" name="o_mobile_no" id="o_mobile_no" placeholder="Owner Mobile No." value="<?php echo $o_mobile_no; ?>" maxlength="10" autocomplete="off">
@@ -236,7 +256,6 @@ if (isset($_GET[$tblpkey])) {
                                                 ?>
                                                     <option value="<?= $key['common_id'] ?>"><?= $key['common_name'] ?></option>
                                                 <?php } ?>
-                                                <option value="-1">Employee</option>
                                             </select>
                                             <script>
                                                 document.getElementById('common_id').value = '<?php echo $common_id; ?>';
@@ -282,21 +301,22 @@ if (isset($_GET[$tblpkey])) {
                                             </script>
                                         </div>
                                         <div class="col-md-3 mb-2">
-                                            <strong> <label for="mobile_no">No. Of Kids <span class="text-danger fw-bold"></span></label> </strong>
-                                            <input type="number" class="form-control form-control-sm" name="no_of_kid" id="no_of_kid" placeholder="No. Of Kids" value="<?php echo $no_of_kid; ?>" autocomplete="off">
-                                        </div>
-                                        <div class="col-md-3 mb-2">
                                             <strong> <label for="mobile_no">D.O.B <span class="text-danger fw-bold"></span></label> </strong>
                                             <input type="date" class="form-control form-control-sm" name="dob" id="dob" value="<?php echo $dob; ?>" maxlength="10" autocomplete="off">
-                                        </div>
-                                        <div class="col-md-3 mb-2">
-                                            <strong> <label for="mobile_no">No. Of Family Members <span class="text-danger fw-bold"></span></label> </strong>
-                                            <input type="number" class="form-control form-control-sm" name="no_of_family" id="no_of_family" placeholder="No. Of Family Members " value="<?php echo $no_of_family; ?>" autocomplete="off">
                                         </div>
                                         <div class="col-md-3 mb-2">
                                             <strong> <label for="mobile_no">D.O.A <span class="text-danger fw-bold"></span></label> </strong>
                                             <input type="date" class="form-control form-control-sm" name="doa" id="doa" placeholder="Opening Date" value="<?php echo $doa; ?>" autocomplete="off">
                                         </div>
+                                        <div class="col-md-3 mb-2">
+                                            <strong> <label for="mobile_no">No. Of Kids <span class="text-danger fw-bold"></span></label> </strong>
+                                            <input type="number" class="form-control form-control-sm" name="no_of_kid" id="no_of_kid" placeholder="No. Of Kids" value="<?php echo $no_of_kid; ?>" autocomplete="off">
+                                        </div>
+                                        <div class="col-md-3 mb-2">
+                                            <strong> <label for="mobile_no">No. Of Family Members <span class="text-danger fw-bold"></span></label> </strong>
+                                            <input type="number" class="form-control form-control-sm" name="no_of_family" id="no_of_family" placeholder="No. Of Family Members " value="<?php echo $no_of_family; ?>" autocomplete="off">
+                                        </div>
+
                                         <div class="col-md-3 mb-2">
                                             <strong> <label for="mobile_no">Opening Balance <span class="text-danger fw-bold"></span></label> </strong>
                                             <input type="number" class="form-control form-control-sm" name="opening_balance" id="opening_balance" placeholder="Opening Balance" value="<?php echo $opening_balance; ?>" autocomplete="off">
@@ -311,7 +331,7 @@ if (isset($_GET[$tblpkey])) {
                                         </div>
 
                                         <div class="col-md-4 mt-4">
-                                            <input type="submit" name="submit" class="btn btn-theme btn-sm" value="<?php echo $btn_name; ?>" onclick="return checkinputmaster('account_name,common_id,area_id');">
+                                            <input type="submit" name="submit" class="btn btn-theme btn-sm" value="<?php echo $btn_name; ?>" onclick="return checkinputmaster('user_id,account_name,common_id,area_id');">
                                             <a href="<?php echo $pagename; ?>" class="btn btn-danger btn-sm"> Reset </a>
                                             <input type="hidden" name="<?php echo $tblpkey; ?>" id="<?php echo $tblpkey; ?>" value="<?php echo $keyvalue; ?>">
                                         </div>
@@ -330,55 +350,191 @@ if (isset($_GET[$tblpkey])) {
                         </div>
                         <div class="card-body">
                             <div class="table-responsive">
-                                <table id="example" class="table table-bordered table-sm table-hover">
+                                <table id="example1" class="table table-bordered table-sm table-hover">
                                     <thead>
                                         <th>Sr. No.</th>
-                                        <th>Counter/Customer Name</th>
-                                        <th>Owner Name</th>
-                                        <th>Whatsapp No.</th>
-                                        <th>Owner Mobile No.</th>
-                                        <th>Counter Type</th>
+                                        <th>Customer Details</th>
+                                        <th>Contact Details</th>
+                                        <th>Type</th>
                                         <th>Class</th>
-                                        <th>D.O.B</th>
-                                        <th>D.O.A</th>
-                                        <th>No. of Kids</th>
-                                        <th>No. of Family Members</th>
-                                        <th>Opening Balance</th>
-                                        <th>Opening Date</th>
-                                        <th>Address</th>
                                         <th>Area</th>
+                                        <th>Referred By</th>
+                                        <th>Dates</th>
+                                        <th>Opening Balance</th>
                                         <th>Status</th>
+                                        <th>Address</th>
                                         <th class="text-center">Action</th>
+                                        <th style="display:none;">Customer Name</th>
+                                        <th style="display:none;">Owner Name</th>
+                                        <th style="display:none;">WhatsApp</th>
+                                        <th style="display:none;">Owner Mobile</th>
+                                        <th style="display:none;">Type</th>
+                                        <th style="display:none;">Class</th>
+                                        <th style="display:none;">Family Members</th>
+                                        <th style="display:none;">Kids</th>
+                                        <th style="display:none;">Area</th>
+                                        <th style="display:none;">DOB</th>
+                                        <th style="display:none;">DOA</th>
+                                        <th style="display:none;">Opening Balance</th>
+                                        <th style="display:none;">Opening Date</th>
+                                        <th style="display:none;">Status</th>
+                                        <th style="display:none;">Address</th>
                                     </thead>
                                     <tbody>
                                         <?php
                                         $slno = 1;
-                                        $sql_get = $obj->executequery("select * from account where status1 != 0 order by account_id desc");
+                                        $sql_get = $obj->executequery("SELECT
+    a.*,
+    cm.common_name,
+    am.area_name,
+    u.fullname AS referred_by_name
+FROM account a
+LEFT JOIN user u ON u.userid = a.userid
+LEFT JOIN common_master cm ON cm.common_id = a.common_id
+LEFT JOIN area_master am ON am.area_id = a.area_id
+WHERE a.status1 != 0 and a.type='customer'
+ORDER BY a.account_id DESC
+");
                                         foreach ($sql_get as $row_get) {
-                                            $common_name = ($row_get['common_id'] == -1) ? "Employee" : $obj->getvalfield("common_master", "common_name", "common_id='" . $row_get['common_id'] . "'");
-                                            $area_name = $obj->getvalfield("area_master", "area_name", "area_id='{$row_get['area_id']}'");
+                                            $common_name = ($row_get['common_id'] == -1)
+                                                ? 'Employee'
+                                                : $row_get['common_name'];
+
+                                            $area_name = $row_get['area_name'];
                                         ?>
                                             <tr>
                                                 <td> <?php echo $slno++; ?></td>
-                                                <td><?php echo $row_get['account_name']; ?></td>
-                                                <td><?php echo $row_get['owner_name']; ?></td>
-                                                <td><?php echo $row_get['mobile_no']; ?></td>
-                                                <td><?php echo $row_get['o_mobile_no']; ?></td>
-                                                <td><?php echo $common_name; ?></td>
-                                                <td><?php echo $row_get['class']; ?></td>
-                                                <td><?php echo $obj->dateformatindia($row_get['dob']); ?></td>
-                                                <td><?php echo $obj->dateformatindia($row_get['doa']); ?></td>
-                                                <td><?php echo $row_get['no_of_kid']; ?></td>
-                                                <td><?php echo $row_get['no_of_family']; ?></td>
-                                                <td><?php echo $row_get['opening_balance']; ?></td>
-                                                <td><?php echo $obj->dateformatindia($row_get['opening_date']); ?></td>
-                                                <td><?php echo $row_get['address']; ?></td>
-                                                <td><?php echo $area_name; ?></td>
-                                                <td><?php ucfirst($row_get['status']) ?></td>
-                                                <td class="text-center">
-                                                    <a href="accounts.php?account_id=<?php echo  $row_get['account_id']; ?>" title="Edit" class="btn btn-sm btn-outline-success"><i class="bi bi-pencil-square"></i></a>
-                                                    <button type="button" title="Delete" class="btn btn-sm btn-danger" onclick="funDel(<?php echo  $row_get['account_id']; ?>);"><i class="bi bi-trash3-fill"></i></button>
+                                                <td>
+                                                    <div class="fw-bold text-dark">
+                                                        <?= $row_get['account_name'] ?>
+                                                    </div>
+
+                                                    <?php if (!empty($row_get['owner_name'])) { ?>
+                                                        <div class="small mt-1">
+                                                            <i class="bi bi-person-fill text-primary"></i>
+                                                            <strong>Owner:</strong>
+                                                            <?= $row_get['owner_name'] ?>
+                                                        </div>
+                                                    <?php } ?>
+
+                                                    <div class="mt-1">
+                                                        <span class="badge bg-info text-dark">
+                                                            Family: <?= $row_get['no_of_family'] ?: 0 ?>
+                                                        </span>
+
+                                                        <span class="badge bg-warning text-dark">
+                                                            Kids: <?= $row_get['no_of_kid'] ?: 0 ?>
+                                                        </span>
+                                                    </div>
                                                 </td>
+                                                <td>
+                                                    <?php if (!empty($row_get['mobile_no'])) { ?>
+                                                        <div>
+                                                            <i class="bi bi-whatsapp text-success"></i>
+                                                            <?= $row_get['mobile_no'] ?>
+                                                        </div>
+                                                    <?php } ?>
+
+                                                    <?php if (!empty($row_get['o_mobile_no'])) { ?>
+                                                        <small class="text-muted d-block">
+                                                            <i class="bi bi-telephone-fill"></i>
+                                                            <?= $row_get['o_mobile_no'] ?>
+                                                        </small>
+                                                    <?php } ?>
+                                                </td>
+                                                <td class="text-center">
+                                                    <span class="badge bg-primary">
+                                                        <?= $common_name ?>
+                                                    </span>
+                                                </td>
+                                                <td class="text-center">
+                                                    <?php if (!empty($row_get['class'])) { ?>
+                                                        <span class="badge bg-info text-dark">
+                                                            <?= $row_get['class'] ?>
+                                                        </span>
+                                                    <?php } else { ?>
+                                                        <span class="text-muted">-</span>
+                                                    <?php } ?>
+                                                </td>
+                                                <td>
+                                                    <i class="bi bi-geo-alt-fill text-danger"></i>
+                                                    <?= $area_name ?>
+                                                </td>
+                                                <td>
+                                                    <i class="bi bi-person-check-fill text-success"></i>
+                                                    <?= $row_get['referred_by_name'] ?: '-' ?>
+                                                </td>
+
+                                                <td>
+                                                    <small>
+                                                        <strong>DOB</strong><br>
+                                                        <?= $obj->dateformatindia($row_get['dob']) ?>
+                                                    </small>
+
+                                                    <hr class="my-1">
+
+                                                    <small>
+                                                        <strong>DOA</strong><br>
+                                                        <?= $obj->dateformatindia($row_get['doa']) ?>
+                                                    </small>
+                                                </td>
+
+                                                <td>
+                                                    <div class="fw-bold text-success">
+                                                        ₹ <?= number_format($row_get['opening_balance'], 2) ?>
+                                                    </div>
+
+                                                    <small class="text-muted d-block">
+                                                        <?= $obj->dateformatindia($row_get['opening_date']) ?>
+                                                    </small>
+                                                </td>
+
+                                                <td> <?php if ($row_get['status'] == 'active') { ?>
+                                                        <span class="badge bg-success">Active</span>
+                                                    <?php } else { ?>
+                                                        <span class="badge bg-danger">Inactive</span>
+                                                    <?php } ?>
+                                                </td>
+                                                <td><?php echo $row_get['address']; ?></td>
+                                                <td class="text-center">
+                                                    <div class="btn-group btn-group-sm">
+
+                                                        <a href="accounts.php?account_id=<?= $row_get['account_id']; ?>"
+                                                            title="Edit"
+                                                            class="btn btn-outline-success">
+                                                            <i class="bi bi-pencil-square"></i>
+                                                        </a>
+
+                                                        <button type="button"
+                                                            title="Delete"
+                                                            class="btn btn-outline-danger"
+                                                            onclick="funDel(<?= $row_get['account_id']; ?>);">
+                                                            <i class="bi bi-trash3-fill"></i>
+                                                        </button>
+
+                                                        <a href="electrician.php?account_id_map=<?= $row_get['account_id']; ?>"
+                                                            title="Add Electrician"
+                                                            class="btn btn-outline-primary">
+                                                            <i class="bi bi-lightning-charge-fill"></i>
+                                                        </a>
+
+                                                    </div>
+                                                </td>
+                                                <td style="display:none;"><?= $row_get['account_name'] ?></td>
+                                                <td style="display:none;"><?= $row_get['owner_name'] ?></td>
+                                                <td style="display:none;"><?= $row_get['mobile_no'] ?></td>
+                                                <td style="display:none;"><?= $row_get['o_mobile_no'] ?></td>
+                                                <td style="display:none;"><?= $common_name ?></td>
+                                                <td style="display:none;"><?= $row_get['class'] ?></td>
+                                                <td style="display:none;"><?= $row_get['no_of_family'] ?></td>
+                                                <td style="display:none;"><?= $row_get['no_of_kid'] ?></td>
+                                                <td style="display:none;"><?= $area_name ?></td>
+                                                <td style="display:none;"><?= $row_get['dob'] ?></td>
+                                                <td style="display:none;"><?= $row_get['doa'] ?></td>
+                                                <td style="display:none;"><?= $row_get['opening_balance'] ?></td>
+                                                <td style="display:none;"><?= $row_get['opening_date'] ?></td>
+                                                <td style="display:none;"><?= ucfirst($row_get['status']) ?></td>
+                                                <td style="display:none;"><?= $row_get['address'] ?></td>
                                             </tr>
                                         <?php  } ?>
                                     </tbody>
@@ -398,9 +554,9 @@ if (isset($_GET[$tblpkey])) {
 <!-- script tag -->
 <script>
     $(document).ready(function() {
-        $('#example').DataTable();
         $(".chosen-select").chosen();
     });
+
 
     function funDel(id) {
         tblname = '<?php echo $tblname; ?>';
@@ -462,6 +618,62 @@ if (isset($_GET[$tblpkey])) {
     }
 
     $(document).ready(function() {
+        $('#example1').DataTable({
+
+            pageLength: 100,
+
+            lengthMenu: [
+                [100, 200, 500, -1],
+                [100, 200, 500, "All"]
+            ],
+
+            dom: "<'row align-items-center mb-3'\
+                <'col-md-3'l>\
+                <'col-md-5 text-center'B>\
+                <'col-md-4'f>\
+            >" +
+                "rt" +
+                "<'row mt-3'\
+                <'col-md-6'i>\
+                <'col-md-6'p>\
+            >",
+
+            buttons: [
+
+                {
+                    extend: 'excelHtml5',
+                    text: 'Export Excel',
+                    className: 'btn btn-success btn-sm',
+
+                    exportOptions: {
+                        columns: [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]
+                    }
+                },
+
+                {
+                    extend: 'pdfHtml5',
+                    text: 'Download PDF',
+                    className: 'btn btn-danger btn-sm',
+
+                    exportOptions: {
+                        columns: [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]
+                    }
+                },
+
+                {
+                    extend: 'print',
+                    text: 'Print Table',
+                    className: 'btn btn-primary btn-sm',
+
+                    exportOptions: {
+                        columns: [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]
+                    }
+                }
+
+            ]
+
+        });
+
 
         toggleRetailerFields();
 
