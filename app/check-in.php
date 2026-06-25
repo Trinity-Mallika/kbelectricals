@@ -150,19 +150,18 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $entry_id = $obj->insert_record_lastid("daily_entries", [
         'account_id' => $account_id,
         'decision_maker_name' => '', // or from form
-        'mobile_no' => '', // or from form
-        'common_id' => 0,  // if needed
-        'follow_up_date' => date('Y-m-d'), // or from form
-        'remarks' => '', // optional
+        'mobile_no' => '', 
+        'common_id' => 0,  
+        'follow_up_date' => '', 
+        'remarks' => '', 
         'longitude' => $longitude,
         'latitude' => $latitude,
         'address' => $address,
         'createdby' => $loginid,
         'ipaddress' => $ipaddress,
         'createdate' => $createdate,
-        'lastupdated' => date('Y-m-d'),
         'companyid' => $companyid,
-        'sessionid' => 0,
+        'sessionid' => $_SESSION['sessionid'],
         'checkin_time' => $createdate
     ]);
     echo $entry_id;

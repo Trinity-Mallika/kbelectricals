@@ -73,7 +73,7 @@ function eligibility_badge($pct)
         }
 
         .exec-card-header {
-            background: #343a40;
+            background: #132a40;
             padding: 12px 18px;
             display: flex;
             justify-content: space-between;
@@ -510,7 +510,6 @@ function eligibility_badge($pct)
                         <div class="card-body">
 
                             <?php
-                            /* ── Fetch all executives for this company/month/year ── */
                             $empFilter = $emp_id > 0 ? "AND u.userid = $emp_id" : "";
                             $execRows  = $obj->executequery("
                                 SELECT u.userid, u.fullname,
@@ -580,13 +579,12 @@ function eligibility_badge($pct)
                                 $totalCounters[$uid] = count($list);
                             }
 
-                            /* Helper: turn an executive's account list into a verdict for the insight panels */
                             function productivityVerdict($accts, $totalCounters)
                             {
                                 $active     = array_filter($accts, fn($a) => $a['active']);
                                 $inactive   = array_filter($accts, fn($a) => !$a['active']);
                                 $activeCt   = count($active);
-                                $assignedCt = count($accts); // == $totalCounters by construction
+                                $assignedCt = count($accts);
                                 $pct        = $totalCounters > 0 ? round(($activeCt / $totalCounters) * 100, 2) : 0;
 
                                 return [
@@ -603,7 +601,6 @@ function eligibility_badge($pct)
                                 ];
                             }
 
-                            /* KRA meta */
                             $kraList = [
                                 ['key' => 'visit',        'label' => 'Avg Counter Visit',  'icon' => '🏃', 'weight' => 20, 'max' => 2],
                                 ['key' => 'productivity', 'label' => 'Beat Productivity',   'icon' => '📊', 'weight' => 20, 'max' => 2],
@@ -612,20 +609,16 @@ function eligibility_badge($pct)
                                 ['key' => 'behaviour',    'label' => 'Behavioural Aspects',  'icon' => '🌟', 'weight' => 10, 'max' => 4],
                             ];
 
-                            /* Slabs from kra_config */
                             $slabs = [];
                             $slabRows = $obj->executequery("SELECT * FROM kra_config WHERE company_id=$companyid ORDER BY kra_key,min_value");
                             foreach ($slabRows as $s) $slabs[$s['kra_key']][] = $s;
 
-                            /* Behaviour sub-items */
                             $behaviourItems = $obj->executequery("SELECT * FROM kra_behaviour WHERE companyid=$companyid ORDER BY kra_behaviour_id");
 
-                            /* Behaviour scores per emp */
                             $bscores = [];
                             $bscoreRows = $obj->executequery("SELECT * FROM kra_behaviour_score WHERE company_id=$companyid AND month='$month' AND year='$year'");
                             foreach ($bscoreRows as $bs) $bscores[$bs['emp_id']][$bs['behaviour_id']] = $bs['score'];
 
-                            /* Helper: color class by pct */
                             function colorClass($pct)
                             {
                                 if ($pct >= 75) return ['text' => 'text-success', 'bar' => 'success', 'hex' => '#28a745'];
@@ -634,7 +627,6 @@ function eligibility_badge($pct)
                                 return ['text' => 'text-info', 'bar' => 'secondary', 'hex' => '#6c757d'];
                             }
 
-                            /* Helper: ring SVG */
                             function svgRing($pct, $hex, $size = 44, $stroke = 4)
                             {
                                 $r = ($size - $stroke * 2) / 2;
@@ -648,7 +640,6 @@ function eligibility_badge($pct)
                                 </svg>';
                             }
 
-                            /* Helper: value label */
                             function kraValLabel($key, $val)
                             {
                                 if ($key === 'productivity') return $val . '%';
@@ -665,9 +656,6 @@ function eligibility_badge($pct)
                                 </div>
                             <?php else: ?>
 
-                                <!-- ══════════════════════════════════════════════
-                                 PHASE 1 — All Executives overview
-                            ══════════════════════════════════════════════ -->
                                 <div class="kra-phase active phase-transition" id="phase1">
                                     <p class="kra-note mb-3">
                                         <i class="fa fa-hand-pointer-o"></i>
@@ -675,7 +663,7 @@ function eligibility_badge($pct)
                                     </p>
 
                                     <?php foreach ($execRows as $e):
-                                        $mk  = $e; // same row has mk.* fields
+                                        $mk  = $e;
                                         $totalScore = $mk['total_score'] ?? 0;
                                         $achPct     = round($mk['achievement_pct'] ?? 0, 1);
                                         $totalInc   = $mk['total_incentive'] ?? 0;
@@ -683,7 +671,6 @@ function eligibility_badge($pct)
                                         $initials   = implode('', array_map(fn($w) => strtoupper($w[0]), array_slice(explode(' ', $e['fullname']), 0, 2)));
                                     ?>
                                         <div class="exec-card" onclick="openEmployee(<?= $e['userid'] ?>, '<?= addslashes(htmlspecialchars($e['fullname'])) ?>')">
-                                            <!-- Dark header row -->
                                             <div class="exec-card-header">
                                                 <div class="d-flex align-items-center gap-2" style="gap:10px">
                                                     <div class="exec-avatar"><?= $initials ?></div>
@@ -707,7 +694,6 @@ function eligibility_badge($pct)
                                                     </div>
                                                 </div>
                                             </div>
-                                            <!-- KRA mini rings row -->
                                             <div class="exec-kra-row">
                                                 <?php foreach ($kraList as $kra):
                                                     $pts  = $mk[$kra['key'] . '_points'] ?? 0;
@@ -727,12 +713,8 @@ function eligibility_badge($pct)
                                             </div>
                                         </div>
                                     <?php endforeach; ?>
-                                </div><!-- /phase1 -->
+                                </div>
 
-
-                                <!-- ══════════════════════════════════════════════
-                                 PHASE 2 — Single executive KRA breakdown
-                            ══════════════════════════════════════════════ -->
                                 <div class="kra-phase phase-transition" id="phase2">
                                     <button class="btn btn-outline-secondary btn-sm btn-back mb-3" onclick="goPhase(1)">
                                         <i class="fa fa-arrow-left"></i> Back to All Executives
@@ -745,8 +727,6 @@ function eligibility_badge($pct)
                                         $totalInc = $mk['total_incentive'] ?? 0;
                                     ?>
                                         <div class="kra-emp-section phase-transition" id="emp_<?= $e['userid'] ?>" style="display:none">
-
-                                            <!-- Stat tiles -->
                                             <div class="row mb-3">
                                                 <div class="col-sm-4 col-6 mb-2">
                                                     <div class="stat-tile" style="border-top-color:<?= $cols['hex'] ?>">
@@ -771,7 +751,6 @@ function eligibility_badge($pct)
                                                 </div>
                                             </div>
 
-                                            <!-- KRA Cards row -->
                                             <p class="kra-note mb-2">
                                                 <i class="fa fa-hand-pointer-o"></i>
                                                 Click any KRA card for detailed slab breakdown.
@@ -809,7 +788,6 @@ function eligibility_badge($pct)
                                                 <?php endforeach; ?>
                                             </div>
 
-                                            <!-- Incentive breakdown -->
                                             <div class="card border-0 shadow-sm">
                                                 <div class="card-header" style="background:#d4edda;color:#155724;font-weight:600">
                                                     💰 Incentive Breakdown

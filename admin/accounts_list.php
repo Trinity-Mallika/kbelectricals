@@ -134,7 +134,7 @@ $to   = $todate . " 23:59:59";
                                         <?php
                                         $slno = 1;
 
-                                        $where = "WHERE t.createdate BETWEEN '$from' AND '$to' AND t.status1 = 0 ";
+                                        $where = "WHERE t.createdate BETWEEN '$from' AND '$to' AND (t.status1 = 0 || t.approved_by=1)";
 
                                         if (!empty($createdby)) {
                                             $where .= " AND t.createdby = '$createdby'";

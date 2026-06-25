@@ -392,7 +392,7 @@ $avatarColors = ['#3a55e8', '#7c3aed', '#059669', '#dc2626', '#d97706', '#0891b2
                         $total = count($res);
                     ?>
                         <div class="kb-section-label"><?= $total ?> stop<?= $total == 1 ? '' : 's' ?> on this route.
-                         <div class="btn-group float-end">
+                            <!-- <div class="btn-group float-end">
                                 <button class="btn btn-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                                     Actions
                                 </button>
@@ -401,7 +401,7 @@ $avatarColors = ['#3a55e8', '#7c3aed', '#059669', '#dc2626', '#d97706', '#0891b2
                                     <li><a class="dropdown-item" href="#"><i class="bi bi-whatsapp text-success"></i> Ledger Balance</a></li>
                                     <li><a class="dropdown-item" href="#"><i class="bi bi-whatsapp text-success"></i> Visiting Msg</a></li>
                                 </ul>
-                            </div>
+                            </div> -->
                         </div>
 
 
@@ -411,8 +411,7 @@ $avatarColors = ['#3a55e8', '#7c3aed', '#059669', '#dc2626', '#d97706', '#0891b2
                             foreach ($res as $i => $key):
                                 $color   = $avatarColors[$i % count($avatarColors)];
                                 $isActive = (strtolower($key['status'] ?? 'active') === 'active');
-                                $mobile   = htmlspecialchars($key['mobile_no'] ?? '');
-                                $whatsapp = htmlspecialchars($key['whatsapp_no'] ?? $key['mobile_no'] ?? '');
+                                $mobile   = $key['o_mobile_no'];
                                 $address  = htmlspecialchars($key['address'] ?? '');
                                 $gps      = $key['location_address'] ?? '';
                                 $lastVisit = !empty($key['last_visit_date'])
@@ -486,30 +485,37 @@ $avatarColors = ['#3a55e8', '#7c3aed', '#059669', '#dc2626', '#d97706', '#0891b2
                                                 </span>
                                             <?php endif; ?>
                                         </div>
+                                        <?php if ($mobile) { ?>
+                                            <!-- Action buttons -->
+                                            <div class="kb-tl-actions">
+                                                <a href="tel:<?= preg_replace('/\D/', '', $mobile) ?>" class="kb-act-btn">
+                                                    <i class="bi bi-telephone"></i>
+                                                    Call
+                                                </a>
 
-                                        <!-- Action buttons -->
-                                        <!-- <div class="kb-tl-actions">
-                                            <a href="tel:<?= preg_replace('/\D/', '', $mobile) ?>" class="kb-act-btn">
-                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.4 2 2 0 0 1 3.6 1.22h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.82A16 16 0 0 0 15 15.91l.96-.96a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
-                                                </svg>
-                                                Call
-                                            </a>
-                                            <a href="https://wa.me/91<?= preg_replace('/\D/', '', $whatsapp) ?>" target="_blank" class="kb-act-btn kb-act-btn-wa">
-                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-                                                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
-                                                    <path d="M12 0C5.373 0 0 5.373 0 12c0 2.135.562 4.13 1.54 5.862L.057 23.857a.5.5 0 0 0 .612.612l6.046-1.48A11.934 11.934 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.9a9.844 9.844 0 0 1-5.031-1.378l-.36-.214-3.733.914.944-3.638-.235-.374A9.855 9.855 0 0 1 2.1 12c0-5.464 4.436-9.9 9.9-9.9 5.464 0 9.9 4.436 9.9 9.9 0 5.464-4.436 9.9-9.9 9.9z" />
-                                                </svg>
-                                                WhatsApp
-                                            </a>
-                                            <a href="view-counter.php?id=<?= urlencode($key['account_id']) ?>" class="kb-act-btn kb-act-btn-primary">
-                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                                                    <circle cx="12" cy="12" r="3" />
-                                                </svg>
-                                                View
-                                            </a>
-                                        </div> -->
+                                                <a href="javascript:void(0)"
+                                                    onclick="sendVisitMsg(
+      '<?= preg_replace('/\D/', '', $mobile) ?>',
+      '<?= htmlspecialchars($key['account_name'], ENT_QUOTES) ?>',
+      '<?= number_format($obj->get_ledger_balance($key['account_id']), 2, '.', '') ?>'
+   )"
+                                                    class="kb-act-btn">
+                                                    <i class="bi bi-whatsapp text-success"></i>
+                                                    Visit Msg
+                                                </a>
+
+                                                <a href="javascript:void(0)"
+                                                    onclick="sendLedgerMsg(
+      '<?= preg_replace('/\D/', '', $mobile) ?>',
+      '<?= htmlspecialchars($key['account_name'], ENT_QUOTES) ?>',
+      '<?= number_format($obj->get_ledger_balance($key['account_id']), 2, '.', '') ?>'
+   )"
+                                                    class="kb-act-btn">
+                                                    <i class="bi bi-journal-text"></i>
+                                                    Ledger
+                                                </a>
+                                            </div>
+                                        <?php } ?>
                                     </div><!-- /.kb-tl-card -->
                                 </div><!-- /.kb-tl-item -->
                             <?php endforeach; ?>
@@ -547,6 +553,70 @@ $avatarColors = ['#3a55e8', '#7c3aed', '#059669', '#dc2626', '#d97706', '#0891b2
                 location = "customer-list.php";
             }
 
+        }
+
+        function sendVisitMsg(mobile, shop, balance) {
+            let msg =
+                `नमस्कार भैया जी 🙏
+
+कल मेरा आपकी दुकान पर विजिट निर्धारित है।
+
+यदि कोई भी Replacement / Service संबंधित सामग्री हो तो कृपया मुझे अवश्य बता दें, ताकि उसका समाधान तुरंत किया जा सके।
+
+आपके लेजर में वर्तमान बकाया राशि ₹${balance} है। कृपया संभव हो तो भुगतान तैयार रखिएगा, जिससे अकाउंट नियमित बना रहे।
+
+साथ ही कृपया अपने स्टाफ से स्टॉक भी चेक करवा लें। यदि कोई आइटम कम या खत्म हो गया हो तो उसका ऑर्डर भी मैं साथ में बुक कर लूंगा, ताकि माल की उपलब्धता बनी रहे।
+
+धन्यवाद 🙏
+…………………..
+KB Electricals`;
+
+            window.open(
+                "https://wa.me/91" + mobile + "?text=" + encodeURIComponent(msg),
+                "_blank"
+            );
+        }
+
+
+        function sendLedgerMsg(mobile, shop, balance) {
+            let defaultMsg =
+                `नमस्कार भैया जी 🙏
+
+आशा है आप सकुशल होंगे।
+
+आपके खाते में वर्तमान बकाया राशि ₹${balance} है।
+
+कृपया अकाउंट का मिलान कर लें तथा यदि कोई भुगतान लंबित हो तो सुविधानुसार भुगतान करने का कष्ट करें, जिससे आपका खाता नियमित बना रहे और आगे की सप्लाई एवं ऑर्डर प्रोसेसिंग में किसी प्रकार की असुविधा न हो।
+
+यदि भुगतान पहले ही कर दिया गया है तो कृपया उसकी जानकारी अथवा स्क्रीनशॉट साझा करें।
+
+आपके सहयोग के लिए धन्यवाद। 🙏
+
+…………………..
+KB Electricals`;
+
+            Swal.fire({
+                title: 'Ledger Message',
+                html: `
+            <textarea id="ledgerMsg"
+                style="width:100%;height:250px;padding:10px;"
+                class="form-control">${defaultMsg}</textarea>
+        `,
+                width: 700,
+                showCancelButton: true,
+                confirmButtonText: 'Send WhatsApp',
+                confirmButtonColor: '#25d366'
+            }).then((result) => {
+
+                if (result.isConfirmed) {
+                    let msg = document.getElementById('ledgerMsg').value;
+
+                    window.open(
+                        "https://wa.me/91" + mobile + "?text=" + encodeURIComponent(msg),
+                        "_blank"
+                    );
+                }
+            });
         }
     </script>
 </body>

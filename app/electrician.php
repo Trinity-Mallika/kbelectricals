@@ -84,7 +84,7 @@ if (isset($_GET[$tblpkey])) {
     $sqledit  = $obj->select_record($tblname, [$tblpkey => $keyvalue]);
     extract($sqledit, EXTR_OVERWRITE);
 } else {
-    $whatsapp_no = $electrician_name = '';
+    $mobile_no = $account_name = '';
     $account_id = 0;
 }
 

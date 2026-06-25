@@ -921,7 +921,7 @@ $trendData   = array_column($salesTrend, 'total');
                     <div class="mt-3 panel">
                         <div class="panel-head">
                             <span class="ph-title"><i class="bi bi-gift me-1"></i> Scheme Progress by Counter</span>
-                            <a href="scheme_list.php">Manage →</a>
+                            <a href="scheme_progress.php">Manage →</a>
                         </div>
                         <p style="font-size:.72rem;color:var(--muted);margin:0 0 10px">
                             <i class="bi bi-info-circle me-1"></i>

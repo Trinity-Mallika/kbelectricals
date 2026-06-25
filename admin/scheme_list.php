@@ -113,7 +113,7 @@ $crit = "WHERE createdate BETWEEN '$from' AND '$to'
 
                         <?php include('component/alert.php'); ?>
 
-                        <form action="" method="post" enctype="multipart/form-data">
+                        <form >
 
                             <div class="card">
 

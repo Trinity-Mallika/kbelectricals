@@ -197,6 +197,25 @@ $actions = [
                 </div>
 
             </div>
+
+            <div class="pending-card mb-2">
+                <a href="customer_wise_view.php" class="text-decoration-none text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center">
+                            <div class="pc-icon me-3">
+                                <i class="bi bi-cash-stack"></i>
+                            </div>
+
+                            <div>
+                                <h6 class="mb-1">View Customer Wise Achievement</h6>
+                                <small>Tap to view details</small>
+                            </div>
+                        </div>
+
+                        <i class="bi bi-chevron-right float-end fs-5"></i>
+                    </div>
+                </a>
+            </div>
             <div class="pending-card" data-bs-toggle="offcanvas" data-bs-target="#pendingPayment" style="cursor:pointer">
                 <div class="pc-left">
                     <div class="pc-icon"><i class="bi bi-cash-stack"></i></div>

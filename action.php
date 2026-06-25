@@ -247,7 +247,6 @@ FROM (
 		$start = date("$year-$month-01");
 		$end   = date("Y-m-t", strtotime($start));
 
-		/* ================= VISIT ================= */
 		$total_visits = $this->getvalfield(
 			"daily_productivity",
 			"SUM(visit_count)",
@@ -359,7 +358,6 @@ FROM (
 		$mix_pts      = $this->getKraPoints('product_mix', $product_mix);
 		$business_pts = $this->getKraPoints('business', $business_lakh);
 
-
 		/* ================= SCORE ================= */
 
 		$total =
@@ -421,16 +419,16 @@ FROM (
 
 	public function getKraPoints($key, $value)
 	{
+		$value = (float)$value;
+
 		return $this->getvalfield(
 			"kra_config",
 			"points",
 			"kra_key='$key'
-         AND $value >= min_value
-         AND ($value < max_value OR max_value IS NULL)
-         ORDER BY min_value DESC"
+        AND min_value <= $value
+        AND (max_value > $value OR max_value IS NULL)"
 		) ?: 0;
 	}
-
 	public function processMonthlyIncentive(int $emp_id, int $month, int $year, int $companyid)
 	{
 		$start = date("$year-$month-01");

@@ -90,9 +90,23 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
     $accountFields = ['dob', 'doa', 'no_of_kid', 'no_of_family'];
     $accform = prepareUpdateData($accountFields, $_POST, $acc_data, $obj);
-    if ($accform['dob'] || $accform['doa'] || $accform['no_of_kid'] || $accform['no_of_family']) {
-        $obj->update_record("account", ["account_id" => $account_id], $accform);
+
+    if (!empty($decision_maker_name)) {
+        $accform['owner_name'] = $decision_maker_name;
     }
+
+    if (!empty($mobile_no)) {
+        $accform['o_mobile_no'] = $mobile_no;
+    }
+
+    if (!empty($accform)) {
+        $obj->update_record(
+            "account",
+            ["account_id" => $account_id],
+            $accform
+        );
+    }
+
     $form_data = [
         'decision_maker_name' => $decision_maker_name,
         'mobile_no'           => $mobile_no,
