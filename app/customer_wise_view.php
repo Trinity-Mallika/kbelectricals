@@ -104,11 +104,10 @@ $cards = [
             transform: scale(.97);
         }
 
-        .category-card .card-body {
+        .category-card .card-body-flex {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 15px 18px;
         }
 
         .card-left {
@@ -135,8 +134,8 @@ $cards = [
         }
 
         .card-tap {
-            font-size: .68rem;
-            color: #aaa;
+            font-size: .70rem;
+            color: #484848;
         }
 
         .card-count {
@@ -381,7 +380,7 @@ $cards = [
         .cust-item {
             display: flex;
             align-items: center;
-            padding: 12px 18px;
+            padding: 8px 18px;
             border-bottom: 1px solid #f5f5f5;
             gap: 12px;
         }
@@ -567,7 +566,7 @@ $cards = [
             ?>
                 <div class="card category-card <?= $c['cls'] ?>"
                     onclick="openDrawer('<?= $c['key'] ?>', '<?= addslashes($c['label']) ?>', '<?= $c['type'] ?>')">
-                    <div class="card-body">
+                    <div class="card-body-flex">
                         <div class="card-left">
                             <div class="card-icon"><i class="bi <?= $c['icon'] ?>"></i></div>
                             <div>
@@ -619,7 +618,7 @@ $cards = [
         let rawData = [];
         let allBrands = [];
         let currentCategory = '';
-        let currentType = ''; 
+        let currentType = '';
         let currentMonth = <?= $selMonth ?>;
         let currentYear = <?= $selYear  ?>;
         const loginid = '<?= $loginid ?>';

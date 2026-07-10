@@ -108,6 +108,10 @@ if (!empty($account_id)) {
                                         <input type="submit" class="btn btn-primary btn-sm" name="search" value="Search">
                                         <a href="<?php echo $pagename; ?>" class="btn btn-danger btn-sm" id="reset">Reset</a>
                                     </div>
+
+
+
+
                                 </div>
                             </div>
                         </div>
@@ -134,6 +138,7 @@ if (!empty($account_id)) {
                                             <th>Amount</th>
                                             <th>Payment Proof</th>
                                             <th>Location</th>
+                                            <th>Action</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -175,6 +180,12 @@ if (!empty($account_id)) {
                                             } else {
                                                 $badge = '<span class="badge bg-info text-dark">Online</span>';
                                             }
+
+                                            if ($row['pay_type'] == 'opening' && $row['ref_bill_id'] == 0) {
+                                                $ref_invoice_no = 'Opening';
+                                            } else {
+                                                $ref_invoice_no = $row['ref_invoice_no'];
+                                            }
                                         ?>
                                             <tr>
                                                 <td><?= $slno++ ?></td>
@@ -188,7 +199,7 @@ if (!empty($account_id)) {
                                                 <td><?= $ref ?></td>
 
                                                 <td>
-                                                    <?= $row['ref_invoice_no'] ?: '-' ?>
+                                                    <?= $ref_invoice_no ?>
                                                 </td>
 
                                                 <td>
@@ -208,7 +219,7 @@ if (!empty($account_id)) {
                                                 <td class="text-center">
                                                     <?php if ($row['imgname']) { ?>
                                                         <a class="btn btn-sm btn-outline-primary" target="_blank"
-                                                            href="../app/uploads/payment_proof/<?= $row['imgname'] ?>">
+                                                            href="uploaded/payment_proof/<?= $row['imgname'] ?>">
                                                             View
                                                         </a>
                                                     <?php } else { ?>
@@ -227,7 +238,42 @@ if (!empty($account_id)) {
                                                         </a>
                                                     <?php } ?>
                                                 </td>
+                                                <td>
+                                                    <?php if ($row['pay_status'] == "0") { ?>
+                                                        <a href="javascript:void(0)"
+                                                            class="btn btn-sm btn-primary"
+                                                            onclick="approve_payment('<?= $row[$tblpkey]; ?>');"
+                                                            title="Approve Payment">
+                                                            <i class="bi bi-check-circle-fill"></i>
+                                                        </a>
 
+                                                        <?php $chkedit = $obj->check_editBtn($pagename, $loginid);
+                                                        if ($chkedit > 0 || $_SESSION['usertype'] == 'admin') {
+                                                        ?>
+                                                            <a href="javascript:void(0)" onclick="open_modal('<?= $row[$tblpkey]; ?>');"
+                                                                class="btn btn-sm btn-success"
+                                                                title="Edit">
+                                                                <i class="bi bi-pencil-square"></i>
+                                                            </a>
+                                                        <?php }
+                                                        $chkdel = $obj->check_delBtn($pagename, $loginid);
+                                                        if ($chkdel > 0 || $_SESSION['usertype'] == 'admin') {
+                                                        ?>
+                                                            <a href="javascript:void(0)"
+                                                                class="btn btn-sm btn-danger"
+                                                                onclick="funDel('<?= $row[$tblpkey]; ?>','<?= $row['imgname']; ?>');"
+                                                                title="Delete">
+                                                                <i class="bi bi-trash"></i>
+                                                            </a>
+                                                    <?php
+                                                        }
+                                                    } ?>
+
+                                                    <!-- Button trigger modal
+                                                    <button type="button" class="btn btn-primary" onclick="open_editmodal();">
+                                                        modal
+                                                    </button> -->
+                                                </td>
                                             </tr>
                                         <?php } ?>
                                     </tbody>
@@ -240,6 +286,95 @@ if (!empty($account_id)) {
         </div>
     </div>
     <!-- Content close-->
+
+    <!-- Modal -->
+    <div class="modal fade" id="editModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h1 class="modal-title fs-5" id="editModalLabel">Edit Payment</h1>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="paymentForm" enctype="multipart/form-data">
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-lg-12 mb-2">
+                                <strong><label for="">Customer Name <span class="text-danger fw-bold">*</span></label></strong>
+                                <input type="text" class="form-control form-control-sm" id="account_name" placeholder="Customer Name" readonly>
+                                <input type="hidden" class="form-control form-control-sm" id="account_id_m" name="account_id_m">
+                            </div>
+                            <div class="col-lg-12 mb-2">
+                                <strong><label for="">Bill No. <span class="text-danger fw-bold">*</span></label></strong>
+                                <input type="text" class="form-control form-control-sm" id="bill_no" placeholder="Bill No." readonly>
+                                <input type="hidden" class="form-control form-control-sm" id="bill_id_m" name="bill_id_m">
+                                <input type="hidden" id="transaction_id_m" name="transaction_id_m">
+
+                            </div>
+                            <div class="col-lg-12 mb-2">
+                                <strong><label for="">Pending Amount <span class="text-danger fw-bold">*</span></label></strong>
+                                <input type="text" class="form-control form-control-sm" id="pending_amt_m" name="pending_amt_m" placeholder="Pending Amount" readonly>
+                            </div>
+                            <div class="col-lg-12 mb-2">
+                                <strong><label for="">Pay Mode <span class="text-danger fw-bold">*</span></label></strong>
+                                <select class="form-control form-control-sm" id="paymode_m" name="paymode_m" placeholder="Enter Pay Mode">
+                                    <option value="Cash">Cash</option>
+                                    <option value="Cheque">Cheque</option>
+                                    <option value="Online">Online</option>
+                                </select>
+                            </div>
+                            <div class="col-lg-12 mb-2 conditional-field" id="proof_div" style="display:none;">
+                                <strong><label>Payment Proof <span class="text-danger">*</span></label></strong>
+                                <input type="file" class="form-control form-control-sm" name="payment_proof" id="payment_proof" accept=".jpg,.jpeg,.png">
+                                <input type="hidden" id="old_payment_proof" name="old_payment_proof">
+                                <a id="proof_link" href="#" target="_blank" style="display:none;">View Proof</a>
+                            </div>
+                            <div class="col-lg-12 mb-2 conditional-field" id="tansaction_div" style="display:none;">
+                                <strong><label id="trans_label">Transaction ID <span class="text-danger">*</span></label></strong>
+                                <input type="text" class="form-control form-control-sm" name="trans_id_m" id="trans_id_m" placeholder="Transaction ID">
+                            </div>
+                            <div class="col-lg-12 mb-2 conditional-field" id="reciept_div">
+                                <strong><label for="">Reciept No. <span class="text-danger fw-bold">*</span></label></strong>
+                                <input type="text" class="form-control form-control-sm" id="voucher_no_m" name="voucher_no_m" placeholder="Enter Reciept No.">
+                            </div>
+                            <div class="col-lg-12 mb-2">
+                                <strong><label for="" id="pay_date_l">Payment Date <span class="text-danger fw-bold">*</span></label></strong>
+                                <input type="date" class="form-control form-control-sm" id="paydate_m" name="paydate_m" placeholder="Enter Payment Date">
+                            </div>
+                            <div class="col-lg-12 mb-2">
+                                <strong><label for="">Cash Discount <small class="text-danger fw-bold">(If Applicable)</small></label></strong>
+                                <input type="text" class="form-control form-control-sm" id="cash_disc_m" name="cash_disc_m" placeholder="Enter Cash Discount">
+                            </div>
+                            <div class="col-lg-12 mb-2">
+                                <strong><label for="" id="pay_amt_l">Payment Amount <span class="text-danger fw-bold">*</span></label></strong>
+                                <input type="text" class="form-control form-control-sm" id="pay_amt_m" name="pay_amt_m" placeholder="Enter Payment Amount">
+                            </div>
+                            <div class="col-lg-12 mb-2 conditional-field" id="bank_div" style="display:none;">
+                                <strong><label for="">Bank Name <span class="text-danger fw-bold">*</span></label></strong>
+                                <select class="form-control form-control-sm" id="bank_id_m" name="bank_id_m">
+                                    <option value="">Select Bank</option>
+                                    <?php $res = $obj->executequery("Select * from bank_master");
+                                    foreach ($res as $banks) { ?>
+                                        <option value="<?= $banks['bank_id'] ?>"><?= $banks['bank_name'] ?></option>
+                                    <?php } ?>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+                            <div class="col-lg-12" id="remark_div">
+                                <strong><label for="">Remark <span class="text-danger fw-bold"></span></label></strong>
+                                <input type="text" class="form-control form-control-sm" id="remark_m" name="remark" placeholder="Enter Remarks">
+                            </div>
+                            <div class="col-md-12 mt-4">
+                                <input type="hidden" id="transaction_id_m">
+                                <button type="submit" class="btn btn-sm btn-primary">Update Payment</button>
+                                <button type="button" class="btn btn-danger btn-sm" data-bs-dismiss="modal">Cancel</button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
 </body>
 
 <!-- script tag -->
@@ -249,7 +384,198 @@ if (!empty($account_id)) {
     $(document).ready(function() {
         $('#example').DataTable();
         $(".chosen-select").chosen();
+
+        const star = ' <span class="text-danger fw-bold">*</span>';
+
+        $('#paymode_m').change(function() {
+
+            let mode = $(this).val();
+            $('.conditional-field').hide();
+            if (mode === 'Cheque') {
+
+                $('#proof_div, #tansaction_div').show();
+
+                $('#trans_label').html('Cheque No.' + star);
+                $('#trans_id_m').attr('placeholder', 'Enter Cheque No.');
+
+                $('#pay_date_l').html('Cheque Date' + star);
+                $('#pay_amt_l').html('Cheque Amount' + star);
+
+            } else if (mode === 'Online') {
+
+                $('#tansaction_div, #bank_div').show();
+
+                $('#trans_label').html('Transaction ID' + star);
+                $('#trans_id_m').attr('placeholder', 'Enter Transaction ID');
+
+                $('#pay_date_l').html('Payment Date' + star);
+                $('#pay_amt_l').html('Payment Amount' + star);
+
+            } else if (mode === 'Cash') {
+
+                $('#reciept_div').show();
+
+                $('#pay_date_l').html('Payment Date' + star);
+                $('#pay_amt_l').html('Payment Amount' + star);
+            }
+
+        });
     });
+
+
+    $('#paymentForm').on('submit', function(e) {
+        e.preventDefault();
+
+        const formData = new FormData(this);
+        const account_id = $('#account_id_m').val();
+        const bill_id = $('#bill_id_m').val();
+        const paymode = $('#paymode_m').val();
+        const pay_amt = $('#pay_amt_m').val();
+        const transaction_id = $('#transaction_id_m').val();
+
+        if (!account_id || !bill_id || !paymode || !pay_amt) {
+            alert('Please fill all required fields');
+            return;
+        }
+
+        $.ajax({
+            type: 'POST',
+            url: 'ajaxsave_payment.php',
+            data: formData,
+            contentType: false,
+            processData: false,
+            dataType: 'json',
+            success: function(res) {
+                if (res.status === 'success') {
+                    alert(res.message);
+                    location.reload();
+                } else {
+                    alert(res.message);
+                }
+            },
+            error: function(xhr) {
+                console.log(xhr.responseText);
+                alert('Error saving payment.');
+            }
+        });
+    });
+
+    function open_modal(id) {
+        $.ajax({
+            type: 'POST',
+            url: 'ajax/fetch_payment_details.php',
+            data: {
+                transaction_id: id
+            },
+            dataType: 'json',
+            success: function(res) {
+                if (res.status === 'success') {
+                    $('#transaction_id_m').val(res.data.transaction_id);
+                    $('#account_id_m').val(res.data.account_id);
+                    $('#account_name').val(res.data.account_name);
+                    get_bills(res.data.account_id, res.data.transaction_id, res.data.ref_bill_id)
+                    $('#paymode_m').val(res.data.payment_mode).trigger('change');
+                    $('#trans_id_m').val(res.data.trans_id);
+                    $('#voucher_no_m').val(res.data.billno);
+                    $('#paydate_m').val(res.data.payment_date);
+                    $('#cash_disc_m').val(res.data.cash_disc);
+                    $('#pay_amt_m').val(parseFloat(res.data.grand_total).toFixed(2));
+                    $('#bank_id_m').val(res.data.bank_id);
+                    $('#remark_m').val(res.data.remark);
+                    $('#old_payment_proof').val(res.data.imgname);
+
+                    if (res.data.imgname) {
+                        $('#proof_link')
+                            .attr('href', '../uploads/payment_proof/' + res.data.imgname)
+                            .show();
+                    } else {
+                        $('#proof_link')
+                            .attr('href', '#')
+                            .hide();
+                    }
+                    const modal = new bootstrap.Modal(document.getElementById('editModal'));
+                    modal.show();
+                } else {
+                    alert('Error fetching payment details');
+                }
+            },
+            error: function() {
+                alert('Error fetching payment details');
+            }
+        });
+    }
+
+
+    function get_bills(account_id, keyvalue, bill_id) {
+        $.ajax({
+            type: "POST",
+            url: "ajax_get_customer_bills.php",
+            data: {
+                account_id: account_id,
+                keyvalue: keyvalue,
+                bill_id: bill_id
+            },
+            dataType: "json",
+            success: function(res) {
+                if (res.length > 0) {
+                    var bill = res[0];
+                    $("#bill_no").val(
+                        bill.title +
+                        " | Amt : ₹" + parseFloat(bill.amount).toFixed(2) +
+                        " | Pending : ₹" + parseFloat(bill.pending).toFixed(2)
+                    );
+                    $("#bill_id_m").val(bill.id);
+                    $("#pending_amt_m").val(parseFloat(bill.pending).toFixed(2));
+                }
+            },
+            error: function(xhr) {
+                console.log(xhr.responseText);
+                alert("Unable to load bill details.");
+            }
+        });
+    }
+
+
+
+
+
+    function funDel(id, imgname) {
+        tblname = '<?php echo $tblname; ?>';
+        tblpkey = '<?php echo $tblpkey; ?>';
+        imgpath = 'uploaded/payment_proof/';
+        if (confirm("Are you sure! You want to delete this record.")) {
+            jQuery.ajax({
+                type: 'POST',
+                url: 'ajax/delete_master_img.php',
+                data: 'id=' + id + '&tblname=' + tblname + '&tblpkey=' + tblpkey + '&imgname=' + imgname + '&imgpath=' + imgpath,
+                dataType: 'html',
+                success: function(data) {
+                    location.reload();
+                }
+            });
+        }
+    }
+
+    function approve_payment(transaction_id) {
+        if (confirm("Are you sure you want to approve this payment?")) {
+            $.ajax({
+                type: "POST",
+                url: "ajax/approve_payment.php",
+                data: {
+                    transaction_id: transaction_id
+                },
+                dataType: "json",
+                success: function(res) {
+                    if (res.status === "success") {
+                        alert(res.message);
+                        location.reload();
+                    } else {
+                        alert(res.message);
+                    }
+                }
+            });
+        }
+    }
 </script>
 
 </html>

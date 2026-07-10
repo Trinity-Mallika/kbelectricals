@@ -2,6 +2,8 @@
 include_once("../../action.php");
 
 $account_id = $_POST['account_id'];
+$keyvalue = $_POST['keyvalue'];
+$bill_id = $_POST['bill_id'];
 
 $opening_amt = (float)$obj->getvalfield(
     "account",
@@ -13,8 +15,8 @@ $opening_paid = (float)$obj->getvalfield(
     "transaction_entry",
     "IFNULL(SUM(grand_total + IFNULL(cash_disc,0)),0)",
     "account_id='$account_id'
-     AND type='payment'
-     AND pay_type='opening'"
+     AND type='payment' and pay_status=1
+     AND pay_type='opening' and transaction_id!='$keyvalue'"
 );
 
 $opening_pending = $opening_amt - $opening_paid;
@@ -51,9 +53,9 @@ if ($opening_pending > 0) {
 
     LEFT JOIN transaction_entry p
         ON p.ref_bill_id = t.transaction_id
-        AND p.type = 'payment'
+        AND p.type = 'payment' and p.pay_status=1
         AND p.pay_type = 'bill'
-
+    and p.transaction_id!='$keyvalue'
     WHERE t.account_id = '$account_id'
     AND t.type = 'order'
     AND t.is_approved = 1
@@ -62,26 +64,32 @@ if ($opening_pending > 0) {
     GROUP BY t.transaction_id
     ORDER BY t.billdate ASC, t.transaction_id ASC
 ");
-
     foreach ($res as $row) {
 
         $total   = (float)$row['total_amt'];
         $paid    = (float)$row['total_paid'];
         $pending = $total - $paid;
 
+        $disabled = ($pending <= 0) ? "disabled" : "";
+        $selected = ($bill_id == $row['transaction_id']) ? "selected" : "";
+
+        echo '<option
+            value="' . $row['transaction_id'] . '"
+            data-total="' . $total . '"
+            data-pending="' . $pending . '"
+            ' . $disabled . '
+            ' . $selected . '>';
+
         if ($pending <= 0) {
-            continue;
+            echo '✅ ';
         }
 
-        $html .= '<option
-                    value="' . $row['transaction_id'] . '"
-                    data-total="' . $total . '"
-                    data-pending="' . $pending . '">
-                    ' . $row['invoice_no'] . '
-                    (₹' . number_format($total, 2) . '
-                    | Pending: ₹' . number_format($pending, 2) . ')
-                    / ' . $obj->dateformatindia($row['billdate']) . '
-                  </option>';
+        echo $row['invoice_no'] .
+            ' (₹' . number_format($total, 2) .
+            ' | Pending ₹' . number_format($pending, 2) .
+            ') / ' . $obj->dateformatindia($row['billdate']);
+
+        echo '</option>';
     }
 }
 

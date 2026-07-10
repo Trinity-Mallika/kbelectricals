@@ -15,8 +15,10 @@ if ($transaction_id > 0) {
     $gst_percent = $trasc_data['gst_percent'];
     $grand_total = $trasc_data['grand_total'];
     $net_total_amt = $trasc_data['net_total_amt'];
+    $freight_charges = $trasc_data['freight_charges'];
     $selected_columns = !empty($trasc_data['print_columns']) ? explode(',', $trasc_data['print_columns']) : [];
 } else {
+    $freight_charges = 0;
     $gst_percent = 0;
     $selected_columns = [];
 }
@@ -77,10 +79,16 @@ if ($transaction_id > 0) {
             $i = 1;
             $colspan = 9;
             $net_total_amt = 0;
+            $crit = "WHERE td.transaction_id = '$transaction_id' and td.account_id='$account_id' AND td.type='$type'";
+
+            if ($transaction_id > 0) {
+                $crit .= " ";
+            } else {
+                $crit .= " AND td.createdby='$loginid'";
+            }
             $sql = "SELECT td.*,p.product_name,b.cat_name AS brand_name,u.cat_name AS unit_name,c.cat_name AS category_name FROM transaction_details td
 LEFT JOIN product_master p ON p.product_id = td.product_id LEFT JOIN category_master b ON b.cat_id = td.brand_id AND b.type='brand' LEFT JOIN category_master c
-    ON c.cat_id = td.category_id AND c.type='category' LEFT JOIN category_master u ON u.cat_id = td.unit_id AND u.type='unit'WHERE td.transaction_id = '$transaction_id' AND td.account_id='$account_id'  AND td.type='$type' ORDER BY td.tran_detail_id DESC
-";
+    ON c.cat_id = td.category_id AND c.type='category' LEFT JOIN category_master u ON u.cat_id = td.unit_id AND u.type='unit' $crit  ORDER BY td.tran_detail_id DESC";
             $res = $obj->executequery($sql);
             $count = count($res);
             if ($count > 0) {
@@ -136,12 +144,7 @@ LEFT JOIN product_master p ON p.product_id = td.product_id LEFT JOIN category_ma
 
                     </tr>
                 <?php $net_total_amt += $nettotal;
-                    $cgst = $net_total_amt * 0.09;
-                    $sgst = $net_total_amt * 0.09;
-                    $gst_total = $cgst + $sgst;
-                    $grand_total = $net_total_amt + $gst_total;
                 } ?>
-
         </tbody>
 
         <tfoot>
@@ -153,23 +156,37 @@ LEFT JOIN product_master p ON p.product_id = td.product_id LEFT JOIN category_ma
             </tr>
             <?php if ($is_gst == 1) { ?>
                 <tr>
+                    <th colspan="<?= $colspan - $is_gst; ?>" class="text-end">Freight Charges</th>
+                    <th class="text-end d-flex justify-content-end gap-1 align-items-center"><span>Rs. </span> <input type="number" class="form-control form-control-sm w-50 text-end" name="freight_charges" id="freight_charges" value="<?= $freight_charges; ?>" oninput="calculateGST();"></th>
+                    <th></th>
+                    <th></th>
+                </tr>
+                <tr>
+                    <th colspan="<?= $colspan - $is_gst; ?>" class="text-end">Taxable Amount</th>
+                    <th class="text-end">
+                        <span id="taxable_amount_display">0.00</span>
+                         <input type="hidden" name="taxable_amount" id="taxable_amount">
+                    </th>
+                </tr>
+                <tr>
                     <th colspan="<?= $colspan - $is_gst; ?>" class="text-end">SGST @ 9%</th>
-                    <th class="text-end">Rs. <?php echo number_format(round($cgst), 2); ?></th>
+                    <th class="text-end" id="cgst_display">Rs. </th>
                     <th></th>
                     <th></th>
                 </tr>
                 <tr>
                     <th colspan="<?= $colspan - $is_gst; ?>" class="text-end">CGST @ 9%</th>
-                    <th class="text-end">Rs. <?php echo number_format(round($sgst), 2); ?></th>
+                    <th class="text-end" id="sgst_display">Rs. </th>
                     <th></th>
                     <th></th>
                 </tr>
                 <tr>
                     <th colspan="<?= $colspan - $is_gst; ?>" class="text-end">Grand Total(inc. GST)</th>
-                    <th class="text-end">Rs. <?php echo number_format(round($grand_total), 2); ?></th>
+                    <th class="text-end" id="grand_total_display">Rs. </th>
                     <th></th>
                     <th></th>
                 </tr>
+                <input type="hidden" name="gst_percent" id="gst_percent_hidden" value="18">
             <?php } ?>
         </tfoot>
     <?php } ?>
@@ -180,8 +197,8 @@ LEFT JOIN product_master p ON p.product_id = td.product_id LEFT JOIN category_ma
     <input type="hidden" name="net_total_amt" id="net_total_amt" value="<?php echo $net_total_amt; ?>">
     <input type="hidden" name="cgst" id="cgst" value="<?php echo $cgst; ?>">
     <input type="hidden" name="sgst" id="sgst" value="<?php echo $sgst; ?>">
-    <input type="hidden" name="grand_total" id="grand_total" value="<?php echo $grand_total; ?>">
-    <input type="hidden" name="gst_percent" id="gst_percent_hidden" value="<?php echo $gst_percent; ?>">
+    <input type="hidden" name="grand_total" id="grand_total" value="<?php echo $net_total_amt; ?>">
+
     <input type="hidden" name="transaction_id" id="transaction_id" value="<?php echo $transaction_id; ?>">
     <a href="quotation.php" class="btn btn-danger btn-sm"> Reset </a>
 </div>

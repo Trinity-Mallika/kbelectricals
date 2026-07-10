@@ -85,6 +85,18 @@
 
             </div>
         </div>
+        <?php $current_date_head = date('Y-m-d');
+        $current_month_start_head = date('Y-m-01');
+
+        $start_window_head = date('Y-m-d', strtotime("$current_month_start_head -2 days"));
+        $end_window_head   = date('Y-m-d', strtotime("$current_month_start_head +2 days"));
+
+        $show_monthly_target_head = (
+            $current_date_head >= $start_window_head &&
+            $current_date_head <= $end_window_head
+        );
+
+        $show_monthly_target_head = ($current_date_head >= $start_window_head && $current_date_head <= $end_window_head); ?>
         <div class="row">
             <div class="col-12">
                 <hr>
@@ -111,12 +123,19 @@
                     <a href="add_payment.php" class="mt-2">
                         <li class="list-group-item border-0"><span><i class="bi bi-credit-card"></i></span>&nbsp; Add Payment</li>
                     </a>
-                    <a href="monthly_target.php" class="mt-2">
-                        <li class="list-group-item border-0"><span><i class="bi bi-credit-card"></i></span>&nbsp; Monthly Target</li>
-                    </a>
+                    <?php if ($show_monthly_target_head) { ?>
+                        <a href="monthly_target.php" class="mt-2">
+                            <li class="list-group-item border-0"><span><i class="bi bi-credit-card"></i></span>&nbsp; Monthly Target</li>
+                        </a>
+                    <?php } ?>
                     <a href="electrician.php" class="mt-2">
                         <li class="list-group-item border-0"><span><i class="bi bi-credit-card"></i></span>&nbsp; Electrician</li>
                     </a>
+
+                    <a href="customer_wise_view.php" class="mt-2">
+                        <li class="list-group-item border-0"><span><i class="bi bi-credit-card"></i></span>&nbsp; Customer Wise Achievement</li>
+                    </a>
+
                     <hr>
                     <a href="change-password.php" class="mt-2">
                         <li class="list-group-item border-0"><span><i class="bi bi-lock-fill"></i></span>&nbsp; Change Password</li>

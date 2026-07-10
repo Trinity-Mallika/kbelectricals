@@ -20,8 +20,7 @@ if (!empty($res) && isset($res['short_name'])) {
     $short_name = $res['short_name'];
 }
 
-$billno = $obj->getquocode($tblname, "billno", $short_name, "1=1 and type='$type' ");
-$billdate = date("Y-m-d");
+
 if (isset($_POST['submit'])) {
     $keyvalue = $obj->test_input($_POST['transaction_id']);
     $account_id = $obj->test_input($_POST['account_id']);
@@ -33,19 +32,25 @@ if (isset($_POST['submit'])) {
     $validity = $obj->test_input($_POST['validity']);
     $payment = $obj->test_input($_POST['payment']);
     $remark = $obj->test_input($_POST['remark']);
-    $cgst = $obj->test_input($_POST['cgst']);
-    $sgst = $obj->test_input($_POST['sgst']);
-    $gst_percent = $obj->test_input($_POST['gst_percent']);
+
     $grand_total = $obj->test_input($_POST['grand_total']);
     $net_total_amt = $obj->test_input($_POST['net_total_amt']);
+    $freight_charges = isset($_POST['freight_charges']) ? $obj->test_input($_POST['freight_charges']) : 0;
+    $gst_percent = isset($_POST['gst_percent']) ? $obj->test_input($_POST['gst_percent']) : 0;
+    $cgst = isset($_POST['cgst']) ? $obj->test_input($_POST['cgst']) : 0;
+    $sgst = isset($_POST['sgst']) ? $obj->test_input($_POST['sgst']) : 0;
+    $taxable_amount = isset($_POST['taxable_amount']) ? $obj->test_input($_POST['taxable_amount']) : 0;
+
     $form_data = array(
         "account_id" => $account_id,
         "type" => $type,
         "net_total_amt" => $net_total_amt,
         "cgst" => $cgst,
         "sgst" => $sgst,
+        "taxable_amount" => $taxable_amount,
         "gst_percent" => $gst_percent,
         "grand_total" => $grand_total,
+        "freight_charges" => $freight_charges,
         "remark" => $remark,
         "gst" => $gst,
         "is_gst" => $is_gst,
@@ -104,6 +109,8 @@ if ($keyvalue > 0) {
     $remark = $gst = $freight = $validity = $payment = "";
     $is_gst = 0;
     $selected_columns = [];
+    $billno = $obj->getquocode($tblname, "billno", $short_name, "1=1 and type='$type' ");
+    $billdate = date("Y-m-d");
 }
 ?>
 <!DOCTYPE html>
@@ -558,8 +565,13 @@ if ($keyvalue > 0) {
     $('#gst_checkbox').change(function() {
         if ($(this).is(':checked')) {
             $('#is_gst').val(1);
+            $('#gst_id').val(0);
+            $('#gst_amt').val(0);
+            $('#taxtype').val('');
         } else {
             $('#is_gst').val(0);
+            $('#gst_id').val(3);
+            $('#taxtype').val('exclusive');
         }
         fetch_data('<?php echo $keyvalue ?>');
     });
@@ -970,28 +982,37 @@ if ($keyvalue > 0) {
         let qty = parseFloat($('#qty').val()) || 0;
         let rate = parseFloat($('#rate').val()) || 0;
         let discP = parseFloat($('#discount').val()) || 0;
-        let gst_percent = 18;
-
+        let gst_id = parseFloat($('#gst_id').val()) || 0;
+        let gst_percent = (gst_id > 0) ? 18 : 0;
         let taxtype = $('#taxtype').val();
 
         let disc_per_unit = (rate * discP) / 100;
         let price_after_disc = Math.max(rate - disc_per_unit, 0);
+
         $('#price_after_disc').val(price_after_disc.toFixed(2));
+
         let sub_total = price_after_disc * qty;
         let discount_amt = disc_per_unit * qty;
 
-        let taxable = 0;
+        let taxable = sub_total;
         let gst_amt = 0;
-        let net_amt = 0;
+        let net_amt = sub_total;
+        if (gst_percent > 0) {
 
-        if (taxtype == 'exclusive') {
-            taxable = sub_total;
-            gst_amt = (taxable * gst_percent) / 100;
-            net_amt = taxable + gst_amt;
-        } else if (taxtype == 'inclusive') {
-            net_amt = sub_total;
-            taxable = (net_amt * 100) / (100 + gst_percent);
-            gst_amt = net_amt - taxable;
+            if (taxtype === 'exclusive') {
+
+                taxable = sub_total;
+                gst_amt = (taxable * gst_percent) / 100;
+                net_amt = taxable + gst_amt;
+
+            } else if (taxtype === 'inclusive') {
+
+                net_amt = sub_total;
+                taxable = (net_amt * 100) / (100 + gst_percent);
+                gst_amt = net_amt - taxable;
+
+            }
+
         }
 
         $('#sub_total').val(sub_total.toFixed(2));
@@ -1117,7 +1138,7 @@ if ($keyvalue > 0) {
         let discount_amt = document.getElementById('discount_amt').value.trim();
 
         let tran_detail_id = document.getElementById('m_tran_detail_id').value;
-        let gst_id = 3;
+        let gst_id = document.getElementById('gst_id').value;
         let taxtype = document.getElementById('taxtype').value;
         let net_amt = document.getElementById('net_total').value;
         let transaction_id = '<?php echo $keyvalue ?>';
@@ -1217,30 +1238,32 @@ if ($keyvalue > 0) {
                 $('#sub_total').val('');
                 $('#total_amt').val('');
                 $('#sub_total').val('');
+                $('#m_tran_detail_id').val(0);
             }
         });
     }
 </script>
 <script>
     function calculateGST() {
+        if ($('#gst_percent_hidden').length === 0) return;
 
         let net_total = parseFloat($('#net_total_amt').val()) || 0;
-        let gst_percent = parseFloat($('#gst_percent').val()) || 0;
+        let gst_percent = parseFloat($('#gst_percent_hidden').val()) || 0;
+        let freight = parseFloat($('#freight_charges').val()) || 0;
 
-        if ($('#net_total_amt').length === 0) return;
+        let taxable_amount = net_total + freight;
 
         let half_gst = gst_percent / 2;
-        let gst_amount = (net_total * gst_percent) / 100;
+        let gst_amount = (taxable_amount * gst_percent) / 100;
         let cgst = gst_amount / 2;
         let sgst = gst_amount / 2;
-        let grand_total = net_total + gst_amount;
+        let grand_total = taxable_amount + gst_amount;
 
+        if ($('#taxable_amount').length) $('#taxable_amount').val(taxable_amount.toFixed(2));
+        if ($('#taxable_amount_display').length) $('#taxable_amount_display').text(taxable_amount.toFixed(2));
         if ($('#cgst_display').length) $('#cgst_display').text(cgst.toFixed(2));
         if ($('#sgst_display').length) $('#sgst_display').text(sgst.toFixed(2));
         if ($('#grand_total_display').length) $('#grand_total_display').text(grand_total.toFixed(2));
-
-        if ($('#cgst_percent_display').length) $('#cgst_percent_display').text(half_gst);
-        if ($('#sgst_percent_display').length) $('#sgst_percent_display').text(half_gst);
 
         $('#cgst').val(cgst.toFixed(2));
         $('#sgst').val(sgst.toFixed(2));

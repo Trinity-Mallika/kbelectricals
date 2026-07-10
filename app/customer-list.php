@@ -1,16 +1,36 @@
 <?php include("appsession.php");
 $title = "Customer List";
+$fullname = $obj->getvalfield("user", "fullname", "userid='$loginid'");
+$data          = $obj->getRouteDashboardData($loginid, $companyid);
+$batch_no      = $data['batch_no'];
 $crit = "1=1";
 if (isset($_GET["route_planid"]) && $_GET["route_planid"] != '') {
     $route_planid = $obj->test_input($_GET["route_planid"]);
-    if ($route_planid > 0) {
-        $crit .= " and rc.batch_no = '$route_planid'";
-    }
 } else {
-    $route_planid = '';
+    $route_planid = "";
 }
 
+if ($route_planid > 0) {
+    $crit .= " and rc.batch_no = '$route_planid'";
+} else {
+    $crit .= " and rc.batch_no in ($batch_no)";
+}
 
+$messages = [];
+$result = $obj->executequery("SELECT * FROM m_message WHERE companyid='$companyid'");
+foreach ($result as $row) {
+    $messages[$row['type']] = $row;
+}
+
+$visitTemplate  = getMessage($messages, 'daily_visit');
+$ledgerTemplate = getMessage($messages, 'ledger_msg');
+
+function getMessage($messages, $type)
+{
+    return isset($messages[$type]['message'])
+        ? $messages[$type]['message']
+        : "";
+}
 
 $avatarColors = ['#3a55e8', '#7c3aed', '#059669', '#dc2626', '#d97706', '#0891b2', '#be185d', '#16a34a'];
 ?>
@@ -496,8 +516,9 @@ $avatarColors = ['#3a55e8', '#7c3aed', '#059669', '#dc2626', '#d97706', '#0891b2
                                                 <a href="javascript:void(0)"
                                                     onclick="sendVisitMsg(
       '<?= preg_replace('/\D/', '', $mobile) ?>',
-      '<?= htmlspecialchars($key['account_name'], ENT_QUOTES) ?>',
+      '<?= htmlspecialchars($key['owner_name'], ENT_QUOTES) ?>',
       '<?= number_format($obj->get_ledger_balance($key['account_id']), 2, '.', '') ?>'
+      ,'<?= $obj->get_max_overdue_days($key['account_id']) ?>'
    )"
                                                     class="kb-act-btn">
                                                     <i class="bi bi-whatsapp text-success"></i>
@@ -505,11 +526,7 @@ $avatarColors = ['#3a55e8', '#7c3aed', '#059669', '#dc2626', '#d97706', '#0891b2
                                                 </a>
 
                                                 <a href="javascript:void(0)"
-                                                    onclick="sendLedgerMsg(
-      '<?= preg_replace('/\D/', '', $mobile) ?>',
-      '<?= htmlspecialchars($key['account_name'], ENT_QUOTES) ?>',
-      '<?= number_format($obj->get_ledger_balance($key['account_id']), 2, '.', '') ?>'
-   )"
+                                                    onclick="sendLedgerMsg('<?= preg_replace('/\D/', '', $mobile) ?>','<?= htmlspecialchars($key['owner_name'], ENT_QUOTES) ?>','<?= number_format($obj->get_ledger_balance($key['account_id']), 2, '.', '') ?>','<?= $obj->get_max_overdue_days($key['account_id']) ?>')"
                                                     class="kb-act-btn">
                                                     <i class="bi bi-journal-text"></i>
                                                     Ledger
@@ -555,21 +572,25 @@ $avatarColors = ['#3a55e8', '#7c3aed', '#059669', '#dc2626', '#d97706', '#0891b2
 
         }
 
-        function sendVisitMsg(mobile, shop, balance) {
-            let msg =
-                `नमस्कार भैया जी 🙏
+        function replaceVariables(template, vars) {
 
-कल मेरा आपकी दुकान पर विजिट निर्धारित है।
+            Object.keys(vars).forEach(function(key) {
+                template = template.replaceAll("{" + key + "}", vars[key]);
+            });
 
-यदि कोई भी Replacement / Service संबंधित सामग्री हो तो कृपया मुझे अवश्य बता दें, ताकि उसका समाधान तुरंत किया जा सके।
+            return template;
+        }
 
-आपके लेजर में वर्तमान बकाया राशि ₹${balance} है। कृपया संभव हो तो भुगतान तैयार रखिएगा, जिससे अकाउंट नियमित बना रहे।
+        function sendVisitMsg(mobile, shop, balance, days) {
 
-साथ ही कृपया अपने स्टाफ से स्टॉक भी चेक करवा लें। यदि कोई आइटम कम या खत्म हो गया हो तो उसका ऑर्डर भी मैं साथ में बुक कर लूंगा, ताकि माल की उपलब्धता बनी रहे।
+            let template = <?= json_encode($visitTemplate, JSON_UNESCAPED_UNICODE); ?>;
 
-धन्यवाद 🙏
-…………………..
-KB Electricals`;
+            let msg = replaceVariables(template, {
+                1: shop,
+                2: balance,
+                3: '<?= $fullname ?>',
+                4: days
+            });
 
             window.open(
                 "https://wa.me/91" + mobile + "?text=" + encodeURIComponent(msg),
@@ -577,30 +598,22 @@ KB Electricals`;
             );
         }
 
+        function sendLedgerMsg(mobile, shop, balance, days) {
 
-        function sendLedgerMsg(mobile, shop, balance) {
-            let defaultMsg =
-                `नमस्कार भैया जी 🙏
-
-आशा है आप सकुशल होंगे।
-
-आपके खाते में वर्तमान बकाया राशि ₹${balance} है।
-
-कृपया अकाउंट का मिलान कर लें तथा यदि कोई भुगतान लंबित हो तो सुविधानुसार भुगतान करने का कष्ट करें, जिससे आपका खाता नियमित बना रहे और आगे की सप्लाई एवं ऑर्डर प्रोसेसिंग में किसी प्रकार की असुविधा न हो।
-
-यदि भुगतान पहले ही कर दिया गया है तो कृपया उसकी जानकारी अथवा स्क्रीनशॉट साझा करें।
-
-आपके सहयोग के लिए धन्यवाद। 🙏
-
-…………………..
-KB Electricals`;
+            let template = <?= json_encode($ledgerTemplate, JSON_UNESCAPED_UNICODE); ?>;
+            let defaultMsg = replaceVariables(template, {
+                1: shop,
+                2: balance,
+                3: '<?= $fullname ?>',
+                4: days
+            });
 
             Swal.fire({
                 title: 'Ledger Message',
                 html: `
             <textarea id="ledgerMsg"
-                style="width:100%;height:250px;padding:10px;"
-                class="form-control">${defaultMsg}</textarea>
+                class="form-control"
+                style="width:100%;height:250px;">${defaultMsg}</textarea>
         `,
                 width: 700,
                 showCancelButton: true,
@@ -609,7 +622,8 @@ KB Electricals`;
             }).then((result) => {
 
                 if (result.isConfirmed) {
-                    let msg = document.getElementById('ledgerMsg').value;
+
+                    let msg = $('#ledgerMsg').val();
 
                     window.open(
                         "https://wa.me/91" + mobile + "?text=" + encodeURIComponent(msg),

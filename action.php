@@ -1,16 +1,7 @@
 <?php
-ini_set('session.gc_maxlifetime', 86400); // 24 hours
+require_once("config.php");
 
-session_set_cookie_params([
-	'lifetime' => 86400,
-	'path'     => '/',
-	'secure'   => false, // true if HTTPS
-	'httponly' => true
-]);
 session_start();
-date_default_timezone_set('Asia/Kolkata');
-
-include("config.php");
 
 class DataOperation extends Database
 {
@@ -128,8 +119,7 @@ class DataOperation extends Database
 
 		$Monthtotal = 0;
 
-		$sqlMonthTarget = "
-    SELECT
+		$sqlMonthTarget = "SELECT
         rp.week_number,
         COUNT(DISTINCT rc.account_id) AS customer_count
     FROM route_counter rc
@@ -165,8 +155,7 @@ class DataOperation extends Database
          AND companyid='$companyid'"
 		);
 
-		$sql = "
-SELECT COALESCE(SUM(x.grand_total),0) AS Monthsales
+		$sql = "SELECT COALESCE(SUM(x.grand_total),0) AS Monthsales
 FROM (
     SELECT DISTINCT
         te.transaction_id,
@@ -202,11 +191,11 @@ FROM (
             CASE
                 WHEN type='order' AND is_approved='1' THEN
                     CASE
-                        WHEN invoice_no != '' THEN invoice_amt
-                        ELSE grand_total
-                    END
-
-                WHEN type='payment' THEN
+                WHEN invoice_no!='' THEN invoice_amt
+                ELSE 0
+            END
+                    
+                WHEN type='payment' and pay_status=1 THEN
                     -(grand_total + IFNULL(cash_disc,0))
 
                 ELSE 0
@@ -471,7 +460,7 @@ FROM (
     JOIN (
         SELECT ref_bill_id, MIN(createdate) as first_payment
         FROM transaction_entry
-        WHERE type='payment'
+        WHERE type='payment' and pay_status=1
         AND companyid='$companyid'
         GROUP BY ref_bill_id
     ) p ON p.ref_bill_id = o.transaction_id
@@ -701,44 +690,97 @@ FROM (
 
 		return (int) $stmt->fetchColumn();
 	}
-
-	public function uploadImage(string $imgpath, array $file): string
+	public function uploadImage(string $uploadPath, array $file): string
 	{
 		if (!isset($file['name']) || $file['error'] !== UPLOAD_ERR_OK) {
 			return "";
 		}
 
 		$ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-		$allowed = ['jpg', 'jpeg', 'png'];
+
+		$allowed = [
+			'jpg',
+			'jpeg',
+			'png',
+			'pdf',
+			'doc',
+			'docx',
+			'xls',
+			'xlsx',
+			'csv'
+		];
 
 		if (!in_array($ext, $allowed)) {
 			return "";
 		}
 
-		$filename = 'DOC' . round(microtime(true) * 1000) . ".jpg";
-		$target = rtrim($imgpath, '/') . '/' . $filename;
-
-		if ($ext == 'jpg' || $ext == 'jpeg') {
-			$image = imagecreatefromjpeg($file['tmp_name']);
-		} elseif ($ext == 'png') {
-			$image = imagecreatefrompng($file['tmp_name']);
-		} else {
-			return "";
+		// Create upload directory if it doesn't exist
+		if (!is_dir($uploadPath)) {
+			mkdir($uploadPath, 0777, true);
 		}
 
-		$width = imagesx($image);
-		$height = imagesy($image);
+		// Generate unique filename
+		$filename = 'DOC' . round(microtime(true) * 1000) . '.' . $ext;
 
-		$new_width = 1200;
-		$new_height = ($height / $width) * $new_width;
+		$target = rtrim($uploadPath, '/') . '/' . $filename;
 
-		$tmp = imagecreatetruecolor($new_width, $new_height);
-		imagecopyresampled($tmp, $image, 0, 0, 0, 0, $new_width, $new_height, $width, $height);
+		// Compress only images
+		if (in_array($ext, ['jpg', 'jpeg', 'png'])) {
 
-		imagejpeg($tmp, $target, 60);
+			if ($ext == 'jpg' || $ext == 'jpeg') {
+				$image = imagecreatefromjpeg($file['tmp_name']);
+			} else {
+				$image = imagecreatefrompng($file['tmp_name']);
+			}
 
-		imagedestroy($image);
-		imagedestroy($tmp);
+			if ($image) {
+
+				$width  = imagesx($image);
+				$height = imagesy($image);
+
+				// Resize only if image is larger than 1200px
+				if ($width > 1200) {
+					$new_width  = 1200;
+					$new_height = intval(($height / $width) * $new_width);
+				} else {
+					$new_width  = $width;
+					$new_height = $height;
+				}
+
+				$tmp = imagecreatetruecolor($new_width, $new_height);
+
+				// Preserve transparency for PNG
+				if ($ext == 'png') {
+					imagealphablending($tmp, false);
+					imagesavealpha($tmp, true);
+				}
+
+				imagecopyresampled(
+					$tmp,
+					$image,
+					0,
+					0,
+					0,
+					0,
+					$new_width,
+					$new_height,
+					$width,
+					$height
+				);
+
+				if ($ext == 'png') {
+					imagepng($tmp, $target, 6);
+				} else {
+					imagejpeg($tmp, $target, 70);
+				}
+
+				imagedestroy($image);
+				imagedestroy($tmp);
+			}
+		} else {
+			// PDF, Excel, Word, CSV
+			move_uploaded_file($file['tmp_name'], $target);
+		}
 
 		return $filename;
 	}
@@ -778,6 +820,71 @@ FROM (
 
 		return $row ?: null;
 	}
+	public function get_opening_ledger(int $account_id, string $from_date): float
+	{
+		$opening_amt = (float)$this->getvalfield(
+			"account",
+			"opening_balance",
+			"account_id='$account_id' AND opening_date < '$from_date'"
+		);
+
+		$opening_paid = (float)$this->getvalfield(
+			"transaction_entry",
+			"IFNULL(SUM(grand_total),0)",
+			"account_id='$account_id'
+         AND type='payment'
+         AND pay_status=1
+         AND pay_type='opening'
+         AND billdate < '$from_date'"
+		);
+
+		$sql = "
+        SELECT
+ IFNULL(SUM(
+        CASE
+            WHEN type='order'
+                 AND is_approved=1
+                 AND invoice_no <> ''
+            THEN invoice_amt
+            ELSE 0
+        END
+    ),0) AS total_order,
+
+            IFNULL(SUM(
+                CASE
+                    WHEN type='payment'
+                         AND pay_status=1
+                         AND pay_type='bill'
+                    THEN grand_total
+                    ELSE 0
+                END
+            ),0) AS total_payment,
+
+            IFNULL(SUM(
+                CASE
+                    WHEN type='payment'
+                         AND pay_status=1
+                    THEN cash_disc
+                    ELSE 0
+                END
+            ),0) AS total_cash_disc
+
+        FROM transaction_entry
+        WHERE account_id='$account_id'
+          AND billdate < '$from_date'
+    ";
+
+		$row = $this->db->query($sql)->fetch(PDO::FETCH_ASSOC);
+
+		$total_order     = (float)$row['total_order'];
+		$total_payment   = (float)$row['total_payment'];
+		$total_cash_disc = (float)$row['total_cash_disc'];
+
+		$balance = ($opening_amt - $opening_paid)
+			+ ($total_order - $total_payment - $total_cash_disc);
+
+		return round($balance, 2);
+	}
 
 	public function get_ledger_balance(int $account_id): float
 	{
@@ -791,7 +898,7 @@ FROM (
 			"transaction_entry",
 			"IFNULL(SUM(grand_total),0)",
 			"account_id='$account_id'
-         AND type='payment'
+         AND type='payment' and pay_status=1
          AND pay_type='opening'"
 		);
 
@@ -814,7 +921,7 @@ FROM (
 
             IFNULL(SUM(
                 CASE
-                    WHEN type='payment'
+                    WHEN type='payment' and pay_status=1
                          AND pay_type='bill'
                     THEN grand_total
                     ELSE 0
@@ -823,7 +930,7 @@ FROM (
 
             IFNULL(SUM(
                 CASE
-                    WHEN type='payment'
+                    WHEN type='payment' and pay_status=1
                     THEN cash_disc
                     ELSE 0
                 END
@@ -843,6 +950,72 @@ FROM (
 			+ ($total_order - $total_payment - $total_cash_disc);
 
 		return round($balance, 2);
+	}
+
+	public function get_max_overdue_days(int $account_id): int
+	{
+		// Invoice overdue
+		$sql = "SELECT IFNULL(MAX(overdue_days),0) AS max_overdue
+            FROM (
+                SELECT
+                    DATEDIFF(CURDATE(), t.billdate) AS overdue_days,
+                    (
+                        CASE
+                            WHEN t.invoice_no <> '' THEN t.invoice_amt
+                            ELSE t.grand_total
+                        END
+                        -
+                        IFNULL((
+                            SELECT SUM(p.grand_total + p.cash_disc)
+                            FROM transaction_entry p
+                            WHERE p.ref_bill_id = t.transaction_id
+                              AND p.type='payment'
+                              AND p.pay_status=1
+                              AND p.pay_type='bill'
+                        ),0)
+                    ) AS pending_amt
+                FROM transaction_entry t
+                WHERE t.account_id='$account_id'
+                  AND t.type='order'
+                  AND t.is_approved=1
+                  AND t.invoice_no IS NOT NULL
+            ) x
+            WHERE pending_amt > 0";
+
+		$invoice_days = (int)$this->db->query($sql)->fetch(PDO::FETCH_ASSOC)['max_overdue'];
+
+		$opening_balance = (float)$this->getvalfield(
+			"account",
+			"opening_balance",
+			"account_id='$account_id'"
+		);
+
+		$opening_paid = (float)$this->getvalfield(
+			"transaction_entry",
+			"IFNULL(SUM(grand_total + cash_disc),0)",
+			"account_id='$account_id'
+         AND type='payment'
+         AND pay_status=1
+         AND pay_type='opening'"
+		);
+
+		$opening_pending = $opening_balance - $opening_paid;
+
+		$opening_days = 0;
+
+		if ($opening_pending > 0) {
+			$opening_date = $this->getvalfield(
+				"account",
+				"opening_date",
+				"account_id='$account_id'"
+			);
+
+			if (!empty($opening_date)) {
+				$opening_days = (int)((new DateTime())->diff(new DateTime($opening_date))->days);
+			}
+		}
+
+		return max($invoice_days, $opening_days);
 	}
 
 	public function getcode(string $table, string $tablepkey, string $cond = "1=1"): string
@@ -884,6 +1057,52 @@ FROM (
 
 		$stmt = $this->db->query($sql);
 		return $stmt->fetchAll();
+	}
+
+	public function executequery_arr($sql)
+	{
+
+		$array = array();
+
+		$query = mysqli_query($this->con, $sql);
+
+		while ($row = mysqli_fetch_assoc($query)) {
+
+			$array[] = $row;
+		}
+
+		return $array;
+	}
+
+	public function delete_record_with_files(
+		string $table,
+		array $where,
+		array $fileFields = [],
+		array $folders = []
+	): bool {
+
+		// पहले Record Fetch करें
+		$record = $this->select_record($table, $where);
+
+		if (!$record) {
+			return false;
+		}
+
+		// Files Delete करें
+		foreach ($fileFields as $index => $field) {
+
+			if (!empty($record[$field])) {
+
+				$path = rtrim($folders[$index], "/") . "/" . $record[$field];
+
+				if (file_exists($path)) {
+					unlink($path);
+				}
+			}
+		}
+
+		// Database Record Delete
+		return $this->delete_record($table, $where);
 	}
 
 
@@ -1247,6 +1466,106 @@ FROM (
 		$data = htmlspecialchars($data);
 
 		return $data;
+	}
+
+
+
+	public function checkmenu(string $module_setting, int $loginid): int
+	{
+		$sql = "SELECT COUNT(*) 
+            FROM privilage_setting AS A
+            LEFT JOIN m_userprivilege AS B
+                ON A.page_id = B.page_id
+            WHERE B.menuname = :menuname
+              AND A.userid = :userid";
+
+		$stmt = $this->db->prepare($sql);
+		$stmt->execute([
+			':menuname' => $module_setting,
+			':userid'   => $loginid
+		]);
+
+		return (int)$stmt->fetchColumn();
+	}
+
+	public function check_menuname(string $location, int $loginid): int
+	{
+		$sql = "SELECT COUNT(*)
+            FROM privilage_setting AS A
+            LEFT JOIN m_userprivilege AS B
+                ON A.page_id = B.page_id
+            WHERE A.userid = :userid
+              AND B.pagelink = :pagelink";
+
+		$stmt = $this->db->prepare($sql);
+		$stmt->execute([
+			':userid'   => $loginid,
+			':pagelink' => $location
+		]);
+
+		return (int)$stmt->fetchColumn();
+	}
+
+	public function check_editBtn(string $location, int $loginid): int
+	{
+		$sql = "SELECT A.pagedit
+            FROM privilage_setting AS A
+            LEFT JOIN m_userprivilege AS B
+                ON A.page_id = B.page_id
+            WHERE A.userid = :userid
+              AND B.pagelink = :pagelink
+            LIMIT 1";
+
+		$stmt = $this->db->prepare($sql);
+		$stmt->execute([
+			':userid'   => $loginid,
+			':pagelink' => $location
+		]);
+
+		$row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+		return isset($row['pagedit']) ? (int)$row['pagedit'] : 0;
+	}
+
+	public function check_delBtn(string $location, int $loginid): int
+	{
+		$sql = "SELECT A.pagedel
+            FROM privilage_setting AS A
+            LEFT JOIN m_userprivilege AS B
+                ON A.page_id = B.page_id
+            WHERE A.userid = :userid
+              AND B.pagelink = :pagelink
+            LIMIT 1";
+
+		$stmt = $this->db->prepare($sql);
+		$stmt->execute([
+			':userid'   => $loginid,
+			':pagelink' => $location
+		]);
+
+		$row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+		return isset($row['pagedel']) ? (int)$row['pagedel'] : 0;
+	}
+	public function check_pageview(string $location, int $loginid): int
+	{
+		$sql = "SELECT B.pageview
+            FROM privilage_setting AS A
+            LEFT JOIN m_userprivilege AS B
+                ON A.page_id = B.page_id
+            WHERE A.userid = :userid
+              AND B.pagelink = :pagelink
+            LIMIT 1";
+
+		$stmt = $this->db->prepare($sql);
+		$stmt->execute([
+			':userid'   => $loginid,
+			':pagelink' => $location
+		]);
+
+		$row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+		return isset($row['pageview']) ? (int)$row['pageview'] : 0;
 	}
 }
 

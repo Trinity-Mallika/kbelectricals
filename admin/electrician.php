@@ -189,7 +189,11 @@ if ($keyvalue > 0) {
                                     <tbody>
                                         <?php
                                         $i = 1;
-                                        $sql = $obj->executequery("SELECT * FROM $tblname where type='$type' ORDER BY account_id desc");
+                                        $crit = "where type='$type'";
+                                        if ($account_id_map > 0) {
+                                            $crit .= " and account_id_map='$account_id_map'";
+                                        }
+                                        $sql = $obj->executequery("SELECT * FROM $tblname $crit ORDER BY account_id desc");
                                         foreach ($sql as $key) {
                                             $account_name = $obj->getvalfield("account", "account_name", "account_id='{$key['account_id_map']}'");
                                             $fullname = $obj->getvalfield("user", "fullname", "userid='{$key['userid']}'");

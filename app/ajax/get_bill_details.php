@@ -12,7 +12,7 @@ $sql = "
     LEFT JOIN account a 
         ON d.account_id = a.account_id
 
-    WHERE d.type='payment' 
+    WHERE d.type='payment' and pay_status=1
         AND d.ref_bill_id='$bill_id'
 
     ORDER BY d.transaction_id DESC

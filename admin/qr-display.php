@@ -5,15 +5,7 @@ $pagename = "qr-display.php";
 $module = "QR Display";
 $submodule = "QR Display List";
 $btn_name = "Save";
-// $tblname = "setting";
-// $tblpkey = "setting_id";
-// $keyvalue = (isset($_GET["setting_id"])) ? $obj->test_input($_GET["setting_id"]) : 0;
 $action = (isset($_GET["action"])) ? $obj->test_input($_GET["action"]) : "";
-
-/* =========================
-   GET MEETING
-========================= */
-
 $location_id = intval($_GET['location_id'] ?? 0);
 
 if (!$location_id) {
@@ -43,19 +35,12 @@ if ($location_id) {
     }
 }
 
-/* =========================
-   MEETING LIST
-========================= */
-
 $meetings = $obj->executequery("
     SELECT *
     FROM store_location
     ORDER BY location_id DESC
 ");
 
-/* =========================
-   QR URL
-========================= */
 
 $protocol = (
     isset($_SERVER['HTTPS']) &&
@@ -149,10 +134,7 @@ $qr_api =
                         <legend><?php echo $title ?></legend>
                         <?php include('component/alert.php'); ?>
                         <div class="row g-3">
-
-                            <!-- Select Location Name -->
-
-                            <div class="col-lg-4">
+                            <div class="col-lg-4 ">
 
                                 <div class="card border-0 shadow-sm rounded-4">
 
@@ -208,9 +190,6 @@ $qr_api =
                                 </div>
 
                             </div>
-
-                            <!-- QR DISPLAY -->
-
                             <div class="col-lg-8">
 
                                 <?php if ($meeting) { ?>
@@ -309,14 +288,13 @@ $qr_api =
                                 <?php } ?>
 
                             </div>
-
                         </div>
+                    </fieldset>
                 </div>
             </div>
         </div>
     </div>
     <!-- Content Close-->
-    </div>
 
 </body>
 
@@ -327,42 +305,6 @@ $qr_api =
         $(".chosen-select").chosen();
         $("#example").DataTable();
     });
-
-    function funDel(id, imgname) {
-        if (confirm("Are you sure you want to delete this record?")) {
-            jQuery.ajax({
-                type: 'POST',
-                url: 'ajax/delete_master.php',
-                data: {
-                    id: id,
-                    tblname: '<?php echo $tblname; ?>',
-                    tblpkey: '<?php echo $tblpkey; ?>',
-                },
-                dataType: 'html',
-                success: function(data) {
-                    location = '<?php echo $pagename . "?action=3"; ?>';
-                }
-            });
-        }
-    }
-
-    function numberOnly(evt) {
-        var theEvent = evt || window.event;
-
-        // Handle paste
-        if (theEvent.type === 'paste') {
-            key = event.clipboardData.getData('text/plain');
-        } else {
-            // Handle key press
-            var key = theEvent.keyCode || theEvent.which;
-            key = String.fromCharCode(key);
-        }
-        var regex = /[0-9]|\.|\s/;
-        if (!regex.test(key)) {
-            theEvent.returnValue = false;
-            if (theEvent.preventDefault) theEvent.preventDefault();
-        }
-    }
 </script>
 
 </html>

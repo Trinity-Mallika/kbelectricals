@@ -4,58 +4,61 @@
 
 namespace Composer\Autoload;
 
-class ComposerStaticInit32c246631d03007404a0510e3c73a300
+class ComposerStaticInit9bf1a300d8b0130bb8c99428f4fb23cf
 {
     public static $files = array (
         '6124b4c8570aa390c21fafd04a26c69f' => __DIR__ . '/..' . '/myclabs/deep-copy/src/DeepCopy/deep_copy.php',
+        'db356362850385d08a5381de2638b5fd' => __DIR__ . '/..' . '/mpdf/mpdf/src/functions.php',
     );
 
     public static $prefixLengthsPsr4 = array (
-        's' => 
+        's' =>
         array (
             'setasign\\Fpdi\\' => 14,
         ),
-        'P' => 
+        'P' =>
         array (
             'Psr\\Log\\' => 8,
             'Psr\\Http\\Message\\' => 17,
         ),
-        'M' => 
+        'M' =>
         array (
+            'Mpdf\\PsrLogAwareTrait\\' => 22,
+            'Mpdf\\PsrHttpMessageShim\\' => 24,
             'Mpdf\\' => 5,
         ),
-        'H' => 
-        array (
-            'Http\\Message\\' => 13,
-        ),
-        'D' => 
+        'D' =>
         array (
             'DeepCopy\\' => 9,
         ),
     );
 
     public static $prefixDirsPsr4 = array (
-        'setasign\\Fpdi\\' => 
+        'setasign\\Fpdi\\' =>
         array (
             0 => __DIR__ . '/..' . '/setasign/fpdi/src',
         ),
-        'Psr\\Log\\' => 
+        'Psr\\Log\\' =>
         array (
-            0 => __DIR__ . '/..' . '/psr/log/Psr/Log',
+            0 => __DIR__ . '/..' . '/psr/log/src',
         ),
-        'Psr\\Http\\Message\\' => 
+        'Psr\\Http\\Message\\' =>
         array (
             0 => __DIR__ . '/..' . '/psr/http-message/src',
         ),
-        'Mpdf\\' => 
+        'Mpdf\\PsrLogAwareTrait\\' =>
+        array (
+            0 => __DIR__ . '/..' . '/mpdf/psr-log-aware-trait/src',
+        ),
+        'Mpdf\\PsrHttpMessageShim\\' =>
+        array (
+            0 => __DIR__ . '/..' . '/mpdf/psr-http-message-shim/src',
+        ),
+        'Mpdf\\' =>
         array (
             0 => __DIR__ . '/..' . '/mpdf/mpdf/src',
         ),
-        'Http\\Message\\' => 
-        array (
-            0 => __DIR__ . '/..' . '/php-http/message-factory/src',
-        ),
-        'DeepCopy\\' => 
+        'DeepCopy\\' =>
         array (
             0 => __DIR__ . '/..' . '/myclabs/deep-copy/src/DeepCopy',
         ),
@@ -68,9 +71,9 @@ class ComposerStaticInit32c246631d03007404a0510e3c73a300
     public static function getInitializer(ClassLoader $loader)
     {
         return \Closure::bind(function () use ($loader) {
-            $loader->prefixLengthsPsr4 = ComposerStaticInit32c246631d03007404a0510e3c73a300::$prefixLengthsPsr4;
-            $loader->prefixDirsPsr4 = ComposerStaticInit32c246631d03007404a0510e3c73a300::$prefixDirsPsr4;
-            $loader->classMap = ComposerStaticInit32c246631d03007404a0510e3c73a300::$classMap;
+            $loader->prefixLengthsPsr4 = ComposerStaticInit9bf1a300d8b0130bb8c99428f4fb23cf::$prefixLengthsPsr4;
+            $loader->prefixDirsPsr4 = ComposerStaticInit9bf1a300d8b0130bb8c99428f4fb23cf::$prefixDirsPsr4;
+            $loader->classMap = ComposerStaticInit9bf1a300d8b0130bb8c99428f4fb23cf::$classMap;
 
         }, null, ClassLoader::class);
     }

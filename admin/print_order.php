@@ -34,6 +34,8 @@ $approve_date = $sqledit['approve_date'] ?? '';
 $invoice_no   = $sqledit['invoice_no'];
 $is_gst   = $sqledit['is_gst'];
 $overall_gst_amt   = $sqledit['overall_gst_amt'];
+$freight_charges = $sqledit['freight_charges'];
+$taxable_amount = $sqledit['taxable_amount'];
 
 $compdata       = $obj->select_record('company_setting', ['company_id' => $company_id]);
 $company_name   = $compdata['company_name'];
@@ -104,7 +106,7 @@ function fmt_date($d)
 {
     return $d ? date('d M Y', strtotime($d)) : '—';
 }
-
+$colspan = 6;
 ob_start();
 ?>
 <!DOCTYPE html>
@@ -242,14 +244,51 @@ ob_start();
                         <?php endif; ?>
                     </td>
                 </tr>
-            <?php endforeach; ?>
+            <?php
+                $total += $nettotal;
+                $taxable_amount = ($taxable_amount > 0) ? $taxable_amount : $total;
+                $cgst = $taxable_amount * 0.09;
+                $sgst = $taxable_amount * 0.09;
+                $gst_total = $cgst + $sgst;
+                $grand_total = $taxable_amount + $gst_total;
+            endforeach;
+            ?>
             <tr class="total-row">
                 <td colspan="4" class="right">Total</td>
                 <td class="center"><?= $total_qty ?></td>
                 <td></td>
-                <td class="right">Rs. <?= number_format($grand_total, 2) ?></td>
+                <td class="right">Rs. <?= number_format($total, 2) ?></td>
                 <td></td>
             </tr>
+            <?php if ($is_gst == 1) { ?>
+                <tr>
+                    <td colspan="<?= $colspan ?>" class="right"><b>Freight Charges</b></td>
+                    <td class="right "><b>Rs. <?= $freight_charges; ?></b></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td colspan="<?= $colspan ?>" class="right"><b>Taxable Amount</b></td>
+                    <td class="right">
+                        <b>Rs. <?= number_format($taxable_amount, 2); ?></b>
+                    </td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td colspan="<?= $colspan ?>" class="right"><b>SGST @ 9%</b></td>
+                    <td class="right"><b>Rs. <?= number_format($sgst, 2); ?></b></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td colspan="<?= $colspan ?>" class="right"><b>CGST @ 9%</b></td>
+                    <td class="right"><b>Rs. <?= number_format($cgst, 2); ?></b></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td colspan="<?= $colspan ?>" class="right"><b>Grand Total(inc. GST)</b></td>
+                    <td class="right"><b>Rs. <?= number_format($grand_total, 2); ?></b></td>
+                    <td></td>
+                </tr>
+            <?php } ?>
         </tbody>
     </table>
 
@@ -257,13 +296,6 @@ ob_start();
         <tr>
             <td colspan="11">Remark : <?= htmlspecialchars($remark) ?></td>
         </tr>
-        <?php if ($is_gst == 1) { ?>
-            <tr>
-                <td colspan="11">
-                    GST : Extra @18% </b><br>
-                </td>
-            </tr>
-        <?php } ?>
     </table>
 
     <table style="margin-top:6px; border:none;">

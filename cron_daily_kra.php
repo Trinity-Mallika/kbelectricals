@@ -1,6 +1,6 @@
 <?php include("action.php");
 
-$yesterday = date('Y-m-d', strtotime('-1 day'));
+$yesterday = date('Y-m-d');
 $day       = date('l', strtotime($yesterday));
 $users = $obj->executequery("
     SELECT userid,companyid 

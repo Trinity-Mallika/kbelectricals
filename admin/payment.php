@@ -7,9 +7,9 @@ $submodule = "Payment Entry";
 $btn_name = "Save";
 $tblname = "transaction_entry";
 $tblpkey = "transaction_id";
-$account_id = (isset($_GET["account_id"])) ? $obj->test_input($_GET["account_id"]) : 0;
 $keyvalue = (isset($_GET["transaction_id"])) ? $obj->test_input($_GET["transaction_id"]) : 0;
-$crit = " where t.account_id='$account_id'";
+$imgpath = "uploaded/payment_proof/";
+
 
 if (isset($_POST['submit'])) {
     $keyvalue   = $obj->test_input($_POST['transaction_id']);
@@ -19,11 +19,10 @@ if (isset($_POST['submit'])) {
     $paymode    = $obj->test_input($_POST['paymode']);
     $paydate    = $obj->test_input($_POST['paydate']);
     $pay_amt    = $obj->test_input($_POST['pay_amt']);
+    $cash_disc    = $obj->test_input($_POST['cash_disc']);
     $voucher_no = $obj->test_input($_POST['voucher_no']);
     $trans_id   = $obj->test_input($_POST['trans_id']);
-    $latitude   = $obj->test_input($_POST['latitude']);
-    $longitude  = $obj->test_input($_POST['longitude']);
-    $address    = $obj->test_input($_POST['address']);
+    $bank_id = isset($_POST['bank_id']) ? $obj->test_input($_POST['bank_id']) : '';
     $filename = '';
 
     if ($account_id == "" || $paymode == "" || $paydate == "" || $pay_amt == "") {
@@ -68,12 +67,12 @@ if (isset($_POST['submit'])) {
         'imgname'       => $filename,
         'billdate'      => $paydate,
         'grand_total'   => $pay_amt,
+        'cash_disc'   => $cash_disc,
         'billno'        => $voucher_no,
         'trans_id'      => $trans_id,
-        'latitude'      => $latitude,
-        'longitude'     => $longitude,
-        'address'       => $address,
+        'bank_id'      => $bank_id,
         'type'          => 'payment',
+        'pay_status'          => '1',
         'pay_type'      => $pay_type,
         'createdby'     => $loginid,
         'companyid'     => $companyid,
@@ -83,15 +82,15 @@ if (isset($_POST['submit'])) {
     if ($keyvalue == 0) {
         $form_data['createdate'] = $createdate;
         $obj->insert_record($tblname, $form_data);
-
-        echo "success";
-        exit;
+        $action = 1;
+        $process = "Insert";
     } else {
         $form_data['lastupdated'] = $createdate;
         $obj->update_record($tblname, [$tblpkey => $keyvalue], $form_data);
-        echo "updated";
-        exit;
+        $action = 2;
+        $process = "Update";
     }
+    echo "<script>location='$pagename?action=$action&account_id=$account_id'</script>";
 }
 
 
@@ -103,17 +102,24 @@ if (isset($_GET[$tblpkey])) {
     $paymode = $sqledit['paymode'];
     $paydate = $sqledit['billdate'];
     $pay_amt = $sqledit['grand_total'];
+    $cash_disc = $sqledit['cash_disc'];
     $voucher_no = $sqledit['billno'];
     $payment_proof = $sqledit['imgname'];
     $trans_id = $sqledit['trans_id'];
+    $bill_id = $sqledit['ref_bill_id'];
     $pending_amt = "";
 } else {
-    $pay_amt  = $payment_proof = $trans_id = "";
+    $pay_amt  = $payment_proof = $trans_id = $bill_id = $cash_disc = "";
     $paydate = date('Y-m-d');
     $pending_amt = "";
     $voucher_no = '';
     $paymode = 'Cash';
+    $account_id = (isset($_GET["account_id"])) ? $obj->test_input($_GET["account_id"]) : 0;
 }
+
+
+$crit = " where t.account_id='$account_id' and t.type='payment'";
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -136,7 +142,7 @@ if (isset($_GET[$tblpkey])) {
         <div class="container-fluid">
             <div class="row">
                 <div class="col-lg-4 mb-2">
-                    <form method="post">
+                    <form method="post" enctype="multipart/form-data">
                         <div class="card mt-3">
                             <div class="card-header text-white">
                                 <?php echo $module; ?>
@@ -148,21 +154,7 @@ if (isset($_GET[$tblpkey])) {
                                         <select class="form-select form-select-sm chosen-select" name="account_id" id="account_id" onchange="set_url(this.value);">
                                             <option value="">Select</option>
                                             <?php
-                                            $res = $obj->executequery("
-    SELECT
-        a.account_id,
-        a.account_name,
-        cm.common_name AS account_type,
-        am.area_name
-    FROM account a
-    LEFT JOIN common_master cm
-        ON cm.common_id = a.common_id
-        AND cm.type = 'acc_type'
-    LEFT JOIN area_master am
-        ON am.area_id = a.area_id
-    ORDER BY a.account_name ASC
-");
-
+                                            $res = $obj->executequery("SELECT a.account_id,a.account_name,cm.common_name AS account_type,am.area_name FROM account a LEFT JOIN common_master cm ON cm.common_id = a.common_id AND cm.type = 'acc_type' LEFT JOIN area_master am ON am.area_id = a.area_id ORDER BY a.account_name ASC");
                                             foreach ($res as $key) {
                                             ?>
                                                 <option value="<?= $key['account_id']; ?>">
@@ -170,9 +162,7 @@ if (isset($_GET[$tblpkey])) {
                                                     [<?= $key['account_type']; ?>]
                                                     <?= !empty($key['area_name']) ? ' / ' . $key['area_name'] : ''; ?>
                                                 </option>
-                                            <?php
-                                            }
-                                            ?>
+                                            <?php } ?>
                                         </select>
                                         <script>
                                             document.getElementById('account_id').value = '<?= $account_id ?>';
@@ -181,7 +171,7 @@ if (isset($_GET[$tblpkey])) {
 
                                     <div class="col-lg-12 mb-2">
                                         <strong><label>Select a Bill<span class="text-danger fw-bold">*</span></label></strong>
-                                        <select name="bill_id" id="bill_id" class="form-select form-select-sm chosen-select">
+                                        <select name="bill_id" id="bill_id" class="form-select form-select-sm chosen-select" onchange="handleBillChange(this.value);">
                                             <option value="">Select Bill</option>
                                             <?php
                                             $opening_amt = (float)$obj->getvalfield(
@@ -195,7 +185,7 @@ if (isset($_GET[$tblpkey])) {
                                                 "IFNULL(SUM(grand_total),0)",
                                                 "account_id='$account_id'
      AND type='payment'
-     AND pay_type='opening'"
+     AND pay_type='opening' and pay_status=1 and transaction_id!='$keyvalue'"
                                             );
 
                                             $opening_pending = $opening_amt - $opening_paid;
@@ -206,16 +196,33 @@ if (isset($_GET[$tblpkey])) {
                                             } else {
                                                 $res = $obj->executequery("SELECT t.transaction_id,t.billno,t.invoice_no,t.billdate,t.grand_total AS total_amt,
             IFNULL(SUM(p.grand_total),0) AS total_paid FROM transaction_entry t LEFT JOIN transaction_entry p ON p.ref_bill_id = t.transaction_id AND p.type = 'payment'
-            AND p.pay_type = 'bill' WHERE t.account_id = '$account_id' AND t.type = 'order' AND t.is_approved = 1 AND t.invoice_no <> '' GROUP BY t.transaction_id ORDER BY t.billdate ASC, t.transaction_id ASC");
+            AND p.pay_type = 'bill' and p.pay_status=1 and p.transaction_id!='$keyvalue'  WHERE t.account_id = '$account_id' AND t.type = 'order' AND t.is_approved = 1 AND t.invoice_no <> ''  GROUP BY t.transaction_id ORDER BY t.billdate ASC, t.transaction_id ASC");
                                                 foreach ($res as $row) {
+
                                                     $total   = (float)$row['total_amt'];
                                                     $paid    = (float)$row['total_paid'];
                                                     $pending = $total - $paid;
+
+                                                    $disabled = ($pending <= 0) ? "disabled" : "";
+                                                    $selected = ($bill_id == $row['transaction_id']) ? "selected" : "";
+
+                                                    echo '<option
+            value="' . $row['transaction_id'] . '"
+            data-total="' . $total . '"
+            data-pending="' . $pending . '"
+            ' . $disabled . '
+            ' . $selected . '>';
+
                                                     if ($pending <= 0) {
-                                                        continue;
+                                                        echo '✅ ';
                                                     }
 
-                                                    echo '<option value="' . $row['transaction_id'] . '" data-total="' . $total . '" data-pending="' . $pending . '">' . $row['invoice_no'] . ' (₹' . number_format($total, 2) . ' | Pending: ₹' . number_format($pending, 2) . ') / ' . $obj->dateformatindia($row['billdate']) . ' </option>';
+                                                    echo $row['invoice_no'] .
+                                                        ' (₹' . number_format($total, 2) .
+                                                        ' | Pending ₹' . number_format($pending, 2) .
+                                                        ') / ' . $obj->dateformatindia($row['billdate']);
+
+                                                    echo '</option>';
                                                 }
                                             }
                                             ?>
@@ -254,6 +261,10 @@ if (isset($_GET[$tblpkey])) {
                                         <input type="date" class="form-control form-control-sm" id="paydate" name="paydate" placeholder="Enter Payment Date" value="<?php echo $paydate ?>">
                                     </div>
                                     <div class="col-lg-12 mb-2">
+                                        <strong><label for="">Cash Discount <small class="text-danger fw-bold">(If Applicable)</small></label></strong>
+                                        <input type="text" class="form-control form-control-sm" id="cash_disc" name="cash_disc" placeholder="Enter Cash Discount" value="<?php echo $cash_disc ?>">
+                                    </div>
+                                    <div class="col-lg-12 mb-2">
                                         <strong><label for="" id="pay_amt_l">Payment Amount <span class="text-danger fw-bold">*</span></label></strong>
                                         <input type="text" class="form-control form-control-sm" id="pay_amt" name="pay_amt" placeholder="Enter Payment Amount" value="<?php echo $pay_amt ?>">
                                     </div>
@@ -269,7 +280,7 @@ if (isset($_GET[$tblpkey])) {
                                         </select>
                                     </div>
                                     <div class="col-lg-12" id="remark_div">
-                                        <strong><label for="">Remark <span class="text-danger fw-bold">*</span></label></strong>
+                                        <strong><label for="">Remark <span class="text-danger fw-bold"></span></label></strong>
                                         <input type="text" class="form-control form-control-sm" id="remark" name="remark" placeholder="Enter Remarks" value="<?php echo $pay_amt ?>">
                                     </div>
                                     <div class="col-md-12 mt-4">
@@ -289,162 +300,8 @@ if (isset($_GET[$tblpkey])) {
                         </div>
                         <div class="card-body">
                             <div class="row">
-                                <div class="table-responsive">
-                                    <?php
-                                    if (isset($_GET['account_id'])) {
-                                        $account_id = $obj->test_input($_GET['account_id']);
+                                <div class="table-responsive" id="ledger-data">
 
-                                        if (!empty($account_id)) {
-
-                                            $ledger_array = [];
-
-                                            // Opening Balance
-                                            $opening_bal  = $obj->getvalfield(
-                                                "account",
-                                                "opening_balance",
-                                                "account_id='$account_id'"
-                                            );
-
-                                            $opening_date = $obj->getvalfield(
-                                                "account",
-                                                "opening_date",
-                                                "account_id='$account_id'"
-                                            );
-
-                                            $ledger_array[] = [
-                                                "led_date"   => $opening_date,
-                                                "led_time"   => "00:00:00",
-                                                "particular" => "Opening Balance",
-                                                "total"      => $opening_bal,
-                                                "led_type"   => "debit"
-                                            ];
-
-                                            // Order Entries
-                                            $purchase = $obj->executequery("SELECT * FROM transaction_entry WHERE account_id='$account_id' AND type='order' AND is_approved='1'");
-                                            foreach ($purchase as $row) {
-                                                $ledger_array[] = [
-                                                    "led_date"   => $row['billdate'],
-                                                    "led_time"   => $row['createdate'],
-                                                    "particular" => "By Order Entry " . $row['billno'],
-                                                    "total"      => $row['grand_total'],
-                                                    "led_type"   => "debit"
-                                                ];
-                                            }
-
-                                            // Payments
-                                            $payment = $obj->executequery("SELECT * FROM transaction_entry WHERE account_id='$account_id' AND type='payment'");
-                                            foreach ($payment as $row) {
-                                                $ledger_array[] = [
-                                                    "led_date"   => $row['billdate'],
-                                                    "led_time"   => $row['createdate'],
-                                                    "particular" => "By Payment " . $row['billno'],
-                                                    "total"      => $row['grand_total'],
-                                                    "led_type"   => "credit"
-                                                ];
-                                            }
-
-                                            usort($ledger_array, function ($a, $b) {
-                                                $t1 = strtotime($a['led_date'] . ' ' . $a['led_time']);
-                                                $t2 = strtotime($b['led_date'] . ' ' . $b['led_time']);
-                                                return $t2 <=> $t1;
-                                            });
-                                    ?>
-
-                                            <table class="table table-bordered table-hover table-sm">
-                                                <thead class="table-dark">
-                                                    <tr>
-                                                        <th width="5%">#</th>
-                                                        <th width="18%">Date</th>
-                                                        <th>Particular</th>
-                                                        <th width="12%" class="text-end">Debit</th>
-                                                        <th width="12%" class="text-end">Credit</th>
-                                                        <th width="15%" class="text-end">Balance</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    <?php
-                                                    $slno = 1;
-                                                    $balance = 0;
-                                                    $total_debit = 0;
-                                                    $total_credit = 0;
-
-                                                    foreach ($ledger_array as $row) {
-
-                                                        $debit = 0;
-                                                        $credit = 0;
-
-                                                        if ($row['led_type'] == 'debit') {
-
-                                                            $debit = round($row['total'], 2);
-                                                            $total_debit += $debit;
-                                                            $balance += $debit;
-                                                        } else {
-
-                                                            $credit = round($row['total'], 2);
-                                                            $total_credit += $credit;
-                                                            $balance -= $credit;
-                                                        }
-
-                                                        $bal_type = ($balance >= 0) ? 'Dr' : 'Cr';
-
-                                                    ?>
-                                                        <tr>
-                                                            <td><?php echo $slno++; ?>.</td>
-
-                                                            <td>
-                                                                <?php
-                                                                echo $obj->dateformatindia($row['led_date']);
-
-                                                                if (!empty($row['led_time']) && $row['led_time'] != '00:00:00') {
-                                                                    echo "<br><small>" .
-                                                                        date('h:i A', strtotime($row['led_time'])) .
-                                                                        "</small>";
-                                                                }
-                                                                ?>
-                                                            </td>
-
-                                                            <td><?php echo $row['particular']; ?></td>
-
-                                                            <td class="text-end">
-                                                                <?php echo $debit > 0 ? number_format($debit, 2) : '-'; ?>
-                                                            </td>
-
-                                                            <td class="text-end">
-                                                                <?php echo $credit > 0 ? number_format($credit, 2) : '-'; ?>
-                                                            </td>
-
-                                                            <td class="text-end">
-                                                                <?php echo number_format(abs($balance), 2) . " " . $bal_type; ?>
-                                                            </td>
-                                                        </tr>
-                                                    <?php } ?>
-                                                </tbody>
-
-                                                <tfoot class="table-light">
-                                                    <tr>
-                                                        <th colspan="3" class="text-end">Grand Total</th>
-
-                                                        <th class="text-end">
-                                                            <?php echo number_format($total_debit, 2); ?>
-                                                        </th>
-
-                                                        <th class="text-end">
-                                                            <?php echo number_format($total_credit, 2); ?>
-                                                        </th>
-
-                                                        <th class="text-end">
-                                                            <?php
-                                                            echo number_format(abs($balance), 2)
-                                                                . " " . ($balance >= 0 ? 'Dr' : 'Cr');
-                                                            ?>
-                                                        </th>
-                                                    </tr>
-                                                </tfoot>
-                                            </table>
-                                    <?php
-                                        }
-                                    }
-                                    ?>
                                 </div>
                             </div>
                         </div>
@@ -462,7 +319,7 @@ if (isset($_GET[$tblpkey])) {
                                         <tr class="table-primary">
                                             <th width="60">Sr No.</th>
                                             <th>Counter Name</th>
-                                            <th>Transaction Id</th>
+                                            <th>Bill No.</th>
                                             <th>Receipt / Cheque / Transaction No.</th>
                                             <th width="120">Payment Date</th>
                                             <th width="100">Pay Mode</th>
@@ -486,7 +343,7 @@ if (isset($_GET[$tblpkey])) {
                 LEFT JOIN account a
                     ON a.account_id = t.account_id
                 LEFT JOIN transaction_entry b
-                    ON b.transaction_id = t.ref_bill_id
+                    ON t.ref_bill_id = b.transaction_id
                 $crit
                 ORDER BY t.$tblpkey DESC
             ");
@@ -517,66 +374,57 @@ if (isset($_GET[$tblpkey])) {
                                                 <td>
                                                     <strong><?= ucfirst($row['account_name']); ?></strong>
                                                 </td>
-
+                                                <td>
+                                                    <?= $row['ref_invoice_no']; ?>
+                                                </td>
                                                 <td>
                                                     <?= $ref; ?>
                                                 </td>
-
-                                                <td>
-                                                    <?= $row['billno']; ?>
-                                                </td>
-
                                                 <td>
                                                     <?= $obj->dateformatindia($row['billdate']); ?>
                                                 </td>
-
                                                 <td>
                                                     <?= $badge; ?>
                                                 </td>
-
                                                 <td class="text-end">
                                                     ₹<?= number_format($row['grand_total'], 2); ?>
                                                 </td>
-
                                                 <td class="text-center">
-
                                                     <?php if (!empty($row['imgname'])) { ?>
-
-                                                        <a href="../app/uploads/payment_proof/<?= $row['imgname']; ?>"
+                                                        <a href="<?= $imgpath . $row['imgname']; ?>"
                                                             target="_blank"
                                                             class="btn btn-sm btn-outline-primary">
                                                             <i class="bi bi-eye"></i>
                                                         </a>
-
                                                     <?php } else { ?>
-
                                                         <span class="badge bg-secondary">N/A</span>
-
                                                     <?php } ?>
-
                                                 </td>
-
                                                 <td>
                                                     <?= $row['remark']; ?>
                                                 </td>
-
                                                 <td>
-
-                                                    <a href="payment-entry.php?edit_id=<?= $row[$tblpkey]; ?>"
-                                                        class="btn btn-sm btn-success"
-                                                        title="Edit">
-                                                        <i class="bi bi-pencil-square"></i>
-                                                    </a>
-
-                                                    <a href="javascript:void(0)"
-                                                        class="btn btn-sm btn-danger delete-record"
-                                                        data-id="<?= $row[$tblpkey]; ?>"
-                                                        title="Delete">
-                                                        <i class="bi bi-trash"></i>
-                                                    </a>
-
+                                                    <?php $chkedit = $obj->check_editBtn($pagename, $loginid);
+                                                    if ($chkedit > 0 || $_SESSION['usertype'] == 'admin') {
+                                                    ?>
+                                                        <a href="<?= $pagename ?>?transaction_id=<?= $row[$tblpkey]; ?>"
+                                                            class="btn btn-sm btn-success"
+                                                            title="Edit">
+                                                            <i class="bi bi-pencil-square"></i>
+                                                        </a>
+                                                    <?php }
+                                                    $chkdel = $obj->check_delBtn($pagename, $loginid);
+                                                    if ($chkdel > 0 || $_SESSION['usertype'] == 'admin') {
+                                                    ?>
+                                                        <a href="javascript:void(0)"
+                                                            class="btn btn-sm btn-danger"
+                                                            onclick="funDel('<?= $row[$tblpkey]; ?>','<?= $row['imgname']; ?>');"
+                                                            title="Delete">
+                                                            <i class="bi bi-trash"></i>
+                                                        </a>
+                                                    <?php
+                                                    } ?>
                                                 </td>
-
                                             </tr>
                                         <?php } ?>
                                     </tbody>
@@ -598,6 +446,8 @@ if (isset($_GET[$tblpkey])) {
     $(document).ready(function() {
         $('#example').DataTable();
         $(".chosen-select").chosen();
+        handleBillChange('<?= $bill_id; ?>');
+        load_ledger(<?= $account_id; ?>);
     });
 
     function set_url(account_id) {
@@ -606,6 +456,57 @@ if (isset($_GET[$tblpkey])) {
         }
     }
 
+
+    $('#pay_amt, #cash_disc').on('input', function() {
+
+        let pending = parseFloat($('#bill_id option:selected').data('pending')) || 0;
+        let cash_disc = parseFloat($('#cash_disc').val()) || 0;
+        let pay_amt = parseFloat($('#pay_amt').val()) || 0;
+
+        if (cash_disc > pending) {
+            alert('Discount cannot exceed pending amount');
+            $('#cash_disc').val(pending);
+            cash_disc = pending;
+        }
+
+        let maxPay = pending - cash_disc;
+
+        if ($(this).attr('id') == 'pay_amt') {
+
+            if (pay_amt > maxPay) {
+                alert('Payment cannot exceed pending amount');
+                $('#pay_amt').val(maxPay.toFixed(2));
+            }
+
+        } else {
+
+            $('#pay_amt').val(maxPay.toFixed(2));
+
+        }
+
+    });
+
+
+    function handleBillChange(bill_id) {
+
+        if (!bill_id) {
+            $('#pending_amt').val('');
+            $('#pay_amt').val('');
+            $('#cash_disc').val('');
+
+            return;
+        }
+        let pending = parseFloat(
+            $('#bill_id option:selected').data('pending')
+        ) || 0;
+
+        $('#pending_amt').val(pending.toFixed(2));
+
+        $('#pay_amt')
+            .val(pending)
+            .trigger('input');
+
+    };
 
     const star = ' <span class="text-danger fw-bold">*</span>';
 
@@ -648,6 +549,40 @@ if (isset($_GET[$tblpkey])) {
         }
 
     });
+
+    function funDel(id, imgname) {
+
+        tblname = '<?php echo $tblname; ?>';
+        tblpkey = '<?php echo $tblpkey; ?>';
+        imgpath = '<?php echo $imgpath; ?>';
+        if (confirm("Are you sure! You want to delete this record.")) {
+
+            jQuery.ajax({
+                type: 'POST',
+                url: 'ajax/delete_master_img.php',
+                data: 'id=' + id + '&tblname=' + tblname + '&tblpkey=' + tblpkey + '&imgname=' + imgname + '&imgpath=' + imgpath,
+                dataType: 'html',
+                success: function(data) {
+                    location.reload();
+                }
+            }); //ajax close
+        } //confirm close
+    } //fun close
+
+
+    function load_ledger(account_id) {
+        if (account_id > 0) {
+            jQuery.ajax({
+                type: 'POST',
+                url: 'ajax_load_ledger.php',
+                data: 'account_id=' + account_id,
+                dataType: 'html',
+                success: function(data) {
+                    document.getElementById("ledger-data").innerHTML = data;
+                }
+            }); //ajax close
+        }
+    } //fun close
 
 
     function numberOnly(evt) {

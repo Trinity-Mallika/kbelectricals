@@ -1,5 +1,5 @@
 <?php
-include("action.php");
+require_once("action.php");
 
 $timeout = 86400;
 

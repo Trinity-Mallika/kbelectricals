@@ -37,6 +37,13 @@ $crit = " and billdate between '$fromdate' and '$todate' ";
         .card-header {
             background-color: #06163a;
         }
+
+        .modal-card {
+            background: aliceblue;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 10px;
+        }
     </style>
 </head>
 
@@ -101,6 +108,7 @@ $crit = " and billdate between '$fromdate' and '$todate' ";
                                             <th style="text-align: right;">Net_Amount</th>
                                             <th style="text-align: center;">Print</th>
                                             <th style="text-align: center;">Order</th>
+                                            <th style="text-align: center;">Follow Up </th>
                                             <th>Edit</th>
                                             <th>Delete</th>
                                         </tr>
@@ -134,7 +142,7 @@ $crit = " and billdate between '$fromdate' and '$todate' ";
                                                 <td><?php echo ($rowget['mobile_no']); ?></td>
                                                 <td><?php echo ucwords($rowget['remark']); ?></td>
                                                 <td><?php echo ($rowget['is_gst'] == 1) ? "Yes" : "No"; ?></td>
-                                                <td style="text-align:right;"><?php echo number_format($rowget['net_total_amt'], 2); ?></td>
+                                                <td style="text-align:right;"><?php echo number_format($rowget['grand_total'], 2); ?></td>
                                                 <td style="text-align: center;">
                                                     <a href="quotation_pdf.php?transaction_id=<?php echo $rowget['transaction_id']; ?>" class="btn btn-primary btn-sm" target="_blank">
                                                         <i class="bi bi-printer-fill"></i>
@@ -149,36 +157,89 @@ $crit = " and billdate between '$fromdate' and '$todate' ";
                                                         </button>
                                                     <?php } ?>
                                                 </td>
-                                                <td>
-                                                    <?php if ($rowget['conversion_status'] == 0) { ?>
-                                                        <a class="btn btn-sm btn-outline-success" href="quotation.php?transaction_id=<?php echo $rowget['transaction_id']; ?>">
-                                                            <i class="bi bi-pencil-square"></i>
-                                                        </a>
-                                                    <?php } ?>
+                                                <td class="text-center">
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary btnFollowUp"
+                                                        data-id="<?= $rowget['transaction_id']; ?>"
+                                                        data-customer="<?= htmlspecialchars($rowget['account_name']); ?>">
+                                                        <i class="bi bi-telephone-outbound"></i> Follow Up
+                                                    </button>
                                                 </td>
                                                 <td>
-                                                    <?php if ($rowget['conversion_status'] == 0) { ?>
-                                                        <button type="button" title="Delete" class="btn btn-sm btn-danger" onclick="funDel('<?php echo $rowget['transaction_id']; ?>');">
-                                                            <i class="bi bi-trash3-fill"></i>
-                                                        </button>
-                                                    <?php } ?>
+                                                    <?php $chkedit = $obj->check_editBtn($pagename, $loginid);
+                                                    if ($chkedit > 0 || $_SESSION['usertype'] == 'admin') {
+                                                    ?>
+                                                        <?php if ($rowget['conversion_status'] == 0) { ?>
+                                                            <a class="btn btn-sm btn-outline-success" href="quotation.php?transaction_id=<?php echo $rowget['transaction_id']; ?>">
+                                                                <i class="bi bi-pencil-square"></i>
+                                                            </a>
+                                                    <?php }
+                                                    } ?>
+                                                </td>
+                                                <td>
+                                                    <?php
+                                                    $chkdel = $obj->check_delBtn($pagename, $loginid);
+                                                    if ($chkdel > 0 || $_SESSION['usertype'] == 'admin') {
+                                                    ?>
+                                                        <?php if ($rowget['conversion_status'] == 0) { ?>
+                                                            <button type="button" title="Delete" class="btn btn-sm btn-danger" onclick="funDel('<?php echo $rowget['transaction_id']; ?>');">
+                                                                <i class="bi bi-trash3-fill"></i>
+                                                            </button>
+                                                    <?php }
+                                                    } ?>
                                                 </td>
                                             </tr>
                                         <?php
-                                            $total_amt += $rowget['net_total_amt'];
+                                            $total_amt += $rowget['grand_total'];
                                         } ?>
                                     </tbody>
                                     <tfoot>
                                         <tr>
                                             <th colspan="8">Total</th>
                                             <th style="text-align: right;"><?php echo number_format($total_amt, 2); ?></th>
-                                            <th colspan="3"></th>
+                                            <th colspan="5"></th>
                                         </tr>
                                     </tfoot>
                                 </table>
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="followUpModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Quotation Follow Up</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+
+                    <input type="hidden" id="transaction_id">
+
+                    <div class="modal-card">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <label>Follow Date</label>
+                                <input type="date" class="form-control form-control-sm" id="follow_date">
+                            </div>
+
+                            <div class="col-md-6">
+                                <label>Remark</label>
+                                <textarea class="form-control form-control-sm" id="remark" placeholder="Remark...."></textarea>
+                            </div>
+
+                            <div class="col-md-2">
+                                <br>
+                                <button class="btn btn-info btn-sm" id="btnSaveFollowup">Save</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="followupList"></div>
+
                 </div>
             </div>
         </div>
@@ -193,6 +254,129 @@ $crit = " and billdate between '$fromdate' and '$todate' ";
     $(document).ready(function() {
         $(".chosen-select").chosen();
         $("#example").DataTable();
+    });
+
+    $(document).on("click", ".btnFollowUp", function() {
+
+        var transaction_id = $(this).data("id");
+
+        $("#transaction_id").val(transaction_id);
+        $("#follow_date").val("");
+        $("#remark").val("");
+
+        $("#followupList").load("ajax/followup_list.php", {
+            transaction_id: transaction_id,
+            type: 'quotation'
+        });
+
+        var followModal = new bootstrap.Modal(document.getElementById('followUpModal'), {
+            backdrop: 'static',
+            keyboard: false
+        });
+
+        followModal.show();
+
+    });
+
+
+    $(document).on("click", "#btnSaveFollowup", function() {
+
+        let follow_date = $("#follow_date").val();
+        let remark = $("#remark").val().trim();
+
+        if (follow_date == "") {
+            Swal.fire("Please select follow up date");
+            return;
+        }
+
+        if (remark == "") {
+            Swal.fire("Please enter remark");
+            return;
+        }
+
+        $.ajax({
+            url: "ajax/save_followup.php",
+            type: "POST",
+            data: {
+                transaction_id: $("#transaction_id").val(),
+                follow_date: follow_date,
+                remark: remark,
+                type: "quotation"
+            },
+            success: function(res) {
+
+                if ($.trim(res) == "1") {
+
+                    $("#follow_date").val("");
+                    $("#remark").val("");
+
+                    $("#followupList").load("ajax/followup_list.php", {
+                        transaction_id: $("#transaction_id").val(),
+                        type: "quotation"
+                    });
+
+                    Swal.fire({
+                        icon: "success",
+                        title: "Follow up saved",
+                        timer: 1200,
+                        showConfirmButton: false
+                    });
+
+                } else {
+
+                    Swal.fire({
+                        icon: "error",
+                        title: "Unable to save follow up"
+                    });
+
+                }
+
+            }
+        });
+
+    });
+
+    $(document).on("click", ".btnDeleteFollowup", function() {
+
+        let followup_id = $(this).data("id");
+
+        Swal.fire({
+            title: "Delete?",
+            text: "Do you want to delete this follow up?",
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonText: "Yes, Delete"
+        }).then((result) => {
+
+            if (result.isConfirmed) {
+
+                $.post("ajax/delete_followup.php", {
+                        followup_id: followup_id
+                    },
+                    function(res) {
+
+                        if ($.trim(res) == "1") {
+
+                            Swal.fire({
+                                icon: "success",
+                                title: "Deleted Successfully"
+                            }).then(function() {
+
+                                $("#followupList").load("ajax/followup_list.php", {
+                                    transaction_id: $("#transaction_id").val(),
+                                    type: 'quotation'
+                                });
+
+                            });
+
+                        }
+
+                    });
+
+            }
+
+        });
+
     });
 
     function funDel(id) {

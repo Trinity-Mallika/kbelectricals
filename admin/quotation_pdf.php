@@ -35,6 +35,8 @@ $is_gst = $sqledit['is_gst'];
 $gst_percent = $sqledit['gst_percent'];
 $freight = $sqledit['freight'];
 $validity = $sqledit['validity'];
+$freight_charges = $sqledit['freight_charges'];
+$taxable_amount = $sqledit['taxable_amount'];
 $grand_total = $sqledit['grand_total'];
 $selected_columns = !empty($sqledit['print_columns'])
     ? explode(',', $sqledit['print_columns'])
@@ -265,13 +267,46 @@ WHERE td.transaction_id='$keyvalue' order by td.tran_detail_id ASC";
                 <td><?= $row['ready_stock'] ? 'Ready stock' : $row['delivery_status'] ?></td>
             </tr>
         <?php $total += $nettotal;
-            $tax_amount += $row['gst_amt'];
+            $taxable_amount = ($taxable_amount > 0) ? $taxable_amount : $total;
+            $cgst = $taxable_amount * 0.09;
+            $sgst = $taxable_amount * 0.09;
+            $gst_total = $cgst + $sgst;
+            $grand_total = $taxable_amount + $gst_total;
         } ?>
         <tr>
             <td colspan="<?= $colspan ?>" class="right"><b>Total</b></td>
             <td class="right"><b>Rs. <?= number_format(round($total), 2) ?></b></td>
             <td></td>
         </tr>
+        <?php if ($is_gst == 1) { ?>
+            <tr>
+                <td colspan="<?= $colspan ?>" class="right"><b>Freight Charges</b></td>
+                <td class="right "><b>Rs. <?= $freight_charges; ?></b></td>
+                <td></td>
+            </tr>
+            <tr>
+                <td colspan="<?= $colspan ?>" class="right"><b>Taxable Amount</b></td>
+                <td class="right">
+                    <b>Rs. <?= number_format($taxable_amount, 2); ?></b>
+                </td>
+                <td></td>
+            </tr>
+            <tr>
+                <td colspan="<?= $colspan ?>" class="right"><b>SGST @ 9%</b></td>
+                <td class="right"><b>Rs. <?= number_format($sgst, 2); ?></b></td>
+                <td></td>
+            </tr>
+            <tr>
+                <td colspan="<?= $colspan ?>" class="right"><b>CGST @ 9%</b></td>
+                <td class="right"><b>Rs. <?= number_format($cgst, 2); ?></b></td>
+                <td></td>
+            </tr>
+            <tr>
+                <td colspan="<?= $colspan ?>" class="right"><b>Grand Total(inc. GST)</b></td>
+                <td class="right"><b>Rs. <?= number_format($grand_total, 2); ?></b></td>
+                <td></td>
+            </tr>
+        <?php } ?>
     </table>
 
     <table style="margin-top:12px;">
@@ -282,41 +317,45 @@ WHERE td.transaction_id='$keyvalue' order by td.tran_detail_id ASC";
             </td>
         </tr>
     </table>
+    <?php
+    $hasCommercial = !empty($sqledit['validity']) ||
+        !empty($sqledit['freight']) ||
+        !empty($sqledit['payment']);
+    ?>
+
     <table style="margin-top:10px;">
-
         <tr>
-            <td width="50%" valign="top">
 
-                <b>Commercial Details</b><br><br>
+            <?php if ($hasCommercial) { ?>
+                <td width="50%" valign="top">
+                    <b>Commercial Details</b><br><br>
 
-                <?php if ($is_gst == 1) { ?>
-                    GST : Extra <?php if ($is_gst == 1) { ?>
-                        @18%<br>
-                    <?php } else { ?>
-                        <br>
+                    <?php if (!empty($sqledit['validity'])) { ?>
+                        Validity : <?= $sqledit['validity'] ?><br>
                     <?php } ?>
+
+                    <?php if (!empty($sqledit['freight'])) { ?>
+                        Freight : <?= $sqledit['freight'] ?><br>
+                    <?php } ?>
+
+                    <?php if (!empty($sqledit['payment'])) { ?>
+                        Payment Terms : <?= $sqledit['payment'] ?><br>
+                    <?php } ?>
+                </td>
+
+                <td width="50%" valign="top">
+                <?php } else { ?>
+
+                <td width="100%" valign="top">
+
                 <?php } ?>
 
-                <?php if (!empty($sqledit['validity'])) { ?>
-                    Validity : <?= $sqledit['validity'] ?><br>
-                <?php } ?>
-
-                <?php if (!empty($sqledit['freight'])) { ?>
-                    Freight : <?= $sqledit['freight'] ?><br>
-                <?php } ?>
-
-                <?php if (!empty($sqledit['payment'])) { ?>
-                    Payment Terms : <?= $sqledit['payment'] ?><br>
-                <?php } ?>
-
-            </td>
-            <td width="50%" valign="top">
                 <b>Bank Details</b><br><br>
                 <?= !empty($bank_name) ? 'Bank : ' . $bank_name . '<br>' : '' ?>
                 <?= !empty($account_branch) ? 'Branch : ' . $account_branch . '<br>' : '' ?>
                 <?= !empty($ifsc_code) ? 'IFSC : ' . $ifsc_code . '<br>' : '' ?>
                 <?= !empty($account_no) ? 'A/C No : ' . $account_no . '<br>' : '' ?>
-            </td>
+                </td>
         </tr>
     </table>
     <?php if (!empty($term_cond)) { ?>

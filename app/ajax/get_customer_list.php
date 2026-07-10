@@ -33,8 +33,7 @@ foreach ($brandIds as $bid) {
 }
 $brandCols = rtrim($brandCols, ',');
 
-$pivotBase = "
-    SELECT
+$pivotBase = "SELECT
         a.account_id,
         a.account_name,
         r.route_id,
@@ -60,8 +59,7 @@ $pivotBase = "
         ON td.transaction_id = te.transaction_id
        AND td.type = 'order'
     WHERE a.type = 'customer'
-    GROUP BY a.account_id, a.account_name, r.batch_no, r.route_name
-";
+    GROUP BY a.account_id, a.account_name, r.batch_no, r.route_name";
 
 try {
     switch ($category) {

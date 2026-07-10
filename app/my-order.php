@@ -185,7 +185,7 @@ if ($keyvalue > 0) {
     $lowergst = $obj->getvalfield("transaction_details", "gst_id", "transaction_id='$keyvalue' order by gst_id desc");
 } else {
     $billdate    = date('Y-m-d');
-    $is_gst      = "";
+    $is_gst      = "1";
     $lowergst      = "";
     $remark      = "";
 }

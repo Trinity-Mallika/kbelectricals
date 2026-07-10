@@ -1,7 +1,7 @@
 <?php
 include("action.php");
 
-$month = date('m');
+$month = date('m', strtotime('-1 month'));
 $year  = date('Y');
 
 $users = $obj->executequery("SELECT userid,companyid 

@@ -113,6 +113,8 @@ $tblpkey = 'transaction_id';
                 }); //ajax close
             } //confirm close
         } //fun close
+
+        
         let start = 0;
         let limit = 5;
         let loading = false;

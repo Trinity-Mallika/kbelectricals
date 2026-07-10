@@ -8,15 +8,15 @@ $btn_name = "Save";
 $tblname = "transaction_entry";
 $tblpkey = "transaction_id";
 $invoice_pending = $_GET['invoice_pending'] ?? '';
+$days = $_GET['days'] ?? '';
 $dispatch_pending = $_GET['dispatch_pending'] ?? '';
-$overdue = isset($_GET['overdue']) ? intval($_GET['overdue']) : 0;
 $fromdate = isset($_GET['fromdate']) ? $_GET['fromdate'] : date('Y-m-d');
 $todate   = isset($_GET['todate'])   ? $_GET['todate']   : date('Y-m-d');
 
 $from = $fromdate . " 00:00:00";
 $to   = $todate . " 23:59:59";
 
-if ($invoice_pending || $dispatch_pending || $overdue > 0) {
+if ($invoice_pending || $dispatch_pending) {
     $fromdate = '2000-01-01';
     $from = '2000-01-01 00:00:00';
     $to   = date('Y-m-d 23:59:59');
@@ -65,45 +65,21 @@ if ($invoice_pending) {
 }
 
 if ($dispatch_pending) {
+
     $crit .= " AND t.is_approved = 1
                AND t.dispatch_status = 0";
 
     $summaryCrit .= " AND is_approved = 1
                       AND dispatch_status = 0";
-    if ($dispatch_pending) {
-        $dstatus = 0;
+
+    if (!empty($days)) {
+        $crit .= " AND DATEDIFF(CURDATE(), DATE(t.billdate)) >= " . (int)$days;
+        $summaryCrit .= " AND DATEDIFF(CURDATE(), DATE(billdate)) >= " . (int)$days;
     }
+
+    $dstatus = 0;
 }
 
-
-if ($overdue > 0) {
-
-    $crit .= " AND DATEDIFF(CURDATE(), t.billdate) > '$overdue'
-               AND (
-                    t.grand_total >
-                    IFNULL(
-                        (
-                            SELECT SUM(p.grand_total)
-                            FROM transaction_entry p
-                            WHERE p.ref_bill_id=t.transaction_id
-                            AND p.type='payment'
-                        ),
-                    0)
-               )";
-
-    $summaryCrit .= " AND DATEDIFF(CURDATE(), billdate) > '$overdue'
-                      AND (
-                            grand_total >
-                            IFNULL(
-                                (
-                                    SELECT SUM(p.grand_total)
-                                    FROM transaction_entry p
-                                    WHERE p.ref_bill_id = transaction_entry.transaction_id
-                                    AND p.type='payment'
-                                ),
-                            0)
-                      )";
-}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -316,6 +292,7 @@ $summaryCrit
                                             <th>Invoice Amount</th>
                                             <th>Order Status</th>
                                             <th>Dispatch Status</th>
+                                            <th>Overdue Days</th>
                                             <th>Order View</th>
                                         </tr>
                                     </thead>
@@ -323,13 +300,21 @@ $summaryCrit
                                         <?php
                                         $slno = 1;
 
-                                        $qry = $obj->executequery("
-SELECT
+                                        $qry = $obj->executequery("SELECT
     t.*,
     a.account_name,
     u.fullname,
     COALESCE(td.total_qty,0) AS total_qty,
-    COALESCE(dh.dispatch_qty,0) AS dispatch_qty
+    COALESCE(dh.dispatch_qty,0) AS dispatch_qty,
+    DATEDIFF(CURDATE(), t.billdate) AS days_overdue,
+    IFNULL(
+        (
+            SELECT SUM(p.grand_total)
+            FROM transaction_entry p
+            WHERE p.ref_bill_id = t.transaction_id
+            AND p.type='payment'
+        ),
+    0) AS paid_amt
 FROM $tblname t
 
 LEFT JOIN (
@@ -395,6 +380,25 @@ ORDER BY t.$tblpkey DESC
 </span>';
                                             }
 
+                                            // Overdue Days
+                                            $overdueDaysHtml = '';
+                                            $isUnpaid = ($rowget['grand_total'] > $rowget['paid_amt']);
+                                            if ($isUnpaid) {
+                                                $days = (int)$rowget['days_overdue'];
+                                                $badgeClass = 'bg-danger';
+                                                if ($days <= 30) {
+                                                    $badgeClass = 'bg-warning text-dark';
+                                                } elseif ($days <= 60) {
+                                                    $badgeClass = 'bg-danger';
+                                                } else {
+                                                    $badgeClass = 'bg-dark';
+                                                }
+                                                $overdueDaysHtml = '<span class="badge ' . $badgeClass . '">' . $days . ' day' . ($days == 1 ? '' : 's') . '</span>';
+                                            } else {
+                                                $overdueDaysHtml = '<span class="badge bg-success">Paid</span>';
+                                            }
+
+
                                         ?>
                                             <tr>
                                                 <td class="text-center"><?= $slno++; ?></td>
@@ -439,26 +443,35 @@ ORDER BY t.$tblpkey DESC
                                                 <td>
                                                     <?= $DispHtml; ?>
                                                 </td>
+                                                <td class="text-center">
+                                                    <?= $overdueDaysHtml; ?>
+                                                </td>
                                                 <td>
                                                     <div class="text-center d-flex justify-content-center gap-2">
                                                         <?php
-                                                        $canEditDelete =
-                                                            ($_SESSION['usertype'] == "admin")
-                                                            && ($rowget['dispatch_qty'] == 0);
+                                                        $canEditDelete = ($rowget['dispatch_qty'] == 0);
 
                                                         if ($canEditDelete) {
-                                                        ?>
-                                                            <a href="order-entry.php?transaction_id=<?= $rowget['transaction_id']; ?>"
-                                                                class="btn btn-sm btn-outline-success">
-                                                                <i class="bi bi-pencil-square"></i>
-                                                            </a>
 
-                                                            <button type="button"
-                                                                class="btn btn-sm btn-danger"
-                                                                onclick="funDel('<?= $rowget['transaction_id']; ?>','<?= $rowget['parent_transaction_id']; ?>');">
-                                                                <i class="bi bi-trash3-fill"></i>
-                                                            </button>
-                                                        <?php } ?>
+                                                            $chkedit = $obj->check_editBtn($pagename, $loginid);
+                                                            if ($chkedit > 0 || $_SESSION['usertype'] == 'admin') {
+                                                        ?>
+
+                                                                <a href="order-entry.php?transaction_id=<?= $rowget['transaction_id']; ?>"
+                                                                    class="btn btn-sm btn-outline-success">
+                                                                    <i class="bi bi-pencil-square"></i>
+                                                                </a>
+                                                            <?php }
+                                                            $chkdel = $obj->check_delBtn($pagename, $loginid);
+                                                            if ($chkdel > 0 || $_SESSION['usertype'] == 'admin') {
+                                                            ?>
+                                                                <button type="button"
+                                                                    class="btn btn-sm btn-danger"
+                                                                    onclick="funDel('<?= $rowget['transaction_id']; ?>','<?= $rowget['parent_transaction_id']; ?>');">
+                                                                    <i class="bi bi-trash3-fill"></i>
+                                                                </button>
+                                                        <?php }
+                                                        } ?>
                                                         <a href="order_view.php?transaction_id=<?= $rowget['transaction_id'] ?>"
                                                             class="btn btn-sm btn-warning">
                                                             View

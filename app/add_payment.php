@@ -8,7 +8,8 @@ $keyvalue = (isset($_GET["transaction_id"])) ? $obj->test_input($_GET["transacti
 $account_id = (isset($_GET["account_id"])) ? $obj->test_input($_GET["account_id"]) : 0;
 $data = $obj->getRouteDashboardData($loginid, $companyid);
 $route_plan_id = $data['route_plan_id'];
-$imgpath = "uploads/payment_proof/";
+$imgpath = __DIR__ . "/../admin/uploaded/payment_proof/";
+
 $balance = 0;
 if ($account_id > 0) {
     $balance = $obj->get_ledger_balance($account_id);
@@ -28,6 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $latitude   = $obj->test_input($_POST['latitude']);
     $longitude  = $obj->test_input($_POST['longitude']);
     $address    = $obj->test_input($_POST['address']);
+    $bank_id = isset($_POST['bank_id']) ? $obj->test_input($_POST['bank_id']) : '';
     $filename = '';
 
     if ($account_id == "" || $paymode == "" || $paydate == "" || $pay_amt == "") {
@@ -74,6 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         'grand_total'   => $pay_amt,
         'billno'        => $voucher_no,
         'trans_id'      => $trans_id,
+        'bank_id'      => $bank_id,
         'latitude'      => $latitude,
         'longitude'     => $longitude,
         'address'       => $address,
@@ -113,8 +116,9 @@ if (isset($_GET[$tblpkey])) {
     $trans_id = $sqledit['trans_id'];
     $cash_disc = $sqledit['cash_disc'];
     $pending_amt = "";
+    $bill_id = $sqledit['ref_bill_id'];
 } else {
-    $pay_amt  = $payment_proof = $trans_id = "";
+    $pay_amt  = $payment_proof = $trans_id = $bill_id = "";
     $paydate = date('Y-m-d');
     $pending_amt = "";
     $cash_disc = '';
@@ -392,17 +396,19 @@ if (isset($_GET[$tblpkey])) {
         });
 
         function load_bills(account_id) {
-
+            let keyvalue = <?= (int)$keyvalue ?>;
+            let bill_id = <?= (int)$bill_id ?>;
             if (!account_id) return;
 
             $.ajax({
                 url: 'ajax/get_customer_bills.php',
                 type: 'POST',
                 data: {
-                    account_id
+                    account_id,
+                    bill_id,
+                    keyvalue
                 },
                 success: function(response) {
-
                     let res = JSON.parse(response);
 
                     $('#bill_id').html(res.html).trigger('chosen:updated');
@@ -558,6 +564,11 @@ if (isset($_GET[$tblpkey])) {
             if (paymode === 'Online') {
                 if (!$('#trans_id').val().trim()) {
                     Swal.fire('Enter Transaction ID');
+                    return enableBtn(btn), false;
+                }
+
+                if (!$('#bank_id').val().trim()) {
+                    Swal.fire('Select Bank Name');
                     return enableBtn(btn), false;
                 }
             }

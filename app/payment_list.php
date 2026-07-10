@@ -57,15 +57,23 @@ $tblpkey = 'transaction_id';
     </section>
 
 
-    <!-- Modal -->
+    <!-- Payment Details Modal -->
     <div class="modal fade" id="openModal" tabindex="-1" aria-labelledby="openModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h1 class="modal-title fs-5 text-blue" id="openModalLabel">Pa Details</h1>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content border-0 shadow-lg rounded-4">
+
+                <div class="modal-header bg-primary text-white py-2">
+                    <h5 class="modal-title fw-bold" id="openModalLabel">
+                        <i class="bi bi-receipt-cutoff me-2"></i>
+                        Payment Details
+                    </h5>
+
+                    <button type="button"
+                        class="btn-close btn-close-white"
+                        data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body" id="show_transaction_data">
+
+                <div class="modal-body p-3" id="show_transaction_data">
 
                 </div>
 

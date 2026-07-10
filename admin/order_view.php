@@ -298,8 +298,7 @@ LEFT JOIN category_master b
 LEFT JOIN category_master u 
     ON u.cat_id = td.unit_id AND u.type='unit'
 WHERE td.transaction_id = '$transaction_id'  AND td.type='order'
-ORDER BY td.tran_detail_id DESC
-";
+ORDER BY td.tran_detail_id DESC";
                 $i = 1;
                 $res = $obj->executequery($sql);
                 $row_count = count($res);
@@ -341,6 +340,7 @@ ORDER BY td.tran_detail_id DESC
                                         <th>Unit</th>
                                         <th class="text-end">Rate</th>
                                         <th>Qty</th>
+                                        <th>Dispatch Qty</th>
                                         <th>Discount</th>
                                         <th class="text-end">Price After Disc.</th>
                                         <?php if ($is_gst == 0) { ?>
@@ -349,18 +349,19 @@ ORDER BY td.tran_detail_id DESC
                                         <th class="text-end">Total Amount</th>
                                         <th class=""> Dispatch</th>
                                         <?php if ($dispatch_status == 0) { ?>
-                                            <th width="5%">
+                                            <th width="5%" class="text-center">
                                                 <input type="checkbox" id="check_all" title="Select All">
                                             </th>
                                         <?php } ?>
                                     </thead>
                                     <tbody>
                                         <?php $net_total_amt = 0;
-                                        $colspan = 9;
+                                        $colspan = 10;
                                         foreach ($res as $key) {
                                             $gst_id = $key['gst_id'];
                                             $sub_total   = (float)$key['sub_total'];
                                             $gst_name = $obj->getvalfield("gst_master", "gst_name", "gst_id='$gst_id'");
+                                            $dispatch_qty = $obj->getvalfield("dispatch_history", "sum(qty)", "tran_detail_id='{$key['tran_detail_id']}' and transaction_id='$transaction_id'");
                                         ?>
 
                                             <tr>
@@ -370,6 +371,7 @@ ORDER BY td.tran_detail_id DESC
                                                 <td><?php echo $key['unit_name'] ?></td>
                                                 <td class="text-end">Rs. <?php echo $key['rate'] ?></td>
                                                 <td><?php echo $key['qty'] ?></td>
+                                                <td><?php echo $dispatch_qty ?></td>
                                                 <td><?php
                                                     echo (floor($key['discount']) == $key['discount'])
                                                         ? (int)$key['discount'] . ' %'
@@ -386,7 +388,7 @@ ORDER BY td.tran_detail_id DESC
                                                 <td class="text-end">
                                                     Rs. <?php echo number_format($key['net_amt'], 2); ?>
                                                 </td>
-                                                <td>
+                                                <td class="text-center">
                                                     <?php if ($key['is_dispatched'] == 0) { ?>
                                                         <span class="badge bg-warning text-dark">Pending</span><br>
                                                         <?php if ($sqledit['is_approved'] == 1) { ?>
@@ -403,7 +405,7 @@ ORDER BY td.tran_detail_id DESC
                                                     <?php } ?>
                                                 </td>
                                                 <?php if ($dispatch_status == 0) { ?>
-                                                    <td>
+                                                    <td class="text-center">
                                                         <?php if ($sqledit['is_approved'] == 1) { ?>
                                                             <?php if ($key['is_dispatched'] == 0) { ?>
                                                                 <input type="checkbox"

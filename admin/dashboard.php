@@ -32,7 +32,7 @@ $overduePayment = $obj->executequery("SELECT
     WHERE te.type   = 'order'
       AND te.is_approved = 1
       AND te.companyid   = '$companyid'
-      AND DATEDIFF('$today', te.billdate) > 60
+      AND DATEDIFF('$today', te.billdate) > 45
       AND te.transaction_id NOT IN (
           SELECT DISTINCT p.ref_bill_id
           FROM transaction_entry p
@@ -89,6 +89,7 @@ $longDispCount      = $pendingSummary[0]['disp_count'] ?? 0;
 $longDispAmount     = $pendingSummary[0]['disp_amount'] ?? 0;
 
 $invoicePendingCount  = $pendingSummary[0]['inv_count'] ?? 0;
+
 $repTargets = $obj->executequery("
     SELECT
         u.userid,
@@ -282,252 +283,7 @@ $trendData   = array_column($salesTrend, 'total');
 <head>
     <?php include('component/css.php'); ?>
     <?php include('component/dashcss.php'); ?>
-    <style>
-        /* ── Rep target cards ── */
-        .rep-target-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-            gap: 14px;
-            padding: 4px 0 8px;
-        }
 
-        .rep-target-card {
-            background: #fff;
-            border: 1px solid #e8eef4;
-            border-radius: 10px;
-            padding: 14px 16px;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .rep-target-card::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 0;
-            bottom: 0;
-            width: 4px;
-            background: var(--blue);
-            border-radius: 10px 0 0 10px;
-        }
-
-        .rep-target-card.over::before {
-            background: #27ae60;
-        }
-
-        .rtc-name {
-            font-weight: 600;
-            font-size: .82rem;
-            color: #1e2a38;
-            margin-bottom: 6px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .rtc-nums {
-            display: flex;
-            justify-content: space-between;
-            font-size: .72rem;
-            color: var(--muted);
-            margin-bottom: 7px;
-        }
-
-        .rtc-nums strong {
-            color: #1e2a38;
-        }
-
-        .rtc-bar-wrap {
-            height: 6px;
-            background: #eef2f6;
-            border-radius: 4px;
-            overflow: hidden;
-            margin-bottom: 5px;
-        }
-
-        .rtc-bar-fill {
-            height: 100%;
-            background: var(--blue);
-            border-radius: 4px;
-            transition: width .4s ease;
-        }
-
-        .rtc-bar-fill.over {
-            background: #27ae60;
-        }
-
-        .rtc-pct {
-            font-size: .7rem;
-            font-weight: 700;
-            text-align: right;
-        }
-
-        /* ── Counter status pills ── */
-        .counter-status-row {
-            display: flex;
-            gap: 14px;
-            flex-wrap: wrap;
-            margin-bottom: 4px;
-        }
-
-        .cs-box {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            background: #fff;
-            border: 1px solid #e8eef4;
-            border-radius: 10px;
-            padding: 14px 20px;
-            flex: 1;
-            min-width: 160px;
-        }
-
-        .cs-icon {
-            width: 42px;
-            height: 42px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.2rem;
-            flex-shrink: 0;
-        }
-
-        .cs-icon.active {
-            background: #e8f8ef;
-            color: #27ae60;
-        }
-
-        .cs-icon.inactive {
-            background: #fef0ef;
-            color: #e74c3c;
-        }
-
-        .cs-label {
-            font-size: .72rem;
-            color: var(--muted);
-        }
-
-        .cs-val {
-            font-size: 1.35rem;
-            font-weight: 700;
-            color: #1e2a38;
-            line-height: 1.1;
-        }
-
-        /* ── Alert cards (overdue / long dispatch) ── */
-        .alert-cards-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 14px;
-            margin-bottom: 4px;
-        }
-
-        .alert-card {
-            border-radius: 10px;
-            padding: 16px 18px;
-            display: flex;
-            align-items: center;
-            gap: 14px;
-            border: 1px solid transparent;
-        }
-
-        .alert-card.danger {
-            background: #fff5f5;
-            border-color: #fac9c6;
-        }
-
-        .alert-card.warn {
-            background: #fffbf0;
-            border-color: #f9e4a0;
-        }
-
-        .alert-card.info {
-            background: #dbeff1;
-            border-color: #2fc4e9;
-        }
-
-        .alert-icon {
-            width: 46px;
-            height: 46px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.3rem;
-            flex-shrink: 0;
-        }
-
-        .alert-card.danger .alert-icon {
-            background: #fde8e6;
-            color: #c0392b;
-        }
-
-        .alert-card.warn .alert-icon {
-            background: #fdf3d0;
-            color: #d68910;
-        }
-
-        .alert-label {
-            font-size: .72rem;
-            color: #888;
-            margin-bottom: 2px;
-        }
-
-        .alert-val {
-            font-size: 1.25rem;
-            font-weight: 700;
-            color: #1e2a38;
-            line-height: 1.2;
-        }
-
-        .alert-sub {
-            font-size: .68rem;
-            color: #aaa;
-            margin-top: 2px;
-        }
-
-        /* ── Counter scheme table: "close to target" highlight ── */
-        .sch-hot {
-            background: #fffbf0 !important;
-        }
-
-        .close-badge {
-            display: inline-block;
-            background: #fff3cd;
-            color: #856404;
-            border: 1px solid #ffe082;
-            border-radius: 20px;
-            font-size: .62rem;
-            font-weight: 700;
-            padding: 2px 8px;
-            margin-left: 4px;
-            vertical-align: middle;
-        }
-
-        .fire-badge {
-            display: inline-block;
-            background: #fde8e6;
-            color: #c0392b;
-            border: 1px solid #fac9c6;
-            border-radius: 20px;
-            font-size: .62px;
-            font-weight: 700;
-            padding: 2px 8px;
-            margin-left: 4px;
-            vertical-align: middle;
-        }
-
-        @media (max-width: 600px) {
-            .alert-cards-row {
-                grid-template-columns: 1fr;
-            }
-
-            .rep-target-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-    </style>
 </head>
 
 <body class="bg-light">
@@ -578,7 +334,7 @@ $trendData   = array_column($salesTrend, 'total');
                     <div class="stat-sub">Cash + bank</div>
                     <i class="bi bi-cash-stack stat-icon"></i>
                 </a>
-                <a href="order_list.php?status=0" class="stat-card" style="--c:#e74c3c">
+                <a href="order_list.php?dispatch_pending=1" class="stat-card" style="--c:#e74c3c">
                     <div class="stat-label">Pending Dispatch</div>
                     <div class="stat-value"><?= number_format($pendingDispatch) ?></div>
                     <div class="stat-sub">Approved, not shipped</div>
@@ -607,40 +363,40 @@ $trendData   = array_column($salesTrend, 'total');
             <?php if ($usertype == "admin") { ?>
                 <?php if (!empty($repTargets)): ?>
                     <div class="sec-label"><i class="bi bi-person-check me-1"></i> Sales Rep Target Achievement — <?= date('F Y') ?></div>
-                    <div class="panel">
-                        <div class="rep-target-grid">
-                            <?php foreach ($repTargets as $rt):
-                                $rpct   = $rt['rep_target'] > 0
-                                    ? min(100, round(($rt['rep_achieved'] / $rt['rep_target']) * 100))
-                                    : 0;
-                                $isOver = $rpct >= 100;
-                                $initials = implode('', array_map(
-                                    fn($w) => strtoupper($w[0]),
-                                    array_slice(explode(' ', $rt['fullname']), 0, 2)
-                                ));
-                            ?>
-                                <div class="rep-target-card <?= $isOver ? 'over' : '' ?>">
-                                    <a href="monthly_target_view.php?createdby=<?= $rt['userid'] ?>&month=<?= $curMonth ?>&year=<?= $curYear ?>" style="text-decoration: none;" target="_blank">
-                                        <div class="rtc-name">
-                                            <span class="rep-avatar" style="display:inline-flex;width:26px;height:26px;font-size:.65rem;margin-right:6px;vertical-align:middle"><?= $initials ?></span>
-                                            <?= htmlspecialchars($rt['fullname']) ?>
-                                            <?php if ($isOver): ?>
-                                                <span class="pill pill-ok" style="font-size:.58rem;padding:1px 6px;margin-left:4px">✓ Done</span>
-                                            <?php endif; ?>
-                                        </div>
-                                        <div class="rtc-nums">
-                                            <span>Achieved: <strong>₹<?= number_format($rt['rep_achieved']) ?></strong></span>
-                                            <span>Target: <strong>₹<?= number_format($rt['rep_target']) ?></strong></span>
-                                        </div>
-                                        <div class="rtc-bar-wrap">
-                                            <div class="rtc-bar-fill <?= $isOver ? 'over' : '' ?>" style="width:<?= $rpct ?>%"></div>
-                                        </div>
-                                        <div class="rtc-pct" style="color:<?= $isOver ? '#27ae60' : 'var(--blue)' ?>"><?= $rpct ?>%</div>
-                                    </a>
-                                </div>
-                            <?php endforeach; ?>
-                        </div>
+
+                    <div class="rep-target-grid">
+                        <?php foreach ($repTargets as $rt):
+                            $rpct   = $rt['rep_target'] > 0
+                                ? min(100, round(($rt['rep_achieved'] / $rt['rep_target']) * 100))
+                                : 0;
+                            $isOver = $rpct >= 100;
+                            $initials = implode('', array_map(
+                                fn($w) => strtoupper($w[0]),
+                                array_slice(explode(' ', $rt['fullname']), 0, 2)
+                            ));
+                        ?>
+                            <div class="rep-target-card shadow-sm <?= $isOver ? 'over' : '' ?>">
+                                <a href="monthly_target_view.php?createdby=<?= $rt['userid'] ?>&month=<?= $curMonth ?>&year=<?= $curYear ?>" style="text-decoration: none;" target="_blank">
+                                    <div class="rtc-name">
+                                        <span class="rep-avatar" style="display:inline-flex;width:26px;height:26px;font-size:.65rem;margin-right:6px;vertical-align:middle"><?= $initials ?></span>
+                                        <?= htmlspecialchars($rt['fullname']) ?>
+                                        <?php if ($isOver): ?>
+                                            <span class="pill pill-ok" style="font-size:.58rem;padding:1px 6px;margin-left:4px">✓ Done</span>
+                                        <?php endif; ?>
+                                    </div>
+                                    <div class="rtc-nums">
+                                        <span>Achieved: <strong>₹<?= number_format($rt['rep_achieved']) ?></strong></span>
+                                        <span>Target: <strong>₹<?= number_format($rt['rep_target']) ?></strong></span>
+                                    </div>
+                                    <div class="rtc-bar-wrap">
+                                        <div class="rtc-bar-fill <?= $isOver ? 'over' : '' ?>" style="width:<?= $rpct ?>%"></div>
+                                    </div>
+                                    <div class="rtc-pct" style="color:<?= $isOver ? '#27ae60' : 'var(--blue)' ?>"><?= $rpct ?>%</div>
+                                </a>
+                            </div>
+                        <?php endforeach; ?>
                     </div>
+
                 <?php endif; ?>
 
                 <div class="sec-label"><i class="bi bi-shop me-1"></i> Counter Status</div>
@@ -687,14 +443,14 @@ $trendData   = array_column($salesTrend, 'total');
                         </div>
 
                         <div style="flex:1">
-                            <div class="alert-label">Payment Overdue > 60 Days</div>
+                            <div class="alert-label">Payment Overdue > 45 Days</div>
                             <div class="alert-val">₹<?= number_format($overdueAmount) ?></div>
                             <div class="alert-sub">
-                                <?= number_format($overdueCount) ?> order(s) unpaid beyond 60 days
+                                <?= number_format($overdueCount) ?> order(s) unpaid beyond 45 days
                             </div>
                         </div>
 
-                        <a href="order_list.php?overdue=60"
+                        <a href="overdue_list.php?overdue=45"
                             class="btn btn-sm btn-outline-danger"
                             style="font-size:.7rem;white-space:nowrap">
                             View All
@@ -715,7 +471,7 @@ $trendData   = array_column($salesTrend, 'total');
                             </div>
                         </div>
 
-                        <a href="order_list.php?dispatch_pending=1"
+                        <a href="order_list.php?dispatch_pending=1&days=15"
                             class="btn btn-sm btn-outline-warning"
                             style="font-size:.7rem;white-space:nowrap">
                             View All

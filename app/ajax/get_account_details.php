@@ -23,6 +23,7 @@ $html = '
 
 echo json_encode([
     "html" => $html,
-    "mobile" => $row['o_mobile_no'],
+    "o_mobile_no" => $row['o_mobile_no'],
+    "mobile" => $row['mobile_no'],
     "decision_maker_name" => $row['owner_name']
 ]);

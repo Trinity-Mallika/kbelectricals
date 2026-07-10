@@ -430,7 +430,7 @@ foreach ($all_achieved_rows as $a) {
                                             Target: ₹<?= number_format($rt_tgt) ?>
                                         </th>
                                         <th class="text-end" style="color:<?= $rt_clr ?>;">
-                                            Achieved: ₹<?= number_format($route_ach_val) ?>
+                                            <span class="bg-white ps-2 pe-2 rounded-2"> Achieved: ₹<?= number_format($route_ach_val) ?></span>
                                         </th>
                                         <th class="text-end" style="width:80px;">
                                             <span style="background:<?= $rt_clr ?>;color:#fff;font-size:.72rem;
@@ -447,6 +447,7 @@ foreach ($all_achieved_rows as $a) {
                                         <td colspan="5" class="p-0 border-top-0">
                                             <div class="detail-content" style="display:none;">
                                                 <div class="p-2">
+                                                   
                                                     <table class="table table-bordered table-sm mb-0">
                                                         <tr class="table-primary">
                                                             <th>Counter</th>

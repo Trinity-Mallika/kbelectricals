@@ -32,6 +32,7 @@ function prepareUpdateData($fields, $postData, $oldData, $obj)
     return $finalData;
 }
 
+
 function getDistanceMeters($lat1, $lon1, $lat2, $lon2)
 {
     $earthRadius = 6371000;
@@ -53,10 +54,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $account_id          = $obj->test_input($_POST['account_id']);
     $decision_maker_name = $obj->test_input($_POST['decision_maker_name']);
     $mobile_no           = $obj->test_input($_POST['mobile_no']);
+    $o_mobile_no         = $obj->test_input($_POST['o_mobile_no']);
     $latitude            = $obj->test_input($_POST['latitude']);
     $longitude           = $obj->test_input($_POST['longitude']);
     $address             = $obj->test_input($_POST['address']);
     $common_id           = (!empty($_POST['common_id'])) ? $obj->test_input($_POST['common_id']) : '';
+    $dob                 = (!empty($_POST['dob'])) ? $obj->test_input($_POST['dob']) : '';
+    $doa                 = (!empty($_POST['doa'])) ? $obj->test_input($_POST['doa']) : '';
+    $no_of_kid           = (!empty($_POST['no_of_kid'])) ? $obj->test_input($_POST['no_of_kid']) : '';
+    $no_of_family        = (!empty($_POST['no_of_family'])) ? $obj->test_input($_POST['no_of_family']) : '';
     $follow_up_date      = $_POST['follow_up_date'];
     $remarks             = $obj->test_input($_POST['remarks']);
     $force_checkout      = (isset($_POST['force_checkout']) && $_POST['force_checkout'] == '1');
@@ -96,8 +102,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 
     if (!empty($mobile_no)) {
-        $accform['o_mobile_no'] = $mobile_no;
+        $accform['mobile_no'] = $mobile_no;
     }
+
+    if (!empty($o_mobile_no)) {
+        $accform['o_mobile_no'] = $o_mobile_no;
+    }
+
 
     if (!empty($accform)) {
         $obj->update_record(
@@ -110,6 +121,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $form_data = [
         'decision_maker_name' => $decision_maker_name,
         'mobile_no'           => $mobile_no,
+        'o_mobile_no'           => $o_mobile_no,
+        'dob'           => $dob,
+        'doa'           => $doa,
+        'no_of_kid'           => $no_of_kid,
+        'no_of_family'           => $no_of_family,
         'common_id'           => $common_id,
         'longitude_out'       => $longitude,
         'latitude_out'        => $latitude,
@@ -154,6 +170,7 @@ if (isset($_GET[$tblpkey])) {
     $account_id          = $sqledit['account_id'];
     $decision_maker_name = $sqledit['decision_maker_name'];
     $mobile_no           = $sqledit['mobile_no'];
+    $o_mobile_no           = $sqledit['o_mobile_no'];
     $imgname             = $sqledit['imgname'];
     $common_id           = $sqledit['common_id'];
     $follow_up_date      = $sqledit['follow_up_date'];
@@ -204,6 +221,16 @@ if (isset($_GET[$tblpkey])) {
 
                         <!-- Owner Name -->
                         <div class="col-lg-3 mb-2">
+                            <label class="form-label">Whatsapp Number <span class="text-danger fw-bold">*</span></label>
+                            <input type="text" class="form-control shadow-sm" id="mobile_no" name="mobile_no"
+                                placeholder="Enter Mobile Number" value="<?= $mobile_no ?>"
+                                maxlength="10" pattern="[0-9]{10}"
+                                oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0,10);">
+                        </div>
+
+
+                        <!-- Owner Name -->
+                        <div class="col-lg-3 mb-2">
                             <label class="form-label">Owner Name <span class="text-danger fw-bold">*</span></label>
                             <input type="text" class="form-control shadow-sm" id="decision_maker_name"
                                 name="decision_maker_name" placeholder="Enter Owner Name"
@@ -213,38 +240,43 @@ if (isset($_GET[$tblpkey])) {
                         <!-- Owner Mobile -->
                         <div class="col-lg-3 mb-2">
                             <label class="form-label">Owner Mobile Number <span class="text-danger fw-bold">*</span></label>
-                            <input type="text" class="form-control shadow-sm" id="mobile_no" name="mobile_no"
-                                placeholder="Enter Mobile Number" value="<?= $mobile_no ?>"
+                            <input type="text" class="form-control shadow-sm" id="o_mobile_no" name="o_mobile_no"
+                                placeholder="Enter Mobile Number" value="<?= $o_mobile_no ?>"
                                 maxlength="10" pattern="[0-9]{10}"
                                 oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0,10);">
                         </div>
+                        <?php
+                        $showDob       = empty($acc_data['dob']) || $acc_data['dob'] == '0000-00-00';
+                        $showDoa       = empty($acc_data['doa']) || $acc_data['doa'] == '0000-00-00';
+                        $showKids      = $acc_data['no_of_kid'] === 0 || is_null($acc_data['no_of_kid']);
+                        $showFamily    = $acc_data['no_of_family'] === 0 || is_null($acc_data['no_of_family']);
 
-                        <!-- Optional account fields -->
-                        <?php if (
-                            empty($acc_data['dob']) || empty($acc_data['doa']) ||
-                            empty($acc_data['no_of_kid']) || empty($acc_data['no_of_family'])
-                        ) { ?>
+                        if ($showDob || $showDoa || $showKids || $showFamily) { ?>
                             <div class="row">
-                                <?php if (empty($acc_data['dob'])) { ?>
+                                <?php if ($showDob) { ?>
                                     <div class="col-6 mb-2">
                                         <label class="form-label">DOB Of Owner</label>
-                                        <input type="date" class="form-control shadow-sm" name="dob" id="dob">
+                                        <input type="date"
+                                            class="form-control shadow-sm"
+                                            name="dob"
+                                            id="dob"
+                                            max="1999-12-31">
                                     </div>
                                 <?php } ?>
-                                <?php if (empty($acc_data['doa'])) { ?>
+                                <?php if ($showDoa) { ?>
                                     <div class="col-6 mb-2">
                                         <label class="form-label">Anniversary Of Owner</label>
                                         <input type="date" class="form-control shadow-sm" name="doa" id="doa">
                                     </div>
                                 <?php } ?>
-                                <?php if (empty($acc_data['no_of_kid'])) { ?>
+                                <?php if ($showKids) { ?>
                                     <div class="col-6 mb-2">
                                         <label class="form-label">No. Of Kids</label>
                                         <input type="number" class="form-control shadow-sm" name="no_of_kid"
                                             placeholder="Enter No. Of Kids">
                                     </div>
                                 <?php } ?>
-                                <?php if (empty($acc_data['no_of_family'])) { ?>
+                                <?php if ($showFamily) { ?>
                                     <div class="col-6 mb-2">
                                         <label class="form-label">No. Of Family Memb.</label>
                                         <input type="number" class="form-control shadow-sm" name="no_of_family"
@@ -343,6 +375,7 @@ if (isset($_GET[$tblpkey])) {
                 success(response) {
                     let res = JSON.parse(response);
                     $('#account_details_div').html(res.html);
+                    $('#o_mobile_no').val(res.mobile);
                     $('#mobile_no').val(res.mobile);
                     $('#decision_maker_name').val(res.decision_maker_name);
                     $('#loader').hide();

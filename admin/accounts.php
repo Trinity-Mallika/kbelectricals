@@ -17,7 +17,7 @@ if (isset($_POST['submit'])) {
     $owner_name = $obj->test_input($_POST['owner_name']);
     $o_mobile_no = $obj->test_input($_POST['o_mobile_no']);
     $mobile_no = $obj->test_input($_POST['mobile_no']);
-    $address = $obj->test_input($_POST['address']);
+    //  $address = $obj->test_input($_POST['address']);
     $opening_balance = $obj->test_input($_POST['opening_balance']);
     $opening_date = $obj->test_input($_POST['opening_date']);
     $area_id = $obj->test_input($_POST['area_id']);
@@ -52,7 +52,7 @@ if (isset($_POST['submit'])) {
                 'owner_name' => $owner_name,
                 'o_mobile_no' => $o_mobile_no,
                 'mobile_no' => $mobile_no,
-                'address' => $address,
+                //  'address' => $address,
                 'common_id' => $common_id,
                 'area_id' => $area_id,
                 'status' => $status,
@@ -82,7 +82,7 @@ if (isset($_POST['submit'])) {
                 'owner_name' => $owner_name,
                 'o_mobile_no' => $o_mobile_no,
                 'mobile_no' => $mobile_no,
-                'address' => $address,
+                //   'address' => $address,
                 'common_id' => $common_id,
                 'area_id' => $area_id,
                 'status' => $status,
@@ -127,7 +127,7 @@ if (isset($_GET[$tblpkey])) {
     $owner_name  =  $sqledit['owner_name'];
     $o_mobile_no  =  $sqledit['o_mobile_no'];
     $mobile_no  =  $sqledit['mobile_no'];
-    $address  =  $sqledit['address'];
+    // $address  =  $sqledit['address'];
     $opening_balance  =  $sqledit['opening_balance'];
     $opening_date  =  $sqledit['opening_date'];
     $common_id  =  $sqledit['common_id'];
@@ -325,10 +325,10 @@ if (isset($_GET[$tblpkey])) {
                                             <strong> <label for="mobile_no">Opening Date <span class="text-danger fw-bold"></span></label> </strong>
                                             <input type="date" class="form-control form-control-sm" name="opening_date" id="opening_date" placeholder="Opening Date" value="<?php echo $opening_date; ?>" maxlength="10" autocomplete="off">
                                         </div>
-                                        <div class="col-lg-6 col-md-6 col-sm-12 mb-2">
+                                        <!-- <div class="col-lg-6 col-md-6 col-sm-12 mb-2">
                                             <strong> <label for="mobile">Address <span class="text-danger fw-bold"></span></label></strong>
                                             <textarea class="form-control form-control-sm" name="address" id="address" placeholder="Address" autocomplete="off"><?php echo $address; ?></textarea>
-                                        </div>
+                                        </div> -->
 
                                         <div class="col-md-4 mt-4">
                                             <input type="submit" name="submit" class="btn btn-theme btn-sm" value="<?php echo $btn_name; ?>" onclick="return checkinputmaster('user_id,account_name,common_id,area_id');">
@@ -353,6 +353,7 @@ if (isset($_GET[$tblpkey])) {
                                 <table id="example1" class="table table-bordered table-sm table-hover">
                                     <thead>
                                         <th>Sr. No.</th>
+                                        <th>Customer Name</th>
                                         <th>Customer Details</th>
                                         <th>Contact Details</th>
                                         <th>Type</th>
@@ -362,7 +363,7 @@ if (isset($_GET[$tblpkey])) {
                                         <th>Dates</th>
                                         <th>Opening Balance</th>
                                         <th>Status</th>
-                                        <th>Address</th>
+                                        <th>Assigned To</th>
                                         <th class="text-center">Action</th>
                                         <th style="display:none;">Customer Name</th>
                                         <th style="display:none;">Owner Name</th>
@@ -379,28 +380,62 @@ if (isset($_GET[$tblpkey])) {
                                         <th style="display:none;">Opening Date</th>
                                         <th style="display:none;">Status</th>
                                         <th style="display:none;">Address</th>
+                                        <th style="display:none;">Assigned To</th>
                                     </thead>
                                     <tbody>
                                         <?php
                                         $slno = 1;
-                                        $sql_get = $obj->executequery("SELECT
+                                        $sql_get = $obj->executequery("
+SELECT
     a.*,
     cm.common_name,
     am.area_name,
-    u.fullname AS referred_by_name
+    u.fullname AS referred_by_name,
+
+    (
+        SELECT r.route_name
+        FROM route_counter rc
+        INNER JOIN route r ON r.batch_no = rc.batch_no
+        WHERE rc.account_id = a.account_id
+          AND rc.is_active = 1
+        LIMIT 1
+    ) AS route_name,
+
+    (
+        SELECT u2.fullname
+        FROM route_counter rc
+        INNER JOIN route_plan rp ON rp.batch_no = rc.batch_no
+        INNER JOIN user u2 ON u2.userid = rp.sales_executive_id
+        WHERE rc.account_id = a.account_id
+          AND rc.is_active = 1
+        LIMIT 1
+    ) AS sales_executive_name,
+
+    (
+    SELECT COUNT(*)
+    FROM transaction_entry te
+    WHERE te.account_id = a.account_id
+) AS txn_count
+
 FROM account a
-LEFT JOIN user u ON u.userid = a.userid
-LEFT JOIN common_master cm ON cm.common_id = a.common_id
-LEFT JOIN area_master am ON am.area_id = a.area_id
-WHERE a.status1 != 0 and a.type='customer'
+
+LEFT JOIN user u
+    ON u.userid = a.userid
+
+LEFT JOIN common_master cm
+    ON cm.common_id = a.common_id
+
+LEFT JOIN area_master am
+    ON am.area_id = a.area_id
+
+WHERE a.status1 != 0
+AND a.type = 'customer'
+
 ORDER BY a.account_id DESC
 ");
                                         foreach ($sql_get as $row_get) {
-                                            $common_name = ($row_get['common_id'] == -1)
-                                                ? 'Employee'
-                                                : $row_get['common_name'];
-
                                             $area_name = $row_get['area_name'];
+
                                         ?>
                                             <tr>
                                                 <td> <?php echo $slno++; ?></td>
@@ -408,7 +443,8 @@ ORDER BY a.account_id DESC
                                                     <div class="fw-bold text-dark">
                                                         <?= $row_get['account_name'] ?>
                                                     </div>
-
+                                                </td>
+                                                <td>
                                                     <?php if (!empty($row_get['owner_name'])) { ?>
                                                         <div class="small mt-1">
                                                             <i class="bi bi-person-fill text-primary"></i>
@@ -444,7 +480,7 @@ ORDER BY a.account_id DESC
                                                 </td>
                                                 <td class="text-center">
                                                     <span class="badge bg-primary">
-                                                        <?= $common_name ?>
+                                                        <?= $row_get['common_name'] ?>
                                                     </span>
                                                 </td>
                                                 <td class="text-center">
@@ -495,7 +531,15 @@ ORDER BY a.account_id DESC
                                                         <span class="badge bg-danger">Inactive</span>
                                                     <?php } ?>
                                                 </td>
-                                                <td><?php echo $row_get['address']; ?></td>
+                                                <td>
+                                                    <?php if (!empty($row_get['route_name'])) { ?>
+                                                        <span class="badge bg-success">
+                                                            <?= $row_get['route_name'] ?> - <?= $row_get['sales_executive_name'] ?>
+                                                        </span>
+                                                    <?php } else { ?>
+                                                        -
+                                                    <?php } ?>
+                                                </td>
                                                 <td class="text-center">
                                                     <div class="btn-group btn-group-sm">
 
@@ -504,14 +548,14 @@ ORDER BY a.account_id DESC
                                                             class="btn btn-outline-success">
                                                             <i class="bi bi-pencil-square"></i>
                                                         </a>
-
-                                                        <button type="button"
-                                                            title="Delete"
-                                                            class="btn btn-outline-danger"
-                                                            onclick="funDel(<?= $row_get['account_id']; ?>);">
-                                                            <i class="bi bi-trash3-fill"></i>
-                                                        </button>
-
+                                                        <?php if ($row_get['txn_count'] == 0) { ?>
+                                                            <button type="button"
+                                                                title="Delete"
+                                                                class="btn btn-outline-danger"
+                                                                onclick="funDel(<?= $row_get['account_id']; ?>);">
+                                                                <i class="bi bi-trash3-fill"></i>
+                                                            </button>
+                                                        <?php } ?>
                                                         <a href="electrician.php?account_id_map=<?= $row_get['account_id']; ?>"
                                                             title="Add Electrician"
                                                             class="btn btn-outline-primary">
@@ -524,7 +568,7 @@ ORDER BY a.account_id DESC
                                                 <td style="display:none;"><?= $row_get['owner_name'] ?></td>
                                                 <td style="display:none;"><?= $row_get['mobile_no'] ?></td>
                                                 <td style="display:none;"><?= $row_get['o_mobile_no'] ?></td>
-                                                <td style="display:none;"><?= $common_name ?></td>
+                                                <td style="display:none;"><?= $row_get['common_name'] ?></td>
                                                 <td style="display:none;"><?= $row_get['class'] ?></td>
                                                 <td style="display:none;"><?= $row_get['no_of_family'] ?></td>
                                                 <td style="display:none;"><?= $row_get['no_of_kid'] ?></td>
@@ -535,6 +579,13 @@ ORDER BY a.account_id DESC
                                                 <td style="display:none;"><?= $row_get['opening_date'] ?></td>
                                                 <td style="display:none;"><?= ucfirst($row_get['status']) ?></td>
                                                 <td style="display:none;"><?= $row_get['address'] ?></td>
+                                                <td style="display:none;">
+                                                    <?php if (!empty($row_get['route_name'])) { ?>
+                                                        <?= $row_get['sales_executive_name']; ?>
+                                                    <?php } else { ?>
+                                                        -
+                                                    <?php } ?>
+                                                </td>
                                             </tr>
                                         <?php  } ?>
                                     </tbody>
@@ -646,7 +697,7 @@ ORDER BY a.account_id DESC
                     className: 'btn btn-success btn-sm',
 
                     exportOptions: {
-                        columns: [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]
+                        columns: [13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28]
                     }
                 },
 
@@ -656,7 +707,7 @@ ORDER BY a.account_id DESC
                     className: 'btn btn-danger btn-sm',
 
                     exportOptions: {
-                        columns: [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]
+                        columns: [13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28]
                     }
                 },
 
@@ -666,7 +717,7 @@ ORDER BY a.account_id DESC
                     className: 'btn btn-primary btn-sm',
 
                     exportOptions: {
-                        columns: [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]
+                        columns: [13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28]
                     }
                 }
 
