@@ -126,15 +126,16 @@ $show_monthly_target = (
 $show_monthly_target = ($current_date >= $start_window && $current_date <= $end_window);
 
 $actions = [
-    ['icon' => 'bi-geo-alt-fill',   'label' => 'Daily Visit',     'href' => 'check-in.php',       'btn' => 'Check-In'],
+    ['icon' => 'bi-geo-alt',   'label' => 'Daily Visit',     'href' => 'check-in.php',       'btn' => 'Check-In'],
     ['icon' => 'bi-shop-window',    'label' => 'New Counter',     'href' => 'create-counter.php', 'btn' => '+ Add'],
-    ['icon' => 'bi-cart-check-fill', 'label' => 'Order Entry',     'href' => 'my-order.php',       'btn' => '+ Add'],
+    ['icon' => 'bi-cart-check', 'label' => 'Order Entry',     'href' => 'my-order.php',       'btn' => '+ Add'],
     ['icon' => 'bi-cash-coin',      'label' => 'Payment Entry',   'href' => 'add_payment.php',    'btn' => '+ Add'],
 
     $show_monthly_target ?
         ['icon' => 'bi-bullseye', 'label' => 'Monthly Target', 'href' => 'monthly_target.php', 'btn' => '+ Add']
         : null,
     ['icon' => 'bi-card-list', 'label' => 'Customer List', 'href' => 'customer-list.php',  'btn' => 'View'],
+    ['icon' => 'bi-file-spreadsheet', 'label' => 'Customer Ledger', 'href' => 'customer-ledger.php',  'btn' => 'View'],
 ];
 ?>
 <!DOCTYPE html>

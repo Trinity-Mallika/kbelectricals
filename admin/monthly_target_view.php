@@ -34,18 +34,24 @@ $approval_status = $obj->getvalfield(
 
 
 $grand_achieved_row = $obj->executequery("
-    SELECT IFNULL(SUM(CASE WHEN t.is_gst = 1 THEN td.total_amt ELSE td.net_amt END), 0) AS grand_achieved
-    FROM transaction_details td
-    INNER JOIN transaction_entry t  ON t.transaction_id = td.transaction_id
-    INNER JOIN monthly_target    mt ON mt.account_id    = t.account_id
-                                    AND mt.createdby    = '$createdby'
-                                    AND mt.month        = '$month'
-                                    AND mt.year         = '$year'
-    WHERE MONTH(t.billdate) = '$month'
-      AND YEAR(t.billdate)  = '$year'
-      AND t.type            = 'order'
-      AND t.is_approved     = 1
+    SELECT
+        SUM(te.grand_total) AS grand_achieved
+    FROM route_plan rp
+
+    INNER JOIN route_counter rc
+        ON rc.batch_no = rp.batch_no
+       AND rc.is_active = 1
+
+    INNER JOIN transaction_entry te
+        ON te.account_id = rc.account_id
+       AND te.type = 'order'
+       AND te.is_approved = 1
+       AND MONTH(te.billdate) = '$month'
+       AND YEAR(te.billdate) = '$year'
+
+    WHERE rp.sales_executive_id = '$createdby'
 ");
+
 $grand_achieved = (float)($grand_achieved_row[0]['grand_achieved'] ?? 0);
 $grand_target_f = (float)$grand_target;
 $grand_pct      = $grand_target_f > 0 ? round($grand_achieved / $grand_target_f * 100) : 0;
@@ -273,21 +279,30 @@ foreach ($all_achieved_rows as $a) {
                                         ORDER BY total_target DESC
                                     ");
 
-                                        /* achieved per brand across all accounts */
                                         $brand_achieved_rows = $obj->executequery("
-                                        SELECT td.brand_id, SUM(td.total_amt) AS achieved
-                                        FROM transaction_details td
-                                        INNER JOIN transaction_entry t ON t.transaction_id = td.transaction_id
-                                        INNER JOIN monthly_target mt   ON mt.account_id    = t.account_id
-                                                                       AND mt.createdby    = '$createdby'
-                                                                       AND mt.month        = '$month'
-                                                                       AND mt.year         = '$year'
-                                        WHERE MONTH(t.billdate)='$month'
-                                          AND YEAR(t.billdate)='$year'
-                                          AND t.type='order'
-                                          AND t.is_approved=1
-                                        GROUP BY td.brand_id
-                                    ");
+SELECT
+    td.brand_id,
+    SUM(td.total_amt) AS achieved
+FROM route_plan rp
+
+INNER JOIN route_counter rc
+    ON rc.batch_no = rp.batch_no
+   AND rc.is_active = 1
+
+INNER JOIN transaction_entry t
+    ON t.account_id = rc.account_id
+   AND t.type='order'
+   AND t.is_approved=1
+   AND MONTH(t.billdate)='$month'
+   AND YEAR(t.billdate)='$year'
+
+INNER JOIN transaction_details td
+    ON td.transaction_id=t.transaction_id
+
+WHERE rp.sales_executive_id='$createdby'
+
+GROUP BY td.brand_id
+");
                                         $brand_ach_map = [];
                                         foreach ($brand_achieved_rows as $ba) {
                                             $brand_ach_map[$ba['brand_id']] = (float)$ba['achieved'];
@@ -347,23 +362,34 @@ foreach ($all_achieved_rows as $a) {
                                     ORDER BY route_id ASC
                                 ");
 
-                                    /* achieved per route */
+
                                     $route_ach_rows = $obj->executequery("
-                                    SELECT rm.route_id, SUM(td.net_amt) AS achieved
-                                    FROM transaction_details  td
-                                    INNER JOIN transaction_entry t  ON t.transaction_id  = td.transaction_id
-                                    INNER JOIN monthly_target    mt ON mt.account_id     = t.account_id
-                                                                    AND mt.createdby     = '$createdby'
-                                                                    AND mt.month         = '$month'
-                                                                    AND mt.year          = '$year'
-                                    INNER JOIN route_counter     rc ON rc.account_id     = t.account_id
-                                    INNER JOIN route             rm ON rm.batch_no       = rc.batch_no
-                                    WHERE MONTH(t.billdate)='$month'
-                                      AND YEAR(t.billdate)='$year'
-                                      AND t.type='order'
-                                      AND t.is_approved=1
-                                    GROUP BY rm.route_id
-                                ");
+SELECT
+    rm.route_id,
+    SUM(td.net_amt) AS achieved
+FROM route_plan rp
+
+INNER JOIN route_counter rc
+    ON rc.batch_no=rp.batch_no
+   AND rc.is_active=1
+
+INNER JOIN route rm
+    ON rm.batch_no=rp.batch_no
+
+INNER JOIN transaction_entry t
+    ON t.account_id=rc.account_id
+   AND t.type='order'
+   AND t.is_approved=1
+   AND MONTH(t.billdate)='$month'
+   AND YEAR(t.billdate)='$year'
+
+INNER JOIN transaction_details td
+    ON td.transaction_id=t.transaction_id
+
+WHERE rp.sales_executive_id='$createdby'
+
+GROUP BY rm.route_id
+");
                                     $route_ach_map = [];
                                     foreach ($route_ach_rows as $ra) {
                                         $route_ach_map[$ra['route_id']] = (float)$ra['achieved'];
@@ -447,7 +473,7 @@ foreach ($all_achieved_rows as $a) {
                                         <td colspan="5" class="p-0 border-top-0">
                                             <div class="detail-content" style="display:none;">
                                                 <div class="p-2">
-                                                   
+
                                                     <table class="table table-bordered table-sm mb-0">
                                                         <tr class="table-primary">
                                                             <th>Counter</th>
@@ -460,28 +486,68 @@ foreach ($all_achieved_rows as $a) {
 
                                                         <?php
                                                         $counter_sql = $obj->executequery("
-                                                        SELECT
-                                                            mt.target_id,
-                                                            mt.account_id,
-                                                            a.account_name,
-                                                            mt.comment
-                                                        FROM monthly_target mt
-                                                        INNER JOIN account        a  ON a.account_id  = mt.account_id
-                                                        INNER JOIN route_counter  rc ON rc.account_id = a.account_id
-                                                        INNER JOIN route          r  ON r.batch_no    = rc.batch_no
-                                                        WHERE r.route_id='{$route['route_id']}'
-                                                          AND mt.createdby='$createdby'
-                                                          AND mt.month='$month'
-                                                          AND mt.year='$year'
-                                                    ");
+SELECT
+    a.account_id,
+    a.account_name,
+    mt.target_id,
+    mt.comment,
+    CASE
+        WHEN mt.target_id IS NULL THEN 0
+        ELSE 1
+    END AS has_target
+FROM route_counter rc
+INNER JOIN account a
+    ON a.account_id = rc.account_id
 
+INNER JOIN route r
+    ON r.batch_no = rc.batch_no
+
+LEFT JOIN monthly_target mt
+    ON mt.account_id = a.account_id
+   AND mt.createdby = '$createdby'
+   AND mt.month = '$month'
+   AND mt.year = '$year'
+
+WHERE r.route_id='{$route['route_id']}'
+ORDER BY a.account_name
+");
                                                         foreach ($counter_sql as $counter):
-                                                            $brand_sql = $obj->executequery("
-                                                            SELECT cm.cat_name, mtd.brand_id, mtd.target
-                                                            FROM monthly_target_details mtd
-                                                            INNER JOIN category_master cm ON cm.cat_id = mtd.brand_id
-                                                            WHERE mtd.target_id='{$counter['target_id']}'
-                                                        ");
+                                                            if ($counter['has_target']) {
+
+                                                                $brand_sql = $obj->executequery("
+        SELECT
+            cm.cat_name,
+            mtd.brand_id,
+            mtd.target
+        FROM monthly_target_details mtd
+        INNER JOIN category_master cm
+            ON cm.cat_id=mtd.brand_id
+        WHERE mtd.target_id='{$counter['target_id']}'
+    ");
+                                                            } else {
+
+                                                                $brand_sql = $obj->executequery("
+        SELECT
+            cm.cat_name,
+            td.brand_id,
+            0 AS target
+        FROM transaction_details td
+        INNER JOIN transaction_entry t
+            ON t.transaction_id=td.transaction_id
+
+        INNER JOIN category_master cm
+            ON cm.cat_id=td.brand_id
+
+        WHERE
+            t.account_id='{$counter['account_id']}'
+            AND MONTH(t.billdate)='$month'
+            AND YEAR(t.billdate)='$year'
+            AND t.type='order'
+            AND t.is_approved=1
+
+        GROUP BY td.brand_id
+    ");
+                                                            }
 
                                                             $rowspan = max(1, count($brand_sql));
                                                             $first   = true;
@@ -494,7 +560,16 @@ foreach ($all_achieved_rows as $a) {
                                                                 <tr>
                                                                     <?php if ($first): ?>
                                                                         <td rowspan="<?= $rowspan ?>" class="align-middle">
+
                                                                             <?= htmlspecialchars($counter['account_name']) ?>
+
+                                                                            <?php if (!$counter['has_target']) { ?>
+                                                                                <span class="badge bg-warning text-dark">
+                                                                                    No Target
+                                                                                </span>
+
+                                                                            <?php } ?>
+
                                                                         </td>
                                                                     <?php endif; ?>
 
@@ -523,7 +598,7 @@ foreach ($all_achieved_rows as $a) {
                     </div>
                 </div><!-- /col -->
 
-            </div><!-- /.row -->
+            </div>
         </div><!-- /.container-fluid -->
     </div><!-- /.main -->
 

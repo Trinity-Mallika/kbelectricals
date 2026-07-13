@@ -155,25 +155,20 @@ class DataOperation extends Database
          AND companyid='$companyid'"
 		);
 
-		$sql = "SELECT COALESCE(SUM(x.grand_total),0) AS Monthsales
-FROM (
-    SELECT DISTINCT
-        te.transaction_id,
-        te.grand_total
-    FROM transaction_entry te
-    INNER JOIN route_counter rc
-        ON rc.account_id = te.account_id
-       AND rc.is_active = 1
-    INNER JOIN route_plan rp
-        ON rp.batch_no = rc.batch_no
-    WHERE rp.sales_executive_id = '$loginid'
-      AND te.type = 'order'
-      AND te.is_approved = 1
-      AND te.companyid = '$companyid'
-      AND te.billdate >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
-      AND te.billdate < DATE_FORMAT(CURDATE() + INTERVAL 1 MONTH, '%Y-%m-01')
-) x
-";
+		$sql = "
+SELECT
+    COALESCE(SUM(te.grand_total),0) AS Monthsales
+FROM transaction_entry te
+INNER JOIN route_counter rc
+    ON rc.account_id = te.account_id
+   AND rc.is_active = 1
+INNER JOIN route_plan rp
+    ON rp.batch_no = rc.batch_no
+   AND rp.sales_executive_id = '$loginid'
+WHERE te.type = 'order'
+  AND te.is_approved = 1
+  AND te.billdate >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+  AND te.billdate < DATE_FORMAT(DATE_ADD(CURDATE(), INTERVAL 1 MONTH), '%Y-%m-01')";
 
 		$row = $this->executequery($sql);
 		$Monthsales = (float)($row[0]['Monthsales'] ?? 0);

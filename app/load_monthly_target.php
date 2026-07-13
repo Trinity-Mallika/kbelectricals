@@ -1,5 +1,4 @@
-<?php
-include("appsession.php");
+<?php include("appsession.php");
 
 $current_date = date('Y-m-d');
 $current_month_start = date('Y-m-01');
@@ -96,6 +95,39 @@ $approval_status = $obj->getvalfield(
     AND month='$target_month'
     AND year='$target_year'"
 );
+
+$brand_summary = $obj->executequery("
+SELECT
+    cm.cat_name,
+    mtd.brand_id,
+    SUM(mtd.target) AS total_target,
+    COUNT(DISTINCT mt.account_id) AS total_counters
+FROM monthly_target_details mtd
+
+INNER JOIN monthly_target mt
+    ON mt.target_id = mtd.target_id
+
+INNER JOIN route_counter rc
+    ON rc.account_id = mt.account_id
+   AND rc.is_active = 1
+
+INNER JOIN route r
+    ON r.batch_no = rc.batch_no
+
+INNER JOIN category_master cm
+    ON cm.cat_id = mtd.brand_id
+
+WHERE
+    mt.createdby = '$loginid'
+    AND mt.month = '$target_month'
+    AND mt.year = '$target_year'
+    $where
+GROUP BY
+    mtd.brand_id,
+    cm.cat_name
+ORDER BY
+    total_target DESC
+");
 ?>
 
 <!-- SEARCH -->
@@ -109,13 +141,15 @@ $approval_status = $obj->getvalfield(
 
 </div>
 
+
+
 <?php if ($approval_status == 'Approved') { ?>
 
     <div class="alert alert-success mt-2">
 
         <strong>Target Approved</strong><br>
 
-        Monthly target has been approved by management.
+        Monthly target has been approved by admin.
         Editing has been locked.
 
     </div>
@@ -125,6 +159,8 @@ $approval_status = $obj->getvalfield(
 <?php
 $overall_total = 0;
 $slno = 1;
+
+
 foreach ($res as $key) {
     $target_id = (int)$obj->getvalfield(
         "monthly_target",
@@ -299,12 +335,37 @@ foreach ($res as $key) {
 
 <?php $overall_total += $total_target;
 } ?>
+
+<?php if (count($brand_summary) > 0) { ?>
+
+    <div class="brand-summary-scroll mb-3">
+
+        <?php foreach ($brand_summary as $b) { ?>
+
+            <div class="brand-summary-card">
+
+                <div class="brand-summary-name">
+                    <?= htmlspecialchars($b['cat_name']) ?>
+                </div>
+
+                <div class="brand-summary-value">
+                    ₹<?= number_format($b['total_target']) ?>
+                </div>
+
+            </div>
+
+        <?php } ?>
+
+    </div>
+
+<?php } ?>
+
 <div class="counter-card mt-3 border border-primary">
 
     <div class="d-flex justify-content-between align-items-center">
 
         <div>
-            <div class="counter-name text-primary">
+            <div class="counter-name text-success">
                 Overall Target
             </div>
 
@@ -313,7 +374,7 @@ foreach ($res as $key) {
             </div>
         </div>
 
-        <div style="font-size:22px;font-weight:700;color:#0d6efd;">
+        <div style="font-size:22px;font-weight:700;color:#198754;">
             ₹<?= number_format($overall_total) ?>
         </div>
 

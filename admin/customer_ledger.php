@@ -107,7 +107,7 @@ if ($account_id > 0) {
                         <div class="card-header text-white">
                             <?php echo $submodule; ?> Record
                             <div class="float-end">
-                                <a href="customer_ledger_mpdf.php?fromdate=<?= $fromdate ?>&todate=<?= $todate ?>&account_id=<?= $account_id; ?>" target="_blank" class="btn btn-sm btn-danger"><i class="fa fa-file-pdf"></i>Export PDF</a>
+                                <a href="customer_ledger_mpdf.php?fromdate=<?= $fromdate ?>&todate=<?= $todate ?>&account_id=<?= $account_id; ?>&loginid=<?= $loginid ?>" target="_blank" class="btn btn-sm btn-danger"><i class="fa fa-file-pdf"></i>Export PDF</a>
                             </div>
                         </div>
                         <div class="card-body" id="printArea">
@@ -246,15 +246,15 @@ if ($account_id > 0) {
                                                     <td class="text-dark fw-semibold"><?php echo $row['particular']; ?></td>
 
                                                     <td class="text-end text-dark fw-semibold">
-                                                        <?php echo $debit > 0 ? number_format($debit, 2) : '-'; ?>
+                                                        <?php echo $debit > 0 ? 'Rs. ' . number_format($debit, 2) : '-'; ?>
                                                     </td>
 
                                                     <td class="text-end text-dark fw-semibold">
-                                                        <?php echo $credit > 0 ? number_format($credit, 2) : '-'; ?>
+                                                        <?php echo $credit > 0 ? 'Rs. ' . number_format($credit, 2) : '-'; ?>
                                                     </td>
 
                                                     <td class="text-end text-dark fw-semibold">
-                                                        <?php echo number_format(abs($balance), 2) . " " . $bal_type; ?>
+                                                        <?php echo 'Rs. ' . number_format(abs($balance), 2) . " " . $bal_type; ?>
                                                     </td>
                                                 </tr>
                                             <?php } ?>
@@ -265,16 +265,16 @@ if ($account_id > 0) {
                                                 <th colspan="3" class="text-end border-dark text-dark fw-bold ">Grand Total</th>
 
                                                 <th class="text-end border-dark text-dark fw-bold">
-                                                    <?php echo number_format($total_debit, 2); ?>
+                                                    <?php echo 'Rs. ' . number_format($total_debit, 2); ?>
                                                 </th>
 
                                                 <th class="text-end border-dark text-dark fw-bold">
-                                                    <?php echo number_format($total_credit, 2); ?>
+                                                    <?php echo 'Rs. ' . number_format($total_credit, 2); ?>
                                                 </th>
 
                                                 <th class="text-end border-dark text-dark fw-bold">
                                                     <?php
-                                                    echo number_format(abs($balance), 2)
+                                                    echo 'Rs. ' . number_format(abs($balance), 2)
                                                         . " " . ($balance >= 0 ? 'Dr' : 'Cr');
                                                     ?>
                                                 </th>
@@ -317,59 +317,6 @@ if ($account_id > 0) {
         $('#example').DataTable();
         $(".chosen-select").chosen();
     });
-
-    async function exportPDF() {
-
-        const {
-            jsPDF
-        } = window.jspdf;
-
-        const element = document.getElementById("printArea");
-
-        const canvas = await html2canvas(element, {
-            scale: 2,
-            useCORS: true
-        });
-
-        const imgData = canvas.toDataURL("image/png");
-
-        const pdf = new jsPDF('l', 'mm', 'a4');
-
-        const pageWidth = pdf.internal.pageSize.getWidth();
-
-        const pageHeight = canvas.height * pageWidth / canvas.width;
-
-        pdf.addImage(
-            imgData,
-            'PNG',
-            0,
-            0,
-            pageWidth,
-            pageHeight
-        );
-
-        pdf.save("<?= $account_name; ?>_ledger.pdf");
-
-    }
-
-    function exportMPDF() {
-        const fromdate = document.getElementById('fromdate').value;
-        const todate = document.getElementById('todate').value;
-        const account_id = document.getElementById('account_id').value;
-
-        if (!account_id) {
-            alert('Please select a customer/counter first');
-            return;
-        }
-
-        if (!fromdate || !todate) {
-            alert('Please select date range');
-            return;
-        }
-
-        // Redirect to mPDF export page
-        window.location.href = 'customer_ledger_mpdf.php?fromdate=' + fromdate + '&todate=' + todate + '&account_id=' + account_id;
-    }
 </script>
 
 </html>

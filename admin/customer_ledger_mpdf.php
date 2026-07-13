@@ -1,10 +1,11 @@
 <?php
-include("../adminsession.php");
+include("../action.php");
 
 require_once 'mpdf/vendor/autoload.php';
 
 $fromdate = isset($_GET['fromdate']) ? $_GET['fromdate'] : date('Y-m-d');
 $todate   = isset($_GET['todate'])   ? $_GET['todate']   : date('Y-m-d');
+$loginid   = isset($_GET['loginid']) ? $_GET['loginid'] : 0;
 $account_id   = isset($_GET['account_id']) ? $_GET['account_id'] : 0;
 $sqledit = $obj->select_record("account", ["account_id" => $account_id]);
 $account_name = $sqledit['account_name'];
@@ -209,9 +210,9 @@ foreach ($ledger_array as $row) {
 
     $html .= '</td>
         <td>' . htmlspecialchars($row['particular']) . '</td>
-        <td class="text-end">' . ($debit > 0 ? number_format($debit, 2) : '-') . '</td>
-        <td class="text-end">' . ($credit > 0 ? number_format($credit, 2) : '-') . '</td>
-        <td class="text-end"><strong>' . number_format(abs($balance), 2) . ' ' . $bal_type . '</strong></td>
+        <td class="text-end">Rs. ' . ($debit > 0 ? number_format($debit, 2) : '-') . '</td>
+        <td class="text-end">Rs. ' . ($credit > 0 ? number_format($credit, 2) : '-') . '</td>
+        <td class="text-end"><strong>Rs. ' . number_format(abs($balance), 2) . ' ' . $bal_type . '</strong></td>
     </tr>';
 }
 
@@ -219,9 +220,9 @@ $html .= '</tbody>
     <tfoot>
         <tr class="grand-total">
             <td colspan="3" class="text-end">Grand Total</td>
-            <td class="text-end">' . number_format($total_debit, 2) . '</td>
-            <td class="text-end">' . number_format($total_credit, 2) . '</td>
-            <td class="text-end">' . number_format(abs($balance), 2) . ' ' . ($balance >= 0 ? 'Dr' : 'Cr') . '</td>
+            <td class="text-end">Rs. ' . number_format($total_debit, 2) . '</td>
+            <td class="text-end">Rs. ' . number_format($total_credit, 2) . '</td>
+            <td class="text-end">Rs. ' . number_format(abs($balance), 2) . ' ' . ($balance >= 0 ? 'Dr' : 'Cr') . '</td>
         </tr>
     </tfoot>
 </table>
@@ -266,4 +267,4 @@ if (file_exists($watermark_path)) {
 $mpdf->WriteHTML($html);
 
 $filename = str_replace(' ', '_', $account_name) . '_' . date('Y-m-d') . '.pdf';
-$mpdf->Output($filename,'I');
+$mpdf->Output($filename,'D');

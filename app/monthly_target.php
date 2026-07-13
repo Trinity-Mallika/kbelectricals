@@ -180,6 +180,43 @@ if (!empty($_GET['week_day'])) {
             left: 50%;
             transform: translate(-50%, -50%);
         }
+
+        .brand-summary-scroll {
+            display: flex;
+            overflow-x: auto;
+            gap: 10px;
+            margin: 12px 0;
+            padding-bottom: 5px;
+            scrollbar-width: none;
+        }
+
+        .brand-summary-scroll::-webkit-scrollbar {
+            display: none;
+        }
+
+        .brand-summary-card {
+            min-width: 120px;
+            background: #fff;
+            border-radius: 12px;
+            padding: 10px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, .08);
+            border-top: 3px solid #0d6efd;
+            flex-shrink: 0;
+        }
+
+        .brand-summary-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .brand-summary-value {
+            margin-top: 5px;
+            font-size: 18px;
+            font-weight: 700;
+            color: #0d6efd;
+        }
     </style>
 </head>
 
@@ -401,7 +438,7 @@ if (!empty($_GET['week_day'])) {
             },
 
             success: function(res) {
-            console.log(res);
+                console.log(res);
                 hide_loader();
 
                 if (res == 1) {

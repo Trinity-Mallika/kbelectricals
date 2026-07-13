@@ -5,76 +5,106 @@ $pagename = "route-wise-details.php";
 $month_digi = date('m');
 $year       = date('Y');
 $batch_no = isset($_GET['batch_no']) ? $obj->test_input($_GET['batch_no']) : '';
-$batch_crit = $batch_no ? "AND rc.batch_no='$batch_no'" : '';
+
+$route_filter_rc = !empty($batch_no) ? " AND rc.batch_no='$batch_no' " : "";
+$route_filter_r  = !empty($batch_no) ? " AND r.batch_no='$batch_no' " : "";
+$route_filter_rp = !empty($batch_no) ? " AND rp.batch_no='$batch_no' " : "";
 
 $routes = $obj->executequery("
-    SELECT
-        r.route_id,
-        r.route_name,
-        r.batch_no,
-        SUM(mt.total_target) AS route_target
-    FROM monthly_target mt
-    INNER JOIN account        a  ON a.account_id  = mt.account_id
-    INNER JOIN route_counter  rc ON rc.account_id = a.account_id
-    INNER JOIN route          r  ON r.batch_no    = rc.batch_no
-    WHERE mt.createdby = '$loginid'
-      AND mt.month = '$month_digi'
-      AND mt.year  = '$year'
-      $batch_crit
-    GROUP BY r.route_id, r.route_name, r.batch_no
-    ORDER BY r.route_name
+SELECT
+    r.route_id,
+    r.route_name,
+    r.batch_no,
+    COALESCE(SUM(mt.total_target),0) AS route_target
+FROM route_plan rp
+INNER JOIN route r
+    ON r.batch_no = rp.batch_no
+LEFT JOIN route_counter rc
+    ON rc.batch_no = r.batch_no
+   AND rc.is_active=1
+LEFT JOIN monthly_target mt
+    ON mt.account_id = rc.account_id
+   AND mt.createdby = '$loginid'
+   AND mt.month = '$month_digi'
+   AND mt.year = '$year'
+WHERE rp.sales_executive_id='$loginid'
+$route_filter_r
+GROUP BY r.route_id,r.route_name,r.batch_no
+ORDER BY r.route_name
 ");
 
 $all_counters = $obj->executequery("
-    SELECT
-        mt.target_id,
-        mt.comment,
-        a.account_id,
-        a.account_name,
-        r.route_id
-    FROM monthly_target mt
-    INNER JOIN account        a  ON a.account_id  = mt.account_id
-    INNER JOIN route_counter  rc ON rc.account_id = a.account_id
-    INNER JOIN route          r  ON r.batch_no    = rc.batch_no
-    WHERE mt.createdby = '$loginid'
-      AND mt.month = '$month_digi'
-      AND mt.year  = '$year'
-      $batch_crit
-    ORDER BY a.account_name
+SELECT
+    a.account_id,
+    a.account_name,
+    r.route_id,
+    mt.target_id,
+    mt.comment,
+    CASE
+        WHEN mt.target_id IS NULL THEN 0
+        ELSE 1
+    END AS has_target
+FROM route_plan rp
+INNER JOIN route r
+    ON r.batch_no=rp.batch_no
+INNER JOIN route_counter rc
+    ON rc.batch_no=r.batch_no
+   AND rc.is_active=1
+INNER JOIN account a
+    ON a.account_id=rc.account_id
+LEFT JOIN monthly_target mt
+    ON mt.account_id=a.account_id
+   AND mt.createdby='$loginid'
+   AND mt.month='$month_digi'
+   AND mt.year='$year'
+WHERE rp.sales_executive_id='$loginid'
+$route_filter_rc
+ORDER BY r.route_name,a.account_name
 ");
 
 $all_brands = $obj->executequery("
-    SELECT
-        mtd.target_id,
-        mtd.brand_id,
-        mtd.target,
-        cm.cat_name
-    FROM monthly_target_details mtd
-    INNER JOIN monthly_target mt ON mt.target_id = mtd.target_id
-    INNER JOIN route_counter  rc ON rc.account_id = mt.account_id
-    INNER JOIN category_master cm ON cm.cat_id = mtd.brand_id
-    WHERE mt.createdby = '$loginid'
-      AND mt.month = '$month_digi'
-      AND mt.year  = '$year'
-      $batch_crit
+SELECT
+    mtd.target_id,
+    mtd.brand_id,
+    mtd.target,
+    cm.cat_name
+FROM monthly_target_details mtd
+INNER JOIN monthly_target mt
+    ON mt.target_id = mtd.target_id
+INNER JOIN route_counter rc
+    ON rc.account_id = mt.account_id
+   AND rc.is_active = 1
+INNER JOIN category_master cm
+    ON cm.cat_id = mtd.brand_id
+WHERE mt.createdby='$loginid'
+  AND mt.month='$month_digi'
+  AND mt.year='$year'
+$route_filter_rc
 ");
 
 $all_achieved = $obj->executequery("
-    SELECT
-        t.account_id,
-        td.brand_id,
-        SUM(td.net_amt) AS achieved
-    FROM transaction_details td
-    INNER JOIN transaction_entry t ON t.transaction_id = td.transaction_id
-    INNER JOIN monthly_target     mt ON mt.account_id = t.account_id
-                                     AND mt.createdby  = '$loginid'
-                                     AND mt.month      = '$month_digi'
-                                     AND mt.year       = '$year'
-    WHERE MONTH(t.billdate) = '$month_digi'
-      AND YEAR(t.billdate)  = '$year'
-      AND t.type       = 'order'
-      AND t.is_approved = 1
-    GROUP BY t.account_id, td.brand_id
+SELECT
+    t.account_id,
+    td.brand_id,
+    SUM(td.net_amt) AS achieved
+FROM transaction_entry t
+INNER JOIN transaction_details td
+    ON td.transaction_id=t.transaction_id
+INNER JOIN route_counter rc
+    ON rc.account_id=t.account_id
+   AND rc.is_active=1
+INNER JOIN route_plan rp
+    ON rp.batch_no=rc.batch_no
+WHERE
+    rp.sales_executive_id='$loginid'
+    $route_filter_rp
+    AND MONTH(t.billdate)='$month_digi'
+    AND YEAR(t.billdate)='$year'
+    AND t.type='order'
+    AND t.is_approved=1
+GROUP BY
+    t.account_id,
+    td.brand_id
 ");
 
 $counters_by_route = [];
@@ -108,10 +138,49 @@ $route_options = $obj->executequery("
                SEPARATOR ', ') AS days
     FROM route r
     LEFT JOIN route_plan rp ON rp.batch_no = r.batch_no
-    WHERE r.companyid = '$companyid'
-      AND rp.sales_executive_id = '$loginid'
+    WHERE rp.sales_executive_id = '$loginid'
     GROUP BY r.batch_no, r.route_name
     ORDER BY r.route_name
+");
+
+$brand_summary = $obj->executequery("
+SELECT
+    td.brand_id,
+    cm.cat_name,
+    SUM(td.net_amt) AS achieved,
+    COALESCE((
+        SELECT SUM(mtd.target)
+        FROM monthly_target_details mtd
+        INNER JOIN monthly_target mt
+            ON mt.target_id=mtd.target_id
+        INNER JOIN route_counter rc2
+            ON rc2.account_id=mt.account_id
+           AND rc2.is_active=1
+        WHERE mtd.brand_id=td.brand_id
+          AND mt.createdby='$loginid'
+          AND mt.month='$month_digi'
+          AND mt.year='$year'
+          " . (!empty($batch_no) ? " AND rc2.batch_no='$batch_no'" : "") . "
+    ),0) AS target
+FROM transaction_entry t
+INNER JOIN transaction_details td
+    ON td.transaction_id=t.transaction_id
+INNER JOIN category_master cm
+    ON cm.cat_id=td.brand_id
+INNER JOIN route_counter rc
+    ON rc.account_id=t.account_id
+   AND rc.is_active=1
+INNER JOIN route_plan rp
+    ON rp.batch_no=rc.batch_no
+WHERE
+    rp.sales_executive_id='$loginid'
+    $route_filter_rp
+    AND MONTH(t.billdate)='$month_digi'
+    AND YEAR(t.billdate)='$year'
+    AND t.type='order'
+    AND t.is_approved=1
+GROUP BY td.brand_id
+ORDER BY achieved DESC
 ");
 ?>
 <!DOCTYPE html>
@@ -308,6 +377,39 @@ $route_options = $obj->executequery("
         .route-header[aria-expanded="true"] .chev {
             transform: rotate(180deg);
         }
+
+        .brand-scroll {
+            display: flex;
+            overflow-x: auto;
+            gap: 12px;
+            padding-bottom: 6px;
+            scrollbar-width: none;
+        }
+
+        .brand-scroll::-webkit-scrollbar {
+            display: none;
+        }
+
+        .brand-card {
+            min-width: 165px;
+            background: #fff;
+            border-radius: 14px;
+            padding: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, .08);
+            flex-shrink: 0;
+        }
+
+        .brand-name {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .brand-sale {
+            color: #0d6efd;
+            font-weight: 700;
+            font-size: 18px;
+            margin-top: 4px;
+        }
     </style>
 </head>
 
@@ -321,6 +423,7 @@ $route_options = $obj->executequery("
                 <form class="card border-0 shadow-sm p-3">
                     <label class="form-label fw-semibold small mb-1">Select a Route</label>
                     <select name="batch_no" id="batch_no" class="form-control chosen-select mb-3">
+                        <option value="">All Routes</option>
                         <?php foreach ($route_options as $r): ?>
                             <option value="<?= $r['batch_no'] ?>"
                                 <?= ($batch_no == $r['batch_no']) ? 'selected' : '' ?>>
@@ -346,6 +449,66 @@ $route_options = $obj->executequery("
                 </div>
 
             <?php else: ?>
+                <div class="brand-summary mb-3">
+
+                    <h6 class="mb-2 fw-bold">
+                        🏆 Brand Performance
+                    </h6>
+
+                    <div class="brand-scroll">
+
+                        <?php foreach ($brand_summary as $b):
+
+                            $target = (float)$b['target'];
+                            $ach = (float)$b['achieved'];
+
+                            $pct = $target > 0
+                                ? round(($ach / $target) * 100)
+                                : 0;
+
+                            $clr = achievement_color($pct);
+
+                        ?>
+
+                            <div class="brand-card">
+
+                                <div class="brand-name">
+                                    <?= htmlspecialchars($b['cat_name']) ?>
+                                </div>
+
+                                <div class="brand-sale">
+                                    ₹<?= number_format($ach) ?>
+                                </div>
+
+                                <div class="progress mt-2" style="height:6px;">
+                                    <div class="progress-bar"
+                                        style="
+                        width:<?= min($pct, 100) ?>%;
+                        background:<?= $clr ?>;">
+                                    </div>
+                                </div>
+
+                                <div class="mt-1 d-flex justify-content-between small">
+
+                                    <span>
+                                        Target
+                                        ₹<?= number_format($target) ?>
+                                    </span>
+
+                                    <span style="color:<?= $clr ?>;font-weight:700;">
+                                        <?= $pct ?>%
+                                        <?= $pct > 100 ? '⭐' : '' ?>
+                                    </span>
+
+                                </div>
+
+                            </div>
+
+                        <?php endforeach; ?>
+
+                    </div>
+
+                </div>
                 <?php foreach ($routes as $route):
                     $r_target   = (float)$route['route_target'];
                     $r_achieved = 0;

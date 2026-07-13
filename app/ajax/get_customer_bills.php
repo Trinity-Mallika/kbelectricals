@@ -73,23 +73,23 @@ if ($opening_pending > 0) {
         $disabled = ($pending <= 0) ? "disabled" : "";
         $selected = ($bill_id == $row['transaction_id']) ? "selected" : "";
 
-        echo '<option
-            value="' . $row['transaction_id'] . '"
-            data-total="' . $total . '"
-            data-pending="' . $pending . '"
-            ' . $disabled . '
-            ' . $selected . '>';
+        $html .= '<option
+                value="' . $row['transaction_id'] . '"
+                data-total="' . $total . '"
+                data-pending="' . $pending . '"
+                ' . $disabled . '
+                ' . $selected . '>';
 
         if ($pending <= 0) {
-            echo '✅ ';
+            $html .= '✅ ';
         }
 
-        echo $row['invoice_no'] .
+        $html .= $row['invoice_no'] .
             ' (₹' . number_format($total, 2) .
             ' | Pending ₹' . number_format($pending, 2) .
             ') / ' . $obj->dateformatindia($row['billdate']);
 
-        echo '</option>';
+        $html .= '</option>';
     }
 }
 

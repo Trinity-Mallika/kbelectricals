@@ -211,7 +211,7 @@ if (isset($_GET[$tblpkey])) {
 
                                         <div class="col-md-3 mb-2">
                                             <strong> <label for="images">Rate <span class="text-danger fw-bold">*</span></label></strong>
-                                            <input type="number" class="form-control form-control-sm " name="rate" id="rate" value="<?php echo $rate ?>" placeholder="Enter Rate">
+                                            <input type="number" class="form-control form-control-sm " name="rate" id="rate" value="<?php echo $rate ?>" placeholder="Enter Rate" step="0.01">
                                         </div>
 
 

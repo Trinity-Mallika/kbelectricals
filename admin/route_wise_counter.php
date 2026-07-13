@@ -36,6 +36,7 @@ if (isset($_POST['submit'])) {
                 'batch_no'   => $batch_no,
                 'account_id' => $account_id,
                 'sequence'   => $sequence,
+                'is_active'   => 1,
                 'createdate' => $createdate,
                 'ipaddress'  => $ipaddress,
                 'companyid'  => $companyid,

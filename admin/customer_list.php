@@ -1,140 +1,19 @@
 <?php include("../adminsession.php");
-$title = "Create Counters / Customer";
-$pagename = "accounts.php";
-$module = "Add Counters / Customer";
-$submodule = "Counter/Customer Master";
+$title = "Counters / Customer List";
+$pagename = "customer_list.php";
+$module = "Counters / Customer List";
+$submodule = "Counter/Customer List";
 $btn_name = "Save";
 $tblname = "account";
 $tblpkey = "account_id";
-$keyvalue = (isset($_GET["account_id"])) ? $obj->test_input($_GET["account_id"]) : 0;
 $action = (isset($_GET["action"])) ? $obj->test_input($_GET["action"]) : "";
+$user_id = (isset($_GET["user_id"])) ? $obj->test_input($_GET["user_id"]) : "";
+$common_id = (isset($_GET["common_id"])) ? $obj->test_input($_GET["common_id"]) : "";
+$class = (isset($_GET["class"])) ? $obj->test_input($_GET["class"]) : "";
+$account_name = (isset($_GET["account_name"])) ? $obj->test_input($_GET["account_name"]) : "";
 
-if (isset($_POST['submit'])) {
-    $user_id = $obj->test_input($_POST['user_id']);
-    $account_name = $obj->test_input($_POST['account_name']);
-    $owner_name = $obj->test_input($_POST['owner_name']);
-    $o_mobile_no = $obj->test_input($_POST['o_mobile_no']);
-    $mobile_no = $obj->test_input($_POST['mobile_no']);
-    $opening_balance = $obj->test_input($_POST['opening_balance']);
-    $opening_date = $obj->test_input($_POST['opening_date']);
-    $area_id = $obj->test_input($_POST['area_id']);
-    $common_id = $obj->test_input($_POST['common_id']);
-    $type = ($common_id == -1) ? "employee" : "customer";
-    $no_of_kid  =   $obj->test_input($_POST['no_of_kid']);
-    $no_of_family  =   $obj->test_input($_POST['no_of_family']);
-    $doa  =  $_POST['doa'];
-    $dob  =  $_POST['dob'];
-
-    if ($common_id != 7) {
-        $status = '';
-        $class  = '';
-    } else {
-        $status = $obj->test_input($_POST['status']);
-        $class  = $obj->test_input($_POST['class']);
-    }
-
-    //check Duplicate
-    $count = $obj->getvalfield("$tblname", "count(*)", "account_name='$account_name' and $tblpkey!='$keyvalue'");
-
-    if ($count > 0) {
-        $action = 4;
-        $process = "Duplicate";
-    } else //insert
-    {
-        if ($keyvalue == 0) {
-
-            $form_data = array(
-                'userid' => $user_id,
-                'account_name' => $account_name,
-                'owner_name' => $owner_name,
-                'o_mobile_no' => $o_mobile_no,
-                'mobile_no' => $mobile_no,
-                'common_id' => $common_id,
-                'area_id' => $area_id,
-                'status' => $status,
-                'class' => $class,
-                'type' => $type,
-                'no_of_kid' => $no_of_kid,
-                'no_of_family' => $no_of_family,
-                'doa' => $doa,
-                'dob' => $dob,
-                'opening_balance' => $opening_balance,
-                'opening_date' => $opening_date,
-                'status1' => 1, // approved counter
-                'createdby' => $loginid,
-                'ipaddress' => $ipaddress,
-                "companyid" => $companyid,
-                'createdate' => $createdate
-            );
-            $obj->insert_record($tblname, $form_data);
-            $action = 1;
-            $process = "inserted";
-        } else {
-
-            //update
-            $form_data = array(
-                'userid' => $user_id,
-                'account_name' => $account_name,
-                'owner_name' => $owner_name,
-                'o_mobile_no' => $o_mobile_no,
-                'mobile_no' => $mobile_no,
-                'common_id' => $common_id,
-                'area_id' => $area_id,
-                'status' => $status,
-                'class' => $class,
-                'opening_balance' => $opening_balance,
-                'opening_date' => $opening_date,
-                'type' => $type,
-                'no_of_kid' => $no_of_kid,
-                'no_of_family' => $no_of_family,
-                'doa' => $doa,
-                'dob' => $dob,
-                'ipaddress' => $ipaddress,
-                "companyid" => $companyid,
-                'lastupdated' => $createdate
-            );
-            $where = array($tblpkey => $keyvalue);
-            $obj->update_record($tblname, $where, $form_data);
-            $action = 2;
-
-            $process = "updated";
-        }
-    }
-
-    echo "<script>location='$pagename?action=$action'</script>";
-    die;
-}
-
-
-if (isset($_GET[$tblpkey])) {
-    $btn_name = "Update";
-    $where = array($tblpkey => $keyvalue);
-    $sqledit = $obj->select_record($tblname, $where);
-    $user_id  =  $sqledit['userid'];
-    $account_name  =  $sqledit['account_name'];
-    $owner_name  =  $sqledit['owner_name'];
-    $o_mobile_no  =  $sqledit['o_mobile_no'];
-    $mobile_no  =  $sqledit['mobile_no'];
-    $opening_balance  =  $sqledit['opening_balance'];
-    $opening_date  =  $sqledit['opening_date'];
-    $common_id  =  $sqledit['common_id'];
-    $area_id  =  $sqledit['area_id'];
-    $status  =  $sqledit['status'];
-    $type  =  $sqledit['type'];
-    $class  =  $sqledit['class'];
-    $no_of_kid  =  $sqledit['no_of_kid'];
-    $no_of_family  =  $sqledit['no_of_family'];
-    $doa  =  $sqledit['doa'];
-    $dob  =  $sqledit['dob'];
-} else {
-    $account_name = $owner_name = $opening_balance = $o_mobile_no = $mobile_no = $address = $area_id =  "";
-    $type = $class = $no_of_kid = $no_of_family = $doa = $dob = $user_id = "";
-    $common_id = "7";
-    $status = "active";
-    $opening_date = date('Y-m-d');
-}
-
-$counterTypes = $obj->executequery("SELECT
+$counterTypes = $obj->executequery("
+    SELECT
         cm.common_name,
         COUNT(*) AS total
     FROM account a
@@ -171,9 +50,11 @@ $counterTypes = $obj->executequery("SELECT
             <div class="row">
                 <div class="col-lg-12">
                     <fieldset class="mt-2">
-                        <legend><?= $module ?></legend>
+                        <legend><?= $module ?>
+                            <a href="accounts.php" class="btn btn-sm btn-primary float-end">Add Customer/Counter</a>
+                        </legend>
                         <?php include('component/alert.php'); ?>
-                        <form action="" method="post">
+                        <form>
                             <div class="card">
                                 <div class="card-header text-white">
                                     <?= $module ?>
@@ -181,14 +62,14 @@ $counterTypes = $obj->executequery("SELECT
                                 <div class="card-body">
                                     <div class="row">
                                         <div class="col-md-3 mb-2">
-                                            <strong> <label for="user_id">Referred By<span class="text-danger fw-bold">*</span> </label></strong>
+                                            <strong> <label for="user_id">Referred By<span class="text-danger fw-bold"></span> </label></strong>
                                             <select name="user_id" id="user_id" class="chosen-select form-control form-control-sm">
                                                 <option value="">--Select Referred By--</option>
                                                 <?php
                                                 $sql = $obj->executequery("select userid,fullname,usertype from user where status='1' order by userid asc ");
                                                 foreach ($sql as $key) {
                                                 ?>
-                                                    <option value="<?= $key['userid'] ?>" data-type="<?= strtolower($key['usertype']) ?>"><?= $key['fullname'] ?></option>
+                                                    <option value="<?= $key['userid'] ?>"><?= $key['fullname'] ?></option>
                                                 <?php } ?>
                                             </select>
                                             <script>
@@ -196,29 +77,15 @@ $counterTypes = $obj->executequery("SELECT
                                             </script>
                                         </div>
                                         <div class="col-md-3 mb-2">
-                                            <strong> <label for="account_name">Counter / Customer Name <span class="text-danger fw-bold">*</span></label></strong>
+                                            <strong> <label for="account_name">Counter / Customer Name <span class="text-danger fw-bold"></span></label></strong>
                                             <input type="text" class="form-control form-control-sm" name="account_name" id="account_name" placeholder="Counter/Customer Name" value="<?php echo $account_name; ?>" autocomplete="off">
                                         </div>
                                         <div class="col-md-3 mb-2">
-                                            <strong> <label for="mobile_no">Whatsapp No. <span class="text-danger fw-bold">*</span></label> </strong>
-                                            <input type="text" class="form-control form-control-sm" name="mobile_no" id="mobile_no" placeholder="Whatsapp No." value="<?php echo $mobile_no; ?>" maxlength="10" autocomplete="off">
-                                        </div>
-                                        <div class="col-md-3 mb-2">
-                                            <strong> <label for="account_name">Owner Name <span class="text-danger fw-bold"></span></label></strong>
-                                            <input type="text" class="form-control form-control-sm" name="owner_name" id="owner_name" placeholder="Owner Name" value="<?php echo $owner_name; ?>" autocomplete="off">
-                                        </div>
-
-                                        <div class="col-md-3 mb-2">
-                                            <strong> <label for="mobile_no">Owner Mobile No. <span class="text-danger fw-bold"></span></label> </strong>
-                                            <input type="text" class="form-control form-control-sm" name="o_mobile_no" id="o_mobile_no" placeholder="Owner Mobile No." value="<?php echo $o_mobile_no; ?>" maxlength="10" autocomplete="off">
-                                        </div>
-
-                                        <div class="col-md-3 mb-2">
-                                            <strong> <label for="common_id">Counter Type<span class="text-danger fw-bold">*</span> </label></strong>
+                                            <strong> <label for="common_id">Counter Type<span class="text-danger fw-bold"></span> </label></strong>
                                             <select name="common_id" id="common_id" class="chosen-select form-control form-control-sm">
                                                 <option value="">--Select Counter Type--</option>
                                                 <?php
-                                                $sql = $obj->executequery("select common_id,common_name from common_master where type='acc_type' order by common_id asc ");
+                                                $sql = $obj->executequery("select common_id,common_name from common_master where type='acc_type' and common_id!='6' order by common_id asc ");
                                                 foreach ($sql as $key) {
                                                 ?>
                                                     <option value="<?= $key['common_id'] ?>"><?= $key['common_name'] ?></option>
@@ -228,8 +95,8 @@ $counterTypes = $obj->executequery("SELECT
                                                 document.getElementById('common_id').value = '<?php echo $common_id; ?>';
                                             </script>
                                         </div>
-                                        <div class="col-lg-3 col-md-4 col-sm-6 mb-2 retailer-fields">
-                                            <strong> <label for="class">Class<span class="text-danger fw-bold">*</span> </label></strong>
+                                        <div class="col-lg-3 col-md-4 col-sm-6 mb-2">
+                                            <strong> <label for="class">Class<span class="text-danger fw-bold"></span> </label></strong>
                                             <select name="class" id="class" class="chosen-select  form-control form-control-sm">
                                                 <option value="">--Select Class--</option>
                                                 <option value="A">A</option>
@@ -240,67 +107,9 @@ $counterTypes = $obj->executequery("SELECT
                                                 document.getElementById('class').value = '<?php echo $class; ?>';
                                             </script>
                                         </div>
-
-                                        <div class="col-lg-3 col-md-4 col-sm-6 retailer-fields">
-                                            <strong> <label for="status">Status<span class="text-danger fw-bold">*</span> </label></strong>
-                                            <select name="status" id="status" class="chosen-select  form-control form-control-sm">
-                                                <option value="">--Select Status--</option>
-                                                <option value="active">Active</option>
-                                                <option value="inactive">Inactive</option>
-                                            </select>
-                                            <script>
-                                                document.getElementById('status').value = '<?php echo $status; ?>';
-                                            </script>
-                                        </div>
-                                        <div class="col-md-3 mb-2">
-                                            <strong> <label for="area_id">Area<span class="text-danger fw-bold">*</span> </label></strong>
-                                            <select name="area_id" id="area_id" class="chosen-select  form-control form-control-sm">
-                                                <option value="">--Select Area--</option>
-                                                <?php
-                                                $sql = $obj->executequery("select area_id,area_name from area_master order by area_name asc ");
-                                                foreach ($sql as $key) {
-                                                ?>
-                                                    <option value="<?= $key['area_id'] ?>"><?= $key['area_name'] ?></option>
-                                                <?php } ?>
-                                            </select>
-                                            <script>
-                                                document.getElementById('area_id').value = '<?php echo $area_id; ?>';
-                                            </script>
-                                        </div>
-                                        <div class="col-md-3 mb-2">
-                                            <strong> <label for="mobile_no">D.O.B <span class="text-danger fw-bold"></span></label> </strong>
-                                            <input type="date" class="form-control form-control-sm" name="dob" id="dob" value="<?php echo $dob; ?>" maxlength="10" autocomplete="off">
-                                        </div>
-                                        <div class="col-md-3 mb-2">
-                                            <strong> <label for="mobile_no">D.O.A <span class="text-danger fw-bold"></span></label> </strong>
-                                            <input type="date" class="form-control form-control-sm" name="doa" id="doa" placeholder="Opening Date" value="<?php echo $doa; ?>" autocomplete="off">
-                                        </div>
-                                        <div class="col-md-3 mb-2">
-                                            <strong> <label for="mobile_no">No. Of Kids <span class="text-danger fw-bold"></span></label> </strong>
-                                            <input type="number" class="form-control form-control-sm" name="no_of_kid" id="no_of_kid" placeholder="No. Of Kids" value="<?php echo $no_of_kid; ?>" autocomplete="off">
-                                        </div>
-                                        <div class="col-md-3 mb-2">
-                                            <strong> <label for="mobile_no">No. Of Family Members <span class="text-danger fw-bold"></span></label> </strong>
-                                            <input type="number" class="form-control form-control-sm" name="no_of_family" id="no_of_family" placeholder="No. Of Family Members " value="<?php echo $no_of_family; ?>" autocomplete="off">
-                                        </div>
-
-                                        <div class="col-md-3 mb-2">
-                                            <strong> <label for="mobile_no">Opening Balance <span class="text-danger fw-bold"></span></label> </strong>
-                                            <input type="number" class="form-control form-control-sm" name="opening_balance" id="opening_balance" placeholder="Opening Balance" value="<?php echo $opening_balance; ?>" autocomplete="off">
-                                        </div>
-                                        <div class="col-md-3 mb-2">
-                                            <strong> <label for="mobile_no">Opening Date <span class="text-danger fw-bold"></span></label> </strong>
-                                            <input type="date" class="form-control form-control-sm" name="opening_date" id="opening_date" placeholder="Opening Date" value="<?php echo $opening_date; ?>" maxlength="10" autocomplete="off">
-                                        </div>
-                                        <!-- <div class="col-lg-6 col-md-6 col-sm-12 mb-2">
-                                            <strong> <label for="mobile">Address <span class="text-danger fw-bold"></span></label></strong>
-                                            <textarea class="form-control form-control-sm" name="address" id="address" placeholder="Address" autocomplete="off"><?php echo $address; ?></textarea>
-                                        </div> -->
-
                                         <div class="col-md-4 mt-4">
-                                            <input type="submit" name="submit" class="btn btn-theme btn-sm" value="<?php echo $btn_name; ?>" onclick="return checkinputmaster('user_id,account_name,common_id,area_id');">
+                                            <input type="submit" name="submit" class="btn btn-theme btn-sm" value="Search">
                                             <a href="<?php echo $pagename; ?>" class="btn btn-danger btn-sm"> Reset </a>
-                                            <input type="hidden" name="<?php echo $tblpkey; ?>" id="<?php echo $tblpkey; ?>" value="<?php echo $keyvalue; ?>">
                                         </div>
                                     </div>
                                 </div>
@@ -309,22 +118,25 @@ $counterTypes = $obj->executequery("SELECT
                     </fieldset>
                 </div>
             </div>
-            <div class="row mt-4 mb-2">
+            <div class="row mt-4 mb-4">
                 <div class="col-lg-12">
                     <div class="card">
+                        <div class="card-header text-white">
+                            <?php echo $submodule; ?> List
+                        </div>
                         <div class="card-body">
-                            <div class="row">
+                            <div class="row mb-3">
                                 <?php
                                 $colors = ['primary', 'success', 'dark', 'danger', 'info', 'secondary'];
                                 $i = 0;
                                 ?>
 
-                                <div class="row">
+                                <div class="row mb-3">
                                     <?php foreach ($counterTypes as $type) {
                                         $color = $colors[$i % count($colors)];
                                         $i++;
                                     ?>
-                                        <div class="col-lg-2 col-md-3 col-6">
+                                        <div class="col-lg-2 col-md-3 col-6 mb-3">
                                             <div class="card border-0 bg-<?= $color ?> text-white shadow">
                                                 <div class="card-body text-center py-3">
                                                     <h2 class="mb-0"><?= $type['total'] ?></h2>
@@ -335,18 +147,6 @@ $counterTypes = $obj->executequery("SELECT
                                     <?php } ?>
                                 </div>
                             </div>
-
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="row mt-4 mb-4">
-                <div class="col-lg-12">
-                    <div class="card">
-                        <div class="card-header text-white">
-                            <?php echo $submodule; ?> List
-                        </div>
-                        <div class="card-body">
                             <div class="table-responsive">
                                 <table id="example1" class="table table-bordered table-sm table-hover">
                                     <thead>
@@ -381,7 +181,6 @@ $counterTypes = $obj->executequery("SELECT
                                         <th style="display:none;">Opening Date</th>
                                         <th style="display:none;">Status</th>
                                         <th style="display:none;">Address</th>
-                                        <th style="display:none;">Referred By</th>
                                         <th style="display:none;">Assigned To</th>
                                     </thead>
                                     <tbody>
@@ -588,10 +387,9 @@ ORDER BY a.account_id DESC
                                                 <td style="display:none;"><?= $row_get['opening_date'] ?></td>
                                                 <td style="display:none;"><?= ucfirst($row_get['status']) ?></td>
                                                 <td style="display:none;"><?= $row_get['address'] ?></td>
-                                                <td style="display:none;"> <?= $row_get['referred_by_name'] ?: '-' ?></td>
                                                 <td style="display:none;">
                                                     <?php if (!empty($row_get['route_name'])) { ?>
-                                                        <?= $row_get['route_name']; ?> - <?= $row_get['sales_executive_name']; ?>
+                                                        <?= $row_get['sales_executive_name']; ?>
                                                     <?php } else { ?>
                                                         -
                                                     <?php } ?>
@@ -640,45 +438,6 @@ ORDER BY a.account_id DESC
     } //fun close
 
     $(document).ready(function() {
-
-        //called when key is pressed in textbox
-
-        $("#mobile_no,#o_mobile_no").keypress(function(e) {
-
-            //if the letter is not digit then display error and don't type anything
-
-            if (e.which != 8 && e.which != 0 && (e.which < 48 || e.which > 57)) {
-
-                //display error message
-
-                $("#errmsg").html("Digits Only").show().fadeOut("slow");
-
-                return false;
-
-            }
-
-        });
-
-    });
-
-    function toggleRetailerFields() {
-
-        var retailerText = $("#common_id option:selected").text().trim();
-
-        if (retailerText.toLowerCase() == "retailer") {
-
-            $(".retailer-fields").show();
-
-        } else {
-
-            $(".retailer-fields").hide();
-
-            $("#class").val('').trigger("chosen:updated");
-            $("#status").val('').trigger("chosen:updated");
-        }
-    }
-
-    $(document).ready(function() {
         $('#example1').DataTable({
 
             pageLength: 100,
@@ -707,7 +466,7 @@ ORDER BY a.account_id DESC
                     className: 'btn btn-success btn-sm',
 
                     exportOptions: {
-                        columns: [14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30]
+                        columns: [14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]
                     }
                 },
 
@@ -717,7 +476,7 @@ ORDER BY a.account_id DESC
                     className: 'btn btn-danger btn-sm',
 
                     exportOptions: {
-                        columns: [14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30]
+                        columns: [14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]
                     }
                 },
 
@@ -727,19 +486,12 @@ ORDER BY a.account_id DESC
                     className: 'btn btn-primary btn-sm',
 
                     exportOptions: {
-                        columns: [14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30]
+                        columns: [14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]
                     }
                 }
 
             ]
 
-        });
-
-
-        toggleRetailerFields();
-
-        $("#common_id").change(function() {
-            toggleRetailerFields();
         });
     });
 </script>

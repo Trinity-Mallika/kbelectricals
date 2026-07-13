@@ -32,7 +32,7 @@
                     <option value="">Select Company</option>
 
                     <?php
-                    $comps = $obj->executequery("SELECT * FROM company_setting ORDER BY company_name");
+                    $comps = $obj->executequery("SELECT * FROM company_setting ORDER BY company_id");
 
                     foreach ($comps as $comp) {
                     ?>
@@ -56,9 +56,6 @@
             $('#companyModal').modal('show');
         });
     <?php } ?>
-    $('#companyModal').click(function() {
-        $('#companyModal').modal('show');
-    });
 
     function set_company(company_id = '') {
         if (company_id != '') {
@@ -74,59 +71,57 @@
         }
     }
 
+    let show_user = '<?= $_SESSION['usertype'] ?>';
 
     $(document).ready(function() {
+
         $(".chosen-select").chosen({
             width: "100%",
             search_contains: true
         });
-    });
 
-
-    $(document).ready(function() {
-
-        $('#example').DataTable({
-
+        let options = {
             pageLength: 100,
 
             lengthMenu: [
                 [100, 200, 500, -1],
                 [100, 200, 500, "All"]
-            ],
+            ]
+        };
 
-            dom: "<'row align-items-center mb-3'\
-                <'col-md-3'l>\
-                <'col-md-5 text-center'B>\
-                <'col-md-4'f>\
-            >" +
+        if (show_user === "admin") {
+
+            options.dom =
+                "<'row align-items-center mb-3'" +
+                "<'col-md-3'l>" +
+                "<'col-md-5 text-center'B>" +
+                "<'col-md-4'f>" +
+                ">" +
                 "rt" +
-                "<'row mt-3'\
-                <'col-md-6'i>\
-                <'col-md-6'p>\
-            >",
+                "<'row mt-3'" +
+                "<'col-md-6'i>" +
+                "<'col-md-6'p>" +
+                ">";
 
-            buttons: [
-
-                {
+            options.buttons = [{
                     extend: 'excelHtml5',
                     text: 'Export Excel',
                     className: 'btn btn-success btn-sm'
                 },
-
                 {
                     extend: 'pdfHtml5',
                     text: 'Download PDF',
                     className: 'btn btn-danger btn-sm'
                 },
-
                 {
                     extend: 'print',
                     text: 'Print Table',
                     className: 'btn btn-primary btn-sm'
                 }
+            ];
+        }
 
-            ]
+        $('#example').DataTable(options);
 
-        });
     });
 </script>

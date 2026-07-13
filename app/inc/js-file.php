@@ -5,6 +5,7 @@
  <script src="assets/js/fancybox.js"></script>
  <script src="assets/js/daterange-movement.js"></script>
  <script src="assets/choosen-select/chosen.jquery.min.js"></script>
+ <script src="assets/js/commonfun.js"></script>
 
  <script>
      function loadNotifications() {
