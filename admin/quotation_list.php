@@ -165,26 +165,18 @@ $crit = " and billdate between '$fromdate' and '$todate' ";
                                                     </button>
                                                 </td>
                                                 <td>
-                                                    <?php $chkedit = $obj->check_editBtn($pagename, $loginid);
-                                                    if ($chkedit > 0 || $_SESSION['usertype'] == 'admin') {
-                                                    ?>
-                                                        <?php if ($rowget['conversion_status'] == 0) { ?>
-                                                            <a class="btn btn-sm btn-outline-success" href="quotation.php?transaction_id=<?php echo $rowget['transaction_id']; ?>">
-                                                                <i class="bi bi-pencil-square"></i>
-                                                            </a>
-                                                    <?php }
-                                                    } ?>
+                                                    <?php if ($rowget['conversion_status'] == 0) { ?>
+                                                        <a class="btn btn-sm btn-outline-success" href="quotation.php?transaction_id=<?php echo $rowget['transaction_id']; ?>">
+                                                            <i class="bi bi-pencil-square"></i>
+                                                        </a>
+                                                    <?php } ?>
                                                 </td>
                                                 <td>
+                                                    <?php if ($rowget['conversion_status'] == 0) { ?>
+                                                        <button type="button" title="Delete" class="btn btn-sm btn-danger" onclick="funDel('<?php echo $rowget['transaction_id']; ?>');">
+                                                            <i class="bi bi-trash3-fill"></i>
+                                                        </button>
                                                     <?php
-                                                    $chkdel = $obj->check_delBtn($pagename, $loginid);
-                                                    if ($chkdel > 0 || $_SESSION['usertype'] == 'admin') {
-                                                    ?>
-                                                        <?php if ($rowget['conversion_status'] == 0) { ?>
-                                                            <button type="button" title="Delete" class="btn btn-sm btn-danger" onclick="funDel('<?php echo $rowget['transaction_id']; ?>');">
-                                                                <i class="bi bi-trash3-fill"></i>
-                                                            </button>
-                                                    <?php }
                                                     } ?>
                                                 </td>
                                             </tr>

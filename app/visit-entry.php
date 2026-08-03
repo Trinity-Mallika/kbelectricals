@@ -45,8 +45,9 @@ function getDistanceMeters($lat1, $lon1, $lat2, $lon2)
     return $earthRadius * $c;
 }
 
-define('DIST_CLEAN',   200);
-define('DIST_WARN',    500);
+define('DIST_CLEAN',   50);
+define('DIST_WARN',    100);
+define('CHECKOUT_ACCURACY_ALLOWANCE_CAP', 150);
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
@@ -58,6 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $latitude            = $obj->test_input($_POST['latitude']);
     $longitude           = $obj->test_input($_POST['longitude']);
     $address             = $obj->test_input($_POST['address']);
+    $accuracy            = isset($_POST['accuracy']) ? (float)$obj->test_input($_POST['accuracy']) : 0;
     $common_id           = (!empty($_POST['common_id'])) ? $obj->test_input($_POST['common_id']) : '';
     $dob                 = (!empty($_POST['dob'])) ? $obj->test_input($_POST['dob']) : '';
     $doa                 = (!empty($_POST['doa'])) ? $obj->test_input($_POST['doa']) : '';
@@ -77,8 +79,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
     $distance = getDistanceMeters($lat_in, $lon_in, $latitude, $longitude);
     $distance_rounded = round($distance, 2);
+    $accuracyAllowance = min($accuracy, CHECKOUT_ACCURACY_ALLOWANCE_CAP);
+    $distWarnAllowed  = DIST_WARN + $accuracyAllowance;
+    $distCleanAllowed = DIST_CLEAN + $accuracyAllowance;
 
-    if ($distance > DIST_WARN) {
+    if ($distance > $distWarnAllowed) {
         echo json_encode([
             'status'   => 'out_of_range',
             'distance' => $distance_rounded
@@ -86,7 +91,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         exit;
     }
 
-    if ($distance > DIST_CLEAN && !$force_checkout) {
+    if ($distance > $distCleanAllowed && !$force_checkout) {
         echo json_encode([
             'status'   => 'warned_range',
             'distance' => $distance_rounded
@@ -150,6 +155,40 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 }
             }
             $form_data['imgname'] = $filename;
+
+            if (empty($acc_data['counter_image'])) {
+                $counterImagesPath = "../admin/uploaded/accounts/";
+                if (!is_dir($counterImagesPath)) {
+                    @mkdir($counterImagesPath, 0755, true);
+                }
+
+                if (@copy($imgpath . $filename, $counterImagesPath . $filename)) {
+                    $obj->update_record(
+                        "account",
+                        ["account_id" => $account_id],
+                        ["counter_image" => $filename]
+                    );
+                }
+            }
+        }
+    }
+
+
+    if (!empty($_POST['imgname'])) {
+        $filename = $obj->test_input($_POST['imgname']);
+        if (empty($acc_data['counter_image'])) {
+            $counterImagesPath = "../admin/uploaded/accounts/";
+            if (!is_dir($counterImagesPath)) {
+                @mkdir($counterImagesPath, 0755, true);
+            }
+
+            if (@copy($imgpath . $filename, $counterImagesPath . $filename)) {
+                $obj->update_record(
+                    "account",
+                    ["account_id" => $account_id],
+                    ["counter_image" => $filename]
+                );
+            }
         }
     }
 
@@ -171,13 +210,20 @@ if (isset($_GET[$tblpkey])) {
     $decision_maker_name = $sqledit['decision_maker_name'];
     $mobile_no           = $sqledit['mobile_no'];
     $o_mobile_no           = $sqledit['o_mobile_no'];
-    $imgname             = $sqledit['imgname'];
     $common_id           = $sqledit['common_id'];
     $follow_up_date      = $sqledit['follow_up_date'];
     $remarks             = $sqledit['remarks'];
 } else {
-    $mobile_no = $imgname = $decision_maker_name = $common_id = $remarks = "";
+    $mobile_no = $decision_maker_name = $common_id = $remarks = "";
     $follow_up_date = date("Y-m-d");
+}
+
+if (!empty($acc_data['counter_image'])) {
+    $photo = "../admin/uploaded/accounts/" . $acc_data['counter_image'];
+} elseif (!empty($visitRow['imgname'])) {
+    $photo = "uploads/daily_entry/" . $visitRow['imgname'];
+} else {
+    $photo = "";
 }
 ?>
 <!DOCTYPE html>
@@ -303,16 +349,20 @@ if (isset($_GET[$tblpkey])) {
                         </div>
 
                         <!-- Photo -->
-                        <input type="hidden" name="imgname" value="<?= $visitRow['imgname'] ?>">
-                        <div class="col-12 mb-3">
-                            <label class="form-label">Photo <span class="text-danger fw-bold">*</span></label>
-                            <input type="file" name="imgname" accept="image/*" capture="environment" class="form-control">
-                        </div>
-                        <?php if (!empty($visitRow['imgname'])) { ?>
-                            <div class="mt-2">
-                                <img src="uploads/daily_entry/<?= $visitRow['imgname'] ?>"
+                        <?php if (empty($photo)) { ?>
+                            <div class="col-12 mb-3">
+                                <label class="form-label">Photo <span class="text-danger fw-bold">*</span></label>
+                                <input type="file" name="imgname" accept="image/*" capture="environment" class="form-control">
+                            </div>
+                        <?php }
+                        if (!empty($photo)) { ?>
+                            <div class="col-12 mb-3">
+                                <label class="form-label">Photo <span class="text-danger fw-bold">*</span></label>
+                                <br>
+                                <img src="<?= $photo; ?>"
                                     alt="Image" style="width:120px;border-radius:10px;border:1px solid #ddd;">
                             </div>
+                            <input type="hidden" name="imgname" value="<?= ($acc_data['counter_image'] != '') ? $acc_data['counter_image'] : $visitRow['imgname'] ?>">
                         <?php } ?>
 
                         <!-- Follow-up Date -->
@@ -333,6 +383,7 @@ if (isset($_GET[$tblpkey])) {
                         <input type="hidden" name="latitude" id="latitude">
                         <input type="hidden" name="longitude" id="longitude">
                         <input type="hidden" name="address" id="address">
+                        <input type="hidden" name="accuracy" id="accuracy">
                         <input type="hidden" name="force_checkout" id="force_checkout" value="0">
                         <input type="hidden" name="<?= $tblpkey ?>" value="<?= $keyvalue ?>">
 
@@ -354,6 +405,104 @@ if (isset($_GET[$tblpkey])) {
     <?php include("inc/js-file.php"); ?>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
+        const GOOGLE_API_KEY = "AIzaSyD60TsOPfBQDMpiGwEWusBT-UBUUM6Y8O8";
+
+        const TARGET_ACCURACY = 25;
+        const MAX_WAIT_TIME = 30000;
+
+        function getAccurateLocation(onProgress) {
+            return new Promise((resolve, reject) => {
+
+                if (!navigator.geolocation) {
+                    reject('Geolocation is not supported by this browser.');
+                    return;
+                }
+
+                let bestPosition = null;
+                let bestAccuracy = Infinity;
+                let watchId = null;
+                let finished = false;
+
+                function finish() {
+                    if (finished) return;
+                    finished = true;
+                    if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+
+                    if (bestPosition) {
+                        resolve({
+                            lat: bestPosition.coords.latitude,
+                            lng: bestPosition.coords.longitude,
+                            accuracy: bestPosition.coords.accuracy
+                        });
+                    } else {
+                        reject('GPS location not found. Please turn on GPS and try again.');
+                    }
+                }
+
+                watchId = navigator.geolocation.watchPosition(
+                    function(position) {
+                        let accuracy = position.coords.accuracy;
+
+                        if (accuracy < bestAccuracy) {
+                            bestAccuracy = accuracy;
+                            bestPosition = position;
+                            if (onProgress) onProgress(accuracy);
+                        }
+
+                        if (bestAccuracy <= TARGET_ACCURACY) {
+                            finish();
+                        }
+                    },
+                    function(error) {
+                        if (finished) return;
+                        finished = true;
+                        if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+
+                        let message = 'Location permission denied. Please allow GPS.';
+                        if (error.code === 1) message = 'Location permission denied. Please enable location access.';
+                        else if (error.code === 2) message = 'Location unavailable. Please turn on GPS.';
+                        else if (error.code === 3) message = 'Location timeout. Please try again.';
+                        reject(message);
+                    }, {
+                        enableHighAccuracy: true,
+                        maximumAge: 0,
+                        timeout: MAX_WAIT_TIME
+                    }
+                );
+
+                setTimeout(finish, MAX_WAIT_TIME);
+            });
+        }
+
+        async function reverseGeocode(lat, lng) {
+            try {
+                let res = await fetch(
+                    'https://maps.googleapis.com/maps/api/geocode/json?latlng=' +
+                    lat + ',' + lng + '&key=' + GOOGLE_API_KEY
+                );
+                let data = await res.json();
+
+                if (data.status === 'OK' && data.results.length > 0) {
+                    return data.results[0].formatted_address;
+                }
+            } catch (e) {
+                console.log('Google geocode failed', e);
+            }
+
+            try {
+                let res = await fetch(
+                    'https://nominatim.openstreetmap.org/reverse?format=json' +
+                    '&lat=' + lat + '&lon=' + lng + '&zoom=18&addressdetails=1'
+                );
+                let data = await res.json();
+                return data.display_name || '';
+            } catch (e) {
+                console.log('OSM geocode failed', e);
+                return '';
+            }
+        }
+        // ---------------------------------------------------------------
+
         $(document).ready(function() {
             $(".chosen-select").chosen({
                 width: "100%",
@@ -394,60 +543,60 @@ if (isset($_GET[$tblpkey])) {
         });
 
 
-        function getLocationAndProceed(btn) {
-            if (!navigator.geolocation) {
-                Swal.fire("Error", "Geolocation not supported on this device", "error");
-                enableBtn(btn);
-                return;
-            }
+        async function getLocationAndProceed(btn) {
 
-            navigator.geolocation.getCurrentPosition(
-                function(position) {
-                    if (position.coords.accuracy > 100) {
-                        Swal.fire({
-                            icon: 'warning',
-                            title: 'Weak GPS Signal',
-                            text: `Accuracy is ±${Math.round(position.coords.accuracy)}m. Please move to an open area and try again.`
-                        });
+            Swal.fire({
+                title: 'Finding accurate GPS location...',
+                allowOutsideClick: false,
+                didOpen: () => Swal.showLoading()
+            });
+
+            try {
+                const loc = await getAccurateLocation((accuracy) => {
+                    Swal.update({
+                        title: 'Improving GPS accuracy...',
+                        html: 'Current accuracy: ' + accuracy.toFixed(1) + ' meter'
+                    });
+                });
+
+                // Best effort still weak after the full wait -> warn, but let
+                // the user decide whether to proceed (server-side accuracy
+                // allowance also softens the distance check for them).
+                if (loc.accuracy > 100) {
+                    const result = await Swal.fire({
+                        icon: 'warning',
+                        title: 'Weak GPS Signal',
+                        html: `Best accuracy achieved was ±${Math.round(loc.accuracy)}m.<br>Move to an open area for a better fix, or continue anyway.`,
+                        showCancelButton: true,
+                        confirmButtonText: 'Continue Anyway',
+                        cancelButtonText: 'Try Again'
+                    });
+
+                    if (!result.isConfirmed) {
                         enableBtn(btn);
                         return;
                     }
-
-                    let lat = position.coords.latitude;
-                    let lon = position.coords.longitude;
-
-                    fetch('location.php', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/x-www-form-urlencoded'
-                            },
-                            body: new URLSearchParams({
-                                latitude: lat,
-                                longitude: lon
-                            })
-                        })
-                        .then(r => r.json())
-                        .then(data => {
-                            $('#latitude').val(lat);
-                            $('#longitude').val(lon);
-                            $('#address').val(data.address || '');
-                            submitDailyEntryForm(btn);
-                        })
-                        .catch(() => {
-                            $('#latitude').val(lat);
-                            $('#longitude').val(lon);
-                            submitDailyEntryForm(btn);
-                        });
-                },
-                function(error) {
-                    Swal.fire("Location Error", "Could not fetch location. Please enable GPS and try again.", "warning");
-                    enableBtn(btn);
-                }, {
-                    enableHighAccuracy: true,
-                    timeout: 15000,
-                    maximumAge: 0
                 }
-            );
+
+                Swal.fire({
+                    title: 'Fetching address...',
+                    allowOutsideClick: false,
+                    didOpen: () => Swal.showLoading()
+                });
+
+                const address = await reverseGeocode(loc.lat, loc.lng);
+
+                $('#latitude').val(loc.lat);
+                $('#longitude').val(loc.lng);
+                $('#address').val(address || '');
+                $('#accuracy').val(loc.accuracy);
+
+                submitDailyEntryForm(btn);
+
+            } catch (msg) {
+                Swal.fire('Location Error', typeof msg === 'string' ? msg : 'Could not fetch location. Please enable GPS and try again.', 'warning');
+                enableBtn(btn);
+            }
         }
 
         function submitDailyEntryForm(btn) {
@@ -506,7 +655,7 @@ if (isset($_GET[$tblpkey])) {
                             icon: 'error',
                             title: 'Too Far Away',
                             html: `You are <b>${res.distance} m</b> away from the check-in point.<br>
-                           Maximum allowed distance is <b>75 m</b>.<br>
+                           Maximum allowed distance is <b>100 m</b>.<br>
                            Please move closer and try again.`
                         });
                         return enableBtn(btn);
@@ -517,7 +666,7 @@ if (isset($_GET[$tblpkey])) {
                             icon: 'warning',
                             title: 'Slightly Out of Range',
                             html: `You are <b>${res.distance} m</b> away from the check-in point.<br>
-                           Ideal checkout distance is within <b>30 m</b>.<br><br>
+                           Ideal checkout distance is within <b>50 m</b>.<br><br>
                            Do you still want to checkout?`,
                             showCancelButton: true,
                             confirmButtonText: 'Yes, Checkout',

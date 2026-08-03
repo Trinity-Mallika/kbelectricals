@@ -25,17 +25,26 @@ $Monthsales    = $data['Monthsales'];
 $pending_amount = $data['pending_amount'];
 $route_plan_id = $data['route_plan_id'];
 $batch_no      = $data['batch_no'];
-
+$routeaccountssql = "SELECT DISTINCT rc.account_id FROM route_counter rc WHERE rc.batch_no IN ($batch_no) AND rc.is_active = 1 AND rc.companyid = '$companyid'";
 $today_green = $currenttotal > 0 ? min(100, round(($todayvisit / $currenttotal) * 100, 2)) : 0;
 $month_green = $Monthtotal   > 0 ? min(100, round(($monthvisit  / $Monthtotal)  * 100, 2)) : 0;
 
 $mn = date('n');
 $yr = date('Y');
-$monthly_target = $obj->getvalfield(
-    "monthly_target",
-    "SUM(total_target)",
-    "createdby=$loginid AND month=$mn AND year=$yr"
+$monthly_target = $obj->getvalfield("monthly_target", "SUM(total_target)", "createdby='$loginid' AND month=$mn AND year=$yr") ?: 0;
+$daily_target = $obj->getvalfield("monthly_target as mt left join monthly_target_details as mtd on mt.target_id=mtd.target_id", "SUM(mtd.target)", "mt.createdby='$loginid' AND mt.month=$mn AND mt.year=$yr AND mtd.account_id IN ($routeaccountssql)") ?: 0;
+$daily_achieved = $obj->getvalfield(
+    "transaction_details AS td 
+     LEFT JOIN transaction_entry AS te 
+        ON te.transaction_id = td.transaction_id",
+    "SUM(td.net_amt)",
+    "te.createdby = '$loginid'
+     AND MONTH(te.billdate) = '$mn'
+     AND YEAR(te.billdate) = '$yr'
+     AND te.account_id IN ($routeaccountssql)"
 ) ?: 0;
+
+$daily_green = $daily_target > 0 ? min(100, round(($daily_achieved / $daily_target) * 100, 2)) : 0;
 $target_green = $monthly_target > 0 ? min(100, round(($Monthsales / $monthly_target) * 100, 2)) : 0;
 
 
@@ -186,13 +195,25 @@ $actions = [
                 </div>
                 <div class="perf-card full">
                     <a href="route-wise-details.php">
-                        <div class="pc-label">Month Target vs Achievement</div>
+                        <div class="pc-label">Monthly Target vs Achievement</div>
                         <div class="pc-bar">
                             <span style="width:<?= $target_green ?>%;background:<?= barColor($target_green) ?>"></span>
                         </div>
                         <div class="pc-foot">
                             <span>₹<?= number_format($Monthsales) ?> / ₹<?= number_format($monthly_target) ?></span>
                             <span><?= $target_green ?>%</span>
+                        </div>
+                    </a>
+                </div>
+                <div class="perf-card full">
+                    <a href="route-wise-details.php?view=daily">
+                        <div class="pc-label">Today's Beat – Target vs Achievement</div>
+                        <div class="pc-bar">
+                            <span style="width:<?= $daily_green ?>%;background:<?= barColor($daily_green) ?>"></span>
+                        </div>
+                        <div class="pc-foot">
+                            <span>₹<?= number_format($daily_achieved) ?> / ₹<?= number_format($daily_target) ?></span>
+                            <span><?= $daily_green ?>%</span>
                         </div>
                     </a>
                 </div>

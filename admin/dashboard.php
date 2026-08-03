@@ -7,8 +7,7 @@ $curMonth   = date('m');
 $curYear    = date('Y');
 $monthStart = date('Y-m-01');
 
-$totalCustomers   = $obj->getvalfield("account", "count(*)", "type='customer' and status1=1");
-$inactiveCustomers = $obj->getvalfield("account", "count(*)", "type='customer' and status1=0");
+$totalCustomers   = $obj->getvalfield("account", "count(*)", "type='customer'");
 $todayQuo         = $obj->getvalfield("transaction_entry", "count(*)", "DATE(createdate)='$today' and type='quotation' and companyid='$companyid'");
 $todayOrders      = $obj->getvalfield("transaction_entry", "count(*)", "billdate='$today' and type='order' and companyid='$companyid'");
 $todayCollection  = $obj->getvalfield("transaction_entry", "sum(grand_total)", "billdate='$today' and type='payment' and companyid='$companyid'") ?: 0;
@@ -21,15 +20,14 @@ $monthVisits     = $obj->getvalfield("daily_entries", "count(*)", "DATE(createda
 $activeSchemes   = $obj->getvalfield("scheme_entry", "count(*)", "todate>='$today' and companyid='$companyid'");
 
 $activeCounters = $obj->getvalfield("account a INNER JOIN transaction_entry t ON a.account_id = t.account_id", "COUNT(DISTINCT a.account_id)", "a.type='customer' AND t.type='order' and a.common_id=7");
-
 $inactiveCounters = $obj->getvalfield("account a LEFT JOIN transaction_entry t ON a.account_id=t.account_id AND t.type='order'", "COUNT(DISTINCT a.account_id)", "a.type='customer' AND t.account_id IS NULL and a.common_id=7");
-
+$totalCounters   = $obj->getvalfield("account", "count(*)", "type='customer' and common_id=7");
 
 $overduePayment = $obj->executequery("SELECT
         COUNT(*)            AS overdue_count,
         COALESCE(SUM(te.grand_total),0) AS overdue_amount
     FROM transaction_entry te
-    WHERE te.type   = 'order'
+    WHERE te.type   = 'order' and te.invoice_no<>''
       AND te.is_approved = 1
       AND te.companyid   = '$companyid'
       AND DATEDIFF('$today', te.billdate) > 45
@@ -50,7 +48,7 @@ SELECT
         CASE
             WHEN is_approved = 1
              AND dispatch_status = 0
-             AND DATEDIFF('$today', billdate) > 15
+             AND DATEDIFF('$today', billdate) > 10
             THEN 1 ELSE 0
         END
     ) AS disp_count,
@@ -59,7 +57,7 @@ SELECT
         CASE
             WHEN is_approved = 1
              AND dispatch_status = 0
-             AND DATEDIFF('$today', billdate) > 15
+             AND DATEDIFF('$today', billdate) > 10
             THEN grand_total ELSE 0
         END
     ) AS disp_amount,
@@ -303,14 +301,13 @@ $trendData   = array_column($salesTrend, 'total');
 
             <!-- ── Row 1: Stat cards ── -->
             <div class="stat-grid">
-                <?php if ($usertype == "admin") { ?>
-                    <a href="accounts.php" class="stat-card" style="--c:#1a6ca8">
-                        <div class="stat-label">Total Customers</div>
-                        <div class="stat-value"><?= number_format($totalCustomers) ?></div>
-                        <div class="stat-sub">Registered accounts</div>
-                        <i class="bi bi-people stat-icon"></i>
-                    </a>
-                <?php } ?>
+                <a href="accounts.php" class="stat-card" style="--c:#1a6ca8">
+                    <div class="stat-label">Total Customers</div>
+                    <div class="stat-value"><?= number_format($totalCustomers) ?></div>
+                    <div class="stat-sub">Registered accounts</div>
+                    <i class="bi bi-people stat-icon"></i>
+                </a>
+
                 <a href="quotation_list.php" class="stat-card" style="--c:#27ae60">
                     <div class="stat-label">Today's Quotation</div>
                     <div class="stat-value"><?= number_format($todayQuo) ?></div>
@@ -344,20 +341,76 @@ $trendData   = array_column($salesTrend, 'total');
 
             <!-- ── Quick actions ── -->
             <div class="mt-3 panel">
-                <div class="panel-head"><span class="ph-title"><i class="bi bi-grid me-1"></i> Quick Actions</span></div>
+                <div class="panel-head">
+                    <span class="ph-title">
+                        <i class="bi bi-grid me-1"></i> Quick Actions
+                    </span>
+                </div>
+
                 <div class="quick-grid">
+                    <a href="quotation.php" class="quick-btn">
+                        <i class="bi bi-file-earmark-text"></i>
+                        New Quotation
+                    </a>
+
+                    <a href="order-entry.php" class="quick-btn">
+                        <i class="bi bi-cart-check"></i>
+                        New Order
+                    </a>
+
+                    <a href="payment.php" class="quick-btn">
+                        <i class="bi bi-cash-coin"></i>
+                        Add Payment
+                    </a>
+
+                    <a href="accounts.php" class="quick-btn">
+                        <i class="bi bi-person-plus"></i>
+                        Add Customer
+                    </a>
+
+
+                    <a href="order_list.php?status=0" class="quick-btn">
+                        <i class="bi bi-clipboard-check"></i>
+                        Approve Orders
+                    </a>
+
+                    <a href="payment_list.php" class="quick-btn">
+                        <i class="bi bi-patch-check"></i>
+                        Approve Payments
+                    </a>
                     <?php if ($usertype == "admin") { ?>
-                        <a href="accounts.php" class="quick-btn"><i class="bi bi-person-plus"></i>Add Customer</a>
+                        <a href="accounts_list.php" class="quick-btn">
+                            <i class="bi bi-person-check"></i>
+                            Approve Counters
+                        </a>
+
+                        <a href="daily_visit_list.php" class="quick-btn">
+                            <i class="bi bi-calendar2-check"></i>
+                            Daily Visits
+                        </a>
+
+                        <a href="monthly_target_approval.php" class="quick-btn">
+                            <i class="bi bi-bullseye"></i>
+                            Monthly Targets
+                        </a>
+
+                        <a href="scheme_list.php" class="quick-btn">
+                            <i class="bi bi-gift"></i>
+                            Schemes
+                        </a>
+
+                        <a href="route.php" class="quick-btn">
+                            <i class="bi bi-signpost-split"></i>
+                            Routes
+                        </a>
+
+                        <a href="user-master.php" class="quick-btn">
+                            <i class="bi bi-people"></i>
+                            Staff
+                        </a>
+
                     <?php } ?>
-                    <a href="order-entry.php" class="quick-btn"><i class="bi bi-cart-plus"></i>New Order</a>
-                    <a href="payment_list.php" class="quick-btn"><i class="bi bi-cash"></i>Payment List</a>
-                    <a href="order_list.php?status=0" class="quick-btn"><i class="bi bi-hourglass-split"></i>Approve Orders</a>
-                    <a href="scheme_list.php" class="quick-btn"><i class="bi bi-tag"></i>Schemes</a>
-                    <?php if ($usertype == "admin") { ?>
-                        <a href="monthly_target_approval.php" class="quick-btn"><i class="bi bi-bullseye"></i>View Targets</a>
-                        <a href="route.php" class="quick-btn"><i class="bi bi-map"></i>Routes</a>
-                        <a href="user-master.php" class="quick-btn"><i class="bi bi-people"></i>Staff</a>
-                    <?php } ?>
+
                 </div>
             </div>
             <?php if ($usertype == "admin") { ?>
@@ -424,7 +477,7 @@ $trendData   = array_column($salesTrend, 'total');
                             <div class="cs-icon" style="background:#eef4fb;color:#1a6ca8"><i class="bi bi-people-fill"></i></div>
                             <div>
                                 <div class="cs-label">Total Counters</div>
-                                <div class="cs-val"><?= number_format($activeCounters + $inactiveCounters) ?></div>
+                                <div class="cs-val"><?= number_format($totalCounters) ?></div>
                             </div>
                         </div>
                     </a>
@@ -464,14 +517,14 @@ $trendData   = array_column($salesTrend, 'total');
                         </div>
 
                         <div style="flex:1">
-                            <div class="alert-label">Dispatch Pending > 15 Days</div>
+                            <div class="alert-label">Dispatch Pending > 10 Days</div>
                             <div class="alert-val">₹<?= number_format($longDispAmount) ?></div>
                             <div class="alert-sub">
                                 <?= number_format($longDispCount) ?> order(s) approved but not dispatched
                             </div>
                         </div>
 
-                        <a href="order_list.php?dispatch_pending=1&days=15"
+                        <a href="order_list.php?dispatch_pending=1&days=10"
                             class="btn btn-sm btn-outline-warning"
                             style="font-size:.7rem;white-space:nowrap">
                             View All

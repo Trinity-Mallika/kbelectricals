@@ -184,14 +184,14 @@ WHERE te.type = 'order'
 			"COALESCE(
         SUM(
             CASE
-                WHEN type='order' AND is_approved='1' THEN
-                    CASE
-                WHEN invoice_no!='' THEN invoice_amt
-                ELSE 0
-            END
-                    
-                WHEN type='payment' and pay_status=1 THEN
-                    -(grand_total + IFNULL(cash_disc,0))
+                WHEN type='order'
+                     AND is_approved='1'
+                     AND invoice_no!=''
+                THEN invoice_amt
+
+                WHEN type='payment'
+                     AND pay_status='1'
+                THEN -(grand_total + IFNULL(cash_disc,0))
 
                 ELSE 0
             END
@@ -815,13 +815,24 @@ WHERE te.type = 'order'
 
 		return $row ?: null;
 	}
-	public function get_opening_ledger(int $account_id, string $from_date): float
+	public function get_opening_ledger(int $account_id, string $from_date, string $todate): float
 	{
-		$opening_amt = (float)$this->getvalfield(
-			"account",
-			"opening_balance",
-			"account_id='$account_id' AND opening_date < '$from_date'"
-		);
+		$opening_date = $this->getvalfield("account", "opening_date", "account_id='$account_id'");
+
+		// if opening and from date are equal
+		if ($from_date == $opening_date) {
+			$crit = " and opening_date = '$from_date'";
+			// if opening is less than from date
+		} elseif ($opening_date < $from_date) {
+			$crit = " and opening_date < '$from_date'";
+			// if opening is greater than but less than todate
+		} elseif ($opening_date > $from_date && $opening_date <= $todate) {
+			$crit = " and opening_date between '$from_date' and '$todate'";
+		} else {
+			$crit = " and opening_date < '$from_date'";
+		}
+
+		$opening_amt = (float)$this->getvalfield("account", "opening_balance", "account_id='$account_id' $crit ");
 
 		$opening_paid = (float)$this->getvalfield(
 			"transaction_entry",
@@ -833,8 +844,7 @@ WHERE te.type = 'order'
          AND billdate < '$from_date'"
 		);
 
-		$sql = "
-        SELECT
+		$sql = "SELECT
  IFNULL(SUM(
         CASE
             WHEN type='order'
@@ -905,10 +915,6 @@ WHERE te.type = 'order'
                          AND is_approved=1
                          AND invoice_no <> ''
                     THEN invoice_amt
-
-                    WHEN type='order'
-					  AND is_approved=1
-                    THEN grand_total
 
                     ELSE 0
                 END
@@ -1011,6 +1017,190 @@ WHERE te.type = 'order'
 		}
 
 		return max($invoice_days, $opening_days);
+	}
+
+	function recalculateTransaction(int $transaction_id)
+	{
+		global $obj;
+
+		$transaction = $obj->select_record(
+			"transaction_entry",
+			["transaction_id" => $transaction_id]
+		);
+
+		if (!$transaction) {
+			return false;
+		}
+
+		$is_gst            = (int)$transaction['is_gst'];
+		$overall_gst_rate  = (float)$transaction['gst_percent'];
+		$freight           = (float)$transaction['freight_charges'];
+
+		$taxable_total = 0;
+		$product_gst_total = 0;
+		$net_total = 0;
+
+		$gstRates = [];
+
+		$res = $obj->executequery("SELECT gst_id, gst_percent FROM gst_master");
+
+		foreach ($res as $g) {
+			$gstRates[$g['gst_id']] = $g['gst_percent'];
+		}
+
+		$details = $obj->executequery("
+        SELECT *
+        FROM transaction_details
+        WHERE transaction_id='$transaction_id'
+        ORDER BY tran_detail_id
+    ");
+
+		foreach ($details as $row) {
+
+			$tran_detail_id = $row['tran_detail_id'];
+
+			$ordered_qty = (float)$row['qty'];
+
+			$cancel_qty = (float)$obj->getvalfield(
+				"cancel_history",
+				"IFNULL(SUM(qty),0)",
+				"tran_detail_id='$tran_detail_id'"
+			);
+
+			$bill_qty = $ordered_qty - $cancel_qty;
+
+			if ($bill_qty < 0) {
+				$bill_qty = 0;
+			}
+
+			$rate = (float)$row['rate'];
+			$discount = (float)$row['discount'];
+
+			$discount_per_unit = ($rate * $discount) / 100;
+
+			$price_after_disc = $rate - $discount_per_unit;
+
+			if ($price_after_disc < 0) {
+				$price_after_disc = 0;
+			}
+
+			$discount_amt = $discount_per_unit * $bill_qty;
+
+			$sub_total = $price_after_disc * $bill_qty;
+
+			$total_amt = $sub_total;
+
+			$gst_amt = 0;
+			$net_amt = $total_amt;
+
+			if ((int)$row['gst_id'] > 0) {
+				$gst_percent = isset($gstRates[$row['gst_id']])
+					? (float)$gstRates[$row['gst_id']]
+					: 0;
+
+				$gst_amt = ($total_amt * $gst_percent) / 100;
+
+				$net_amt = $total_amt + $gst_amt;
+			}
+
+			$update = array(
+
+				"price_after_disc" => round($price_after_disc, 2),
+
+				"discount_amt" => round($discount_amt, 2),
+
+				"sub_total" => round($sub_total, 2),
+
+				"total_amt" => round($total_amt, 2),
+
+				"gst_amt" => round($gst_amt, 2),
+
+				"net_amt" => round($net_amt, 2)
+
+			);
+
+			$obj->update_record(
+				"transaction_details",
+				["tran_detail_id" => $tran_detail_id],
+				$update
+			);
+
+			$taxable_total += $total_amt;
+
+			$product_gst_total += $gst_amt;
+
+			$net_total += $net_amt;
+		}
+
+		$cgst = 0;
+		$sgst = 0;
+		$overall_gst_amt = 0;
+
+		// Overall GST
+		if ($is_gst == 1) {
+
+			$invoice_taxable = $taxable_total + $freight;
+
+			$overall_gst_amt = ($invoice_taxable * $overall_gst_rate) / 100;
+
+			$cgst = $overall_gst_amt / 2;
+			$sgst = $overall_gst_amt / 2;
+
+			$grand_total = $invoice_taxable + $overall_gst_amt;
+
+			$net_total = $taxable_total;
+		}
+
+		// Product-wise GST
+		elseif ($product_gst_total > 0) {
+
+			$grand_total = $taxable_total + $product_gst_total + $freight;
+
+			$cgst = $product_gst_total / 2;
+			$sgst = $product_gst_total / 2;
+
+			$net_total = $taxable_total + $product_gst_total;
+		}
+
+		// No GST
+		else {
+
+			$grand_total = $taxable_total + $freight;
+
+			$net_total = $taxable_total;
+		}
+
+		$rounded_total = round($grand_total);
+
+		$round_off = $rounded_total - $grand_total;
+
+		$grand_total = $rounded_total;
+
+		$update = array(
+
+			"taxable_amount" => round($taxable_total, 2),
+
+			"overall_gst_amt" => round($overall_gst_amt, 2),
+
+			"cgst" => round($cgst, 2),
+
+			"sgst" => round($sgst, 2),
+
+			"net_total_amt" => round($net_total, 2),
+
+			"round_off" => round($round_off, 2),
+
+			"grand_total" => round($grand_total, 2)
+
+		);
+
+		$obj->update_record(
+			"transaction_entry",
+			array("transaction_id" => $transaction_id),
+			$update
+		);
+
+		return true;
 	}
 
 	public function getcode(string $table, string $tablepkey, string $cond = "1=1"): string
@@ -1375,6 +1565,22 @@ WHERE te.type = 'order'
 	}
 
 
+	// public function getvalfield(string $table, string $column, string $condition, int $print = 0)
+	// {
+	// 	$sql = "SELECT {$column} FROM {$table} WHERE {$condition} LIMIT 1";
+
+	// 	if ($print) {
+	// 		echo $sql;
+	// 		return null;
+	// 	}
+
+	// 	$stmt = $this->db->prepare($sql);
+	// 	$stmt->execute();
+	// 	$result = $stmt->fetch(PDO::FETCH_ASSOC);
+
+	// 	return $result[$column] ?? null;
+	// }
+
 	public function getvalfield(string $table, string $column, string $condition, int $print = 0)
 	{
 		$sql = "SELECT {$column} FROM {$table} WHERE {$condition} LIMIT 1";
@@ -1388,7 +1594,11 @@ WHERE te.type = 'order'
 		$stmt->execute();
 		$result = $stmt->fetch(PDO::FETCH_ASSOC);
 
-		return $result[$column] ?? null;
+		if (!$result) {
+			return null;
+		}
+
+		return reset($result);
 	}
 
 

@@ -14,7 +14,7 @@ $mobile_no = $sqledit['mobile_no'];
 $o_mobile_no = $sqledit['o_mobile_no'];
 
 $ledger_array = [];
-$opening_bal = $obj->get_opening_ledger($account_id, $fromdate);
+$opening_bal = $obj->get_opening_ledger($account_id, $fromdate, $todate);
 $ledger_array[] = [
     "led_date"   => $fromdate,
     "led_time"   => "00:00:00",
@@ -29,7 +29,7 @@ foreach ($purchase as $row) {
     $ledger_array[] = [
         "led_date"   => $row['billdate'],
         "led_time"   => $row['createdate'],
-        "particular" => "By Order Entry " . $row['billno'] . " / Invoice No. " . $row['invoice_no'],
+        "particular" => "By Order Entry " . $row['billno'] . " / Invoice No. " . htmlspecialchars_decode($row['invoice_no']),
         "total"      => $row['invoice_amt'],
         "led_type"   => "debit"
     ];
@@ -54,7 +54,7 @@ foreach ($payment as $row) {
         "led_time"   => $row['createdate'],
         "particular" => "Payment by " . $row['paymode']
             . " against " . ucfirst($row['pay_type'])
-            . (!empty($row['invoice_no']) ? " / Invoice No. " . $row['invoice_no'] : ""),
+            . (!empty($row['invoice_no']) ? " / Invoice No. " . htmlspecialchars_decode($row['invoice_no']) : ""),
         "total"      => $row['grand_total'],
         "led_type"   => "credit"
     ];
@@ -267,4 +267,4 @@ if (file_exists($watermark_path)) {
 $mpdf->WriteHTML($html);
 
 $filename = str_replace(' ', '_', $account_name) . '_' . date('Y-m-d') . '.pdf';
-$mpdf->Output($filename,'D');
+$mpdf->Output($filename, 'D');

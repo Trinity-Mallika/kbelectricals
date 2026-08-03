@@ -14,10 +14,12 @@ if ($transaction_id > 0) {
     $gst_percent = $trasc_data['gst_percent'];
     $grand_total = $trasc_data['grand_total'];
     $net_total_amt = $trasc_data['net_total_amt'];
-     $freight_charges = $trasc_data['freight_charges'];
+    $freight_charges = $trasc_data['freight_charges'];
+    $round_off = $trasc_data['round_off'];
 } else {
     $gst_percent = 0;
-        $freight_charges = 0;
+    $freight_charges = 0;
+    $round_off = 0;
 }
 ?>
 <div class="table-responsive">
@@ -123,7 +125,7 @@ LEFT JOIN product_master p ON p.product_id = td.product_id LEFT JOIN category_ma
             </tr>
             <?php if ($currentMode == "overall") { ?>
                 <input type="hidden" name="gst_percent" id="gst_percent_hidden" value="18">
-                    <input type="hidden" name="overall_gst_amt" value="<?php echo $gst_total; ?>">
+                <input type="hidden" name="overall_gst_amt" value="<?php echo $gst_total; ?>">
                 <tr>
                     <th colspan="10" class="text-end">Freight Charges</th>
                     <th class="text-end d-flex justify-content-end gap-1 align-items-center"><span>Rs. </span> <input type="number" class="form-control form-control-sm w-50 text-end" name="freight_charges" id="freight_charges" value="<?= $freight_charges; ?>" oninput="calculateGST();"></th>
@@ -133,7 +135,7 @@ LEFT JOIN product_master p ON p.product_id = td.product_id LEFT JOIN category_ma
                     <th colspan="10" class="text-end">Taxable Amount</th>
                     <th class="text-end">
                         <span id="taxable_amount_display">0.00</span>
-                         <input type="hidden" name="taxable_amount" id="taxable_amount">
+                        <input type="hidden" name="taxable_amount" id="taxable_amount">
                     </th>
                 </tr>
                 <tr>
@@ -144,6 +146,11 @@ LEFT JOIN product_master p ON p.product_id = td.product_id LEFT JOIN category_ma
                 <tr>
                     <th colspan="10" class="text-end">CGST @ 9%</th>
                     <th class="text-end" id="sgst_display">Rs. </th>
+                    <th></th>
+                </tr>
+                <tr>
+                    <th colspan="10" class="text-end">Round Off</th>
+                    <th class="text-end d-flex justify-content-end gap-1 align-items-center"><span>Rs. </span> <input type="number" class="form-control form-control-sm w-50 text-end" name="round_off" id="round_off" value="<?= $round_off; ?>" oninput="calculateGST();" step="0.01"></th>
                     <th></th>
                 </tr>
                 <tr>

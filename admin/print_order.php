@@ -36,6 +36,7 @@ $is_gst   = $sqledit['is_gst'];
 $overall_gst_amt   = $sqledit['overall_gst_amt'];
 $freight_charges = $sqledit['freight_charges'];
 $taxable_amount = $sqledit['taxable_amount'];
+$round_off = $sqledit['round_off'];
 
 $compdata       = $obj->select_record('company_setting', ['company_id' => $company_id]);
 $company_name   = $compdata['company_name'];
@@ -221,6 +222,7 @@ ob_start();
         <tbody>
             <?php
             $i = 1;
+            $sgst = $cgst = 0;
             foreach ($items as $row):
                 $dispatched = ($row['is_dispatched'] == 1);
                 $nettotal = ($is_gst == 1) ? $row['total_amt'] : $row['net_amt'];
@@ -281,6 +283,11 @@ ob_start();
                 <tr>
                     <td colspan="<?= $colspan ?>" class="right"><b>CGST @ 9%</b></td>
                     <td class="right"><b>Rs. <?= number_format($cgst, 2); ?></b></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td colspan="<?= $colspan ?>" class="right"><b>Round Off</b></td>
+                    <td class="right"><b>Rs. <?= number_format($round_off, 2); ?></b></td>
                     <td></td>
                 </tr>
                 <tr>

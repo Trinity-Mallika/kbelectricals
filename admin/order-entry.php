@@ -33,12 +33,14 @@ if (isset($_POST['submit'])) {
     $overall_gst_amt = $obj->test_input($_POST['overall_gst_amt']);
     $grand_total = $obj->test_input($_POST['grand_total']);
     $net_total_amt = $obj->test_input($_POST['net_total_amt']);
+    $round_off = $obj->test_input($_POST['round_off']);
     $is_gst = ($gst_percent > 0) ? 1 : 0;
 
     $form_data = array(
         "account_id" => $account_id,
         "type" => $type,
         "net_total_amt" => $net_total_amt,
+        "round_off" => $round_off,
         "freight_charges" => $freight_charges,
         "taxable_amount" => $taxable_amount,
         "cgst" => $cgst,
@@ -716,7 +718,7 @@ if ($keyvalue > 0) {
         $('#accountNameAdd').modal('show');
     }
 
-    function save_account() {
+    function save_account(force_save = 0) {
 
         var user_id = $('#user_id').val().trim();
         var account_name = $('#account_name').val().trim();
@@ -728,6 +730,10 @@ if ($keyvalue > 0) {
         var area_name = $('#area_name').val().trim();
         var area_id = $('#area_id').val();
 
+        var electrician_name = $('#electrician_name').val().trim();
+        var electrician_mobile = $('#electrician_mobile').val().trim();
+        var account_id_map = $('#account_id_map').val().trim();
+
         var user_type = $("#user_id option:selected").data("type");
 
         if (user_id == '') {
@@ -736,35 +742,58 @@ if ($keyvalue > 0) {
             return false;
         }
 
-        if (account_name == '') {
-            alert('Enter Customer Name');
-            $('#account_name').focus();
-            return false;
-        }
-
-        if (mobile_no == '') {
-            alert('Enter Whatsapp No.');
-            $('#mobile_no').focus();
-            return false;
-        }
-
         if (common_id == '') {
             alert('Select Counter Type');
             return false;
         }
 
-        if (user_type == 'sales' && common_id == '7' && batch_no == '') {
-            alert('Select Route');
-            $('#batch_no').focus();
-            return false;
-        }
+        // Electrician Validation
+        if (common_id == '6') {
 
-        if (area_name == '') {
-            alert('Enter Area Name');
-            $('#area_name').focus();
-            return false;
-        }
+            if (electrician_name == '') {
+                alert('Enter Electrician Name');
+                $('#electrician_name').focus();
+                return false;
+            }
 
+            if (electrician_mobile == '') {
+                alert('Enter Electrician Whatsapp No.');
+                $('#electrician_mobile').focus();
+                return false;
+            }
+
+            if (account_id_map == '') {
+                alert('Select a Counter Name');
+                $('#account_id_map').focus();
+                return false;
+            }
+
+        } else {
+
+            if (account_name == '') {
+                alert('Enter Customer Name');
+                $('#account_name').focus();
+                return false;
+            }
+
+            if (mobile_no == '') {
+                alert('Enter Whatsapp No.');
+                $('#mobile_no').focus();
+                return false;
+            }
+
+            if (user_type == 'sales' && common_id == '7' && batch_no == '') {
+                alert('Select Route');
+                $('#batch_no').focus();
+                return false;
+            }
+
+            if (area_name == '') {
+                alert('Enter Area Name');
+                $('#area_name').focus();
+                return false;
+            }
+        }
 
         $.ajax({
             url: "ajax_save_account.php",
@@ -778,21 +807,56 @@ if ($keyvalue > 0) {
                 common_id: common_id,
                 batch_no: batch_no,
                 area_name: area_name,
-                area_id: area_id
+                area_id: area_id,
+                electrician_name: electrician_name,
+                electrician_mobile: electrician_mobile,
+                account_id_map: account_id_map,
+                force_save: force_save
             },
             success: function(res) {
-                if ($.trim(res) != '') {
+                res = $.trim(res);
+                if (res == 'duplicate') {
+                    alert('Customer/Electrician already exists');
+                    return false;
+                }
+
+                if (res == 'duplicate_name') {
+
+                    var duplicateName = (common_id == '6') ?
+                        electrician_name :
+                        account_name;
+
+                    var typeName = (common_id == '6') ?
+                        'electrician' :
+                        'customer';
+
+                    if (confirm(
+                            'An ' + typeName + ' with the name "' + duplicateName +
+                            '" already exists.\n\nDo you still want to save?'
+                        )) {
+                        save_account(1);
+                    }
+
+                    return false;
+                }
+                if (res > 0) {
+
                     $('#accountNameAdd').modal('hide');
-                    get_account_list($.trim(res));
+                    get_account_list(res);
+
                     $('#user_id').val('').trigger('chosen:updated');
                     $('#account_name').val('');
                     $('#mobile_no').val('');
                     $('#owner_name').val('');
                     $('#o_mobile_no').val('');
+                    $('#electrician_name').val('');
+                    $('#electrician_mobile').val('');
+                    $('#account_id_map').val('').trigger('chosen:updated');
                     $('#common_id').val('7').trigger('chosen:updated');
                     $('#batch_no').val('').trigger('chosen:updated');
                     $('#area_name').val('');
                     $('#area_id').val('');
+
                 } else {
                     alert('Unable to save record');
                 }
@@ -1140,6 +1204,7 @@ if ($keyvalue > 0) {
     }
 
     function calculateGST() {
+
         if ($('#gst_percent_hidden').length === 0) return;
 
         let net_total = parseFloat($('#net_total_amt').val()) || 0;
@@ -1148,21 +1213,34 @@ if ($keyvalue > 0) {
 
         let taxable_amount = net_total + freight;
 
-        let half_gst = gst_percent / 2;
         let gst_amount = (taxable_amount * gst_percent) / 100;
         let cgst = gst_amount / 2;
         let sgst = gst_amount / 2;
+
         let grand_total = taxable_amount + gst_amount;
 
-        if ($('#taxable_amount').length) $('#taxable_amount').val(taxable_amount.toFixed(2));
-        if ($('#taxable_amount_display').length) $('#taxable_amount_display').text(taxable_amount.toFixed(2));
-        if ($('#cgst_display').length) $('#cgst_display').text(cgst.toFixed(2));
-        if ($('#sgst_display').length) $('#sgst_display').text(sgst.toFixed(2));
-        if ($('#grand_total_display').length) $('#grand_total_display').text(grand_total.toFixed(2));
+        let rounded_total = Math.round(grand_total);
+        let round_off = rounded_total - grand_total;
+
+        if ($('#taxable_amount').length)
+            $('#taxable_amount').val(taxable_amount.toFixed(2));
+
+        if ($('#taxable_amount_display').length)
+            $('#taxable_amount_display').text(taxable_amount.toFixed(2));
+
+        if ($('#cgst_display').length)
+            $('#cgst_display').text(cgst.toFixed(2));
+
+        if ($('#sgst_display').length)
+            $('#sgst_display').text(sgst.toFixed(2));
+
+        if ($('#grand_total_display').length)
+            $('#grand_total_display').text(rounded_total.toFixed(2));
 
         $('#cgst').val(cgst.toFixed(2));
         $('#sgst').val(sgst.toFixed(2));
-        $('#grand_total').val(grand_total.toFixed(2));
+        $('#round_off').val(round_off.toFixed(2));
+        $('#grand_total').val(rounded_total.toFixed(2));
         $('#gst_percent_hidden').val(gst_percent);
     }
 </script>

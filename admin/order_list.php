@@ -165,7 +165,7 @@ if ($dispatch_pending) {
                                         <select name="account_id" id="account_id" class="chosen-select form-control form-control-sm">
                                             <option value="">--Select Counter--</option>
                                             <?php
-                                            $sql = $obj->executequery("SELECT account_id, account_name FROM account WHERE companyid='$companyid' ORDER BY account_name ASC");
+                                            $sql = $obj->executequery("SELECT account_id, account_name FROM account ORDER BY account_name ASC");
                                             foreach ($sql as $row) {
                                             ?>
                                                 <option value="<?= $row['account_id']; ?>">
@@ -450,30 +450,20 @@ ORDER BY t.$tblpkey DESC
                                                     <div class="text-center d-flex justify-content-center gap-2">
                                                         <?php
                                                         $canEditDelete = ($rowget['dispatch_qty'] == 0);
-
                                                         if ($canEditDelete) {
-
-                                                            $chkedit = $obj->check_editBtn($pagename, $loginid);
-                                                            if ($chkedit > 0 || $_SESSION['usertype'] == 'admin') {
                                                         ?>
-
                                                                 <a href="order-entry.php?transaction_id=<?= $rowget['transaction_id']; ?>"
                                                                     class="btn btn-sm btn-outline-success">
                                                                     <i class="bi bi-pencil-square"></i>
                                                                 </a>
-                                                            <?php }
-                                                            $chkdel = $obj->check_delBtn($pagename, $loginid);
-                                                            if ($chkdel > 0 || $_SESSION['usertype'] == 'admin') {
-                                                            ?>
                                                                 <button type="button"
                                                                     class="btn btn-sm btn-danger"
                                                                     onclick="funDel('<?= $rowget['transaction_id']; ?>','<?= $rowget['parent_transaction_id']; ?>');">
                                                                     <i class="bi bi-trash3-fill"></i>
                                                                 </button>
-                                                        <?php }
-                                                        } ?>
+                                                        <?php  } ?>
                                                         <a href="order_view.php?transaction_id=<?= $rowget['transaction_id'] ?>"
-                                                            class="btn btn-sm btn-warning">
+                                                            class="btn btn-sm btn-warning" target="_blank">
                                                             View
                                                         </a>
 

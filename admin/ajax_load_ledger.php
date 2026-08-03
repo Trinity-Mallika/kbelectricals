@@ -40,34 +40,53 @@ if (!empty($account_id)) {
 
     // Payments
     $payment = $obj->executequery("
-    SELECT 
-        p.*,
-        o.invoice_no,
-        o.billno AS order_billno
-    FROM transaction_entry p
-    LEFT JOIN transaction_entry o
-        ON o.transaction_id = p.ref_bill_id
-        AND o.type = 'order'
-    WHERE p.account_id='$account_id'
-      AND p.type='payment'
-      AND p.pay_status=1
+SELECT 
+    p.*,
+    o.invoice_no,
+    o.billno AS order_billno
+FROM transaction_entry p
+LEFT JOIN transaction_entry o
+    ON o.transaction_id = p.ref_bill_id
+    AND o.type='order'
+WHERE p.account_id='$account_id'
+AND p.type='payment'
 ");
+
     foreach ($payment as $row) {
+
+        $particular = "Payment by " . $row['paymode'];
+
+        if ($row['pay_type'] == "bill") {
+            $particular .= " against Bill";
+            if (!empty($row['invoice_no'])) {
+                $particular .= " / Invoice No. " . $row['invoice_no'];
+            }
+        } else {
+            $particular .= " against Opening Balance";
+        }
+
+        $particular .= " " . (
+            $row['pay_status'] == 0
+            ? "<br><span class='badge bg-warning text-dark'>Pending</span>"
+            : "<br><span class='badge bg-success'>Approved</span>"
+        );
 
         $ledger_array[] = [
             "led_date"   => $row['billdate'],
             "led_time"   => $row['createdate'],
-            "particular" => "Payment by " . $row['paymode']
-                . " against " . ucfirst($row['pay_type'])
-                . (!empty($row['invoice_no']) ? " / Invoice No. " . $row['invoice_no'] : ""),
+            "particular" => $particular,
             "total"      => $row['grand_total'],
             "led_type"   => "credit"
         ];
+
         if ($row['cash_disc'] > 0) {
             $ledger_array[] = [
                 "led_date"   => $row['billdate'],
                 "led_time"   => $row['createdate'],
-                "particular" => "Cash Disc" . " against " . ucfirst($row['pay_type']),
+                "particular" => "Cash Discount against " .
+                    ($row['pay_type'] == "bill"
+                        ? (!empty($row['invoice_no']) ? "Invoice No. " . $row['invoice_no'] : "Bill")
+                        : "Opening Balance"),
                 "total"      => $row['cash_disc'],
                 "led_type"   => "credit"
             ];

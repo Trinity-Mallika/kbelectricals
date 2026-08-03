@@ -6,8 +6,7 @@ $emp_id = $_POST['emp_id'];
 $month  = $_POST['month'];
 $year   = $_POST['year'];
 
-$current = $obj->executequery("
-SELECT
+$current = $obj->executequery("SELECT
     u.userid,
     u.fullname,
     mk.visit_value,
@@ -92,6 +91,7 @@ $visitRows = getAvgCounterVisit(
 );
 
 $visitData = [];
+
 foreach ($visitRows as $row) {
 
     $route = $row['route_name'];
@@ -127,18 +127,23 @@ foreach ($visitRows as $row) {
         $visitData[$route]['accounts'][$accId]['weeks'][$week] = true;
     }
 }
+
 foreach ($visitData as &$routeData) {
 
     $weeks = array_keys($routeData['assigned_weeks']);
 
-    // Week 1 repeats in Week 3 and Week 5
+    // Week 1 circulates across ALL weeks
     if (in_array(1, $weeks)) {
+        $routeData['assigned_weeks'][1] = true;
+        $routeData['assigned_weeks'][2] = true;
         $routeData['assigned_weeks'][3] = true;
+        $routeData['assigned_weeks'][4] = true;
         $routeData['assigned_weeks'][5] = true;
     }
 
-    // Week 2 repeats in Week 4
+    // Week 2 repeats only in Week 4
     if (in_array(2, $weeks)) {
+        $routeData['assigned_weeks'][2] = true;
         $routeData['assigned_weeks'][4] = true;
     }
 
@@ -307,8 +312,8 @@ unset($routeData);
                                     <div class="d-flex justify-content-between align-items-center">
                                         <strong><?= htmlspecialchars($route) ?></strong>
                                         <small>
-                                           <strong> Assigned Weeks :
-                                            <?= implode(", ", array_keys($data['assigned_weeks'])) ?></strong>
+                                            <strong> Assigned Weeks :
+                                                <?= implode(", ", array_keys($data['assigned_weeks'])) ?></strong>
                                         </small>
                                         <span class="badge bg-warning text-dark">
                                             <?= htmlspecialchars($data['day']) ?>

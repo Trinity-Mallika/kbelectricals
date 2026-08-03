@@ -6,7 +6,55 @@ $account_id = (int)($_GET['account_id'] ?? 0);
 
 $account = $obj->select_record("account", ["account_id" => $account_id]);
 
+// Opening Balance
 $opening_balance = (float)($account['opening_balance'] ?? 0);
+
+// Opening Balance Payment
+$opening_balance_paid = (float)$obj->getvalfield(
+    "transaction_entry",
+    "COALESCE(
+        SUM(
+            CASE
+                WHEN type='payment' and pay_type='opening'
+                     AND pay_status=1
+                THEN (grand_total + IFNULL(cash_disc,0))
+
+                ELSE 0
+            END
+        ),0
+    ) AS balance",
+    "account_id=$account_id
+     AND companyid=$companyid"
+);
+
+$opening_current = $opening_balance - $opening_balance_paid;
+
+$openingStatus = $opening_current > 0 ? 'Pending' : 'Cleared';
+$openingClass  = $opening_current > 0 ? 'danger' : 'success';
+$openingIcon   = $opening_current > 0 ? 'exclamation-circle' : 'check-circle';
+
+// Total Outstanding (Ledger)
+$total_pending = $opening_balance + (float)$obj->getvalfield(
+    "transaction_entry",
+    "COALESCE(
+        SUM(
+            CASE
+                WHEN type='order'
+                     AND is_approved=1
+                     AND invoice_no<>''
+                THEN invoice_amt
+
+                WHEN type='payment'
+                     AND pay_status=1
+                THEN -(grand_total + IFNULL(cash_disc,0))
+
+                ELSE 0
+            END
+        ),0
+    ) AS balance",
+    "account_id=$account_id
+     AND companyid=$companyid"
+);
 
 // Pending Bills
 $res = $obj->executequery("
@@ -24,7 +72,7 @@ $res = $obj->executequery("
             0
         ) AS pending_amount,
 
-        DATEDIFF(CURDATE(),o.billdate) AS pending_days
+        DATEDIFF(CURDATE(), o.billdate) AS pending_days
 
     FROM transaction_entry o
 
@@ -35,6 +83,7 @@ $res = $obj->executequery("
             SUM(grand_total + IFNULL(cash_disc,0)) AS paid_amount
         FROM transaction_entry
         WHERE type='payment'
+          AND pay_status=1
           AND companyid='$companyid'
         GROUP BY ref_bill_id
     ) pay
@@ -43,7 +92,6 @@ $res = $obj->executequery("
     WHERE o.account_id='$account_id'
       AND o.type='order'
       AND o.is_approved='1'
-      AND o.invoice_no IS NOT NULL
       AND o.invoice_no<>''
       AND o.companyid='$companyid'
 
@@ -51,12 +99,6 @@ $res = $obj->executequery("
 
     ORDER BY o.billdate ASC
 ");
-
-$total_pending = $opening_balance;
-
-foreach ($res as $r) {
-    $total_pending += $r['pending_amount'];
-}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -116,36 +158,34 @@ foreach ($res as $r) {
 
                 </div>
             </div>
-
             <?php if ($opening_balance > 0) { ?>
+                <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-body">
+                        <div class="row text-center">
 
-                <div class="card border-0 shadow-lg mb-3 p-3">
-
-                    <div class="d-flex justify-content-between align-items-center">
-
-                        <div>
-
-                            <strong class="text-primary">
-                                <i class="bi bi-wallet2"></i>
-                                Opening Balance
-                            </strong>
-
-                            <div class="text-muted small">
-                                Previous Outstanding Balance
+                            <div class="col-4 border-end">
+                                <small class="d-block">Opening</small>
+                                <strong>
+                                    ₹<?= number_format($opening_balance, 2) ?>
+                                </strong>
                             </div>
 
-                        </div>
+                            <div class="col-4 border-end">
+                                <small class="d-block">Paid</small>
+                                <strong class="text-success">
+                                    ₹<?= number_format($opening_balance_paid, 2) ?>
+                                </strong>
+                            </div>
 
-                        <div class="text-end">
-
-                            <h5 class="text-danger mb-0">
-                                ₹<?= number_format($opening_balance, 2) ?>
-                            </h5>
-
+                            <div class="col-4">
+                                <small class="d-block">Balance</small>
+                                <strong class="<?= $opening_current > 0 ? 'text-danger' : 'text-success' ?>">
+                                    ₹<?= number_format($opening_current, 2) ?>
+                                </strong>
+                            </div>
                         </div>
 
                     </div>
-
                 </div>
 
             <?php } ?>
@@ -170,7 +210,7 @@ foreach ($res as $r) {
                     $ageBadge =
                         ($row['pending_days'] <= 15)
                         ? "success"
-                        : (($row['pending_days'] <= 30) ? "warning" : "danger");
+                        : (($row['pending_days'] <= 30) ? "warning text-black" : "danger");
 
                 ?>
 
@@ -178,8 +218,12 @@ foreach ($res as $r) {
                         <div class="d-flex justify-content-between align-items-center mb-2">
 
                             <strong class="text-primary">
-                                Invoice No. : <?= htmlspecialchars($row['invoice_no']) ?>
+                                Invoice No. : <?= htmlspecialchars_decode($row['invoice_no']) ?>
                             </strong>
+
+                            <span class="badge bg-<?= $statusClass ?> me-2">
+                                <?= $status ?>
+                            </span>
 
                             <span class="badge bg-<?= $ageBadge ?>">
                                 <?= $row['pending_days'] ?> Days
@@ -190,7 +234,7 @@ foreach ($res as $r) {
 
                             <div class="text-muted small mb-3">
                                 <i class="bi bi-receipt"></i>
-                                Bill No. : <?= htmlspecialchars($row['billno']) ?>
+                                Bill No. : <?= htmlspecialchars_decode($row['billno']) ?>
                             </div>
                             <div class="text-muted small mb-3">
                                 <i class="bi bi-calendar3"></i>
@@ -219,11 +263,7 @@ foreach ($res as $r) {
                             </strong>
                         </div>
 
-                        <div class="mt-3">
-                            <span class="badge bg-<?= $statusClass ?>">
-                                <?= $status ?>
-                            </span>
-                        </div>
+
 
                     </div>
 

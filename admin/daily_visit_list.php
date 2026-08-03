@@ -148,7 +148,7 @@ if (!empty($account_id)) {
                                     <?php
                                     $slno = 1;
                                     $qry = $obj->executequery("
-            SELECT de.*, a.account_name, u.fullname,c.common_name
+            SELECT de.*, a.account_name,a.counter_image,u.fullname,c.common_name
             FROM $tblname de
             LEFT JOIN account a ON a.account_id = de.account_id
             LEFT JOIN common_master c ON c.common_id = de.common_id and c.type='product_display'
@@ -182,6 +182,10 @@ if (!empty($account_id)) {
                                             <td>
                                                 <?php if ($rowget['imgname'] != '') { ?>
                                                     <a href="../app/uploads/daily_entry/<?php echo $rowget['imgname']; ?>" target="_blank" class="btn btn-sm btn-secondary">
+                                                        View
+                                                    </a>
+                                                <?php } elseif ($rowget['counter_image'] != '') { ?>
+                                                    <a href="uploaded/accounts/<?php echo $rowget['counter_image']; ?>" target="_blank" class="btn btn-sm btn-secondary">
                                                         View
                                                     </a>
                                                 <?php } else { ?>

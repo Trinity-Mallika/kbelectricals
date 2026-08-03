@@ -37,6 +37,7 @@ $freight = $sqledit['freight'];
 $validity = $sqledit['validity'];
 $freight_charges = $sqledit['freight_charges'];
 $taxable_amount = $sqledit['taxable_amount'];
+$round_off = $sqledit['round_off'];
 $grand_total = $sqledit['grand_total'];
 $selected_columns = !empty($sqledit['print_columns'])
     ? explode(',', $sqledit['print_columns'])
@@ -299,6 +300,11 @@ WHERE td.transaction_id='$keyvalue' order by td.tran_detail_id ASC";
             <tr>
                 <td colspan="<?= $colspan ?>" class="right"><b>CGST @ 9%</b></td>
                 <td class="right"><b>Rs. <?= number_format($cgst, 2); ?></b></td>
+                <td></td>
+            </tr>
+            <tr>
+                <td colspan="<?= $colspan ?>" class="right"><b>Round Off</b></td>
+                <td class="right"><b>Rs. <?= number_format($round_off, 2); ?></b></td>
                 <td></td>
             </tr>
             <tr>

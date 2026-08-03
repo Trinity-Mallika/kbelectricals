@@ -9,30 +9,6 @@ $keyvalue = (isset($_GET["entry_id"])) ? $obj->test_input($_GET["entry_id"]) : 0
 $data = $obj->getRouteDashboardData($loginid, $companyid);
 $batchNosSql = $data['batch_no'];
 $current_date = date('Y-m-d');
-define('CHECKIN_MAX_DISTANCE_METERS', 100);
-
-define('CHECKIN_ACCURACY_ALLOWANCE_CAP', 50);
-
-
-function getDistanceMeters($lat1, $lon1, $lat2, $lon2)
-{
-    $earthRadius = 6371000; // meters
-
-    $lat1 = deg2rad((float)$lat1);
-    $lon1 = deg2rad((float)$lon1);
-    $lat2 = deg2rad((float)$lat2);
-    $lon2 = deg2rad((float)$lon2);
-
-    $dLat = $lat2 - $lat1;
-    $dLon = $lon2 - $lon1;
-
-    $a = sin($dLat / 2) * sin($dLat / 2) +
-        cos($lat1) * cos($lat2) *
-        sin($dLon / 2) * sin($dLon / 2);
-    $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
-
-    return $earthRadius * $c;
-}
 
 
 
@@ -162,49 +138,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $latitude = $obj->test_input($_POST['latitude']);
     $longitude = $obj->test_input($_POST['longitude']);
     $address = $obj->test_input($_POST['address']);
-    $accuracy = isset($_POST['accuracy']) ? (float)$obj->test_input($_POST['accuracy']) : 0;
-    $force_checkin = isset($_POST['force_checkin']) ? (int)$_POST['force_checkin'] : 0;
 
-    if ($account_id == '' || $latitude == '' || $longitude == '') {
+    if ($account_id == '') {
         echo "error";
         exit;
     }
 
-
-    $accRows = $obj->executequery(
-        "SELECT latitude, longitude, location_address
-         FROM account
-         WHERE account_id='$account_id'
-         LIMIT 1"
-    );
-
-    $storedLat = !empty($accRows) ? trim((string)$accRows[0]['latitude']) : '';
-    $storedLng = !empty($accRows) ? trim((string)$accRows[0]['longitude']) : '';
-
-    $hasStoredLocation = ($storedLat !== '' && $storedLng !== '' && (float)$storedLat != 0 && (float)$storedLng != 0);
-
-    if (!$hasStoredLocation) {
-
-        $obj->update_record(
-            "account",
-            ['account_id' => $account_id],
-            [
-                'latitude'         => $latitude,
-                'longitude'        => $longitude,
-                'location_address' => $address
-            ],
-        );
-    } else {
-        $distance = getDistanceMeters($storedLat, $storedLng, $latitude, $longitude);
-
-        $accuracyAllowance = min($accuracy, CHECKIN_ACCURACY_ALLOWANCE_CAP);
-        $allowedRadius = CHECKIN_MAX_DISTANCE_METERS + $accuracyAllowance;
-
-        if ($distance > $allowedRadius && $force_checkin == 0) {
-            echo "location_mismatch|" . round($distance);
-            exit;
-        }
-    }
 
     $openVisit = $obj->getvalfield(
         "daily_entries",
@@ -259,7 +198,7 @@ $openVisit = $obj->executequery("
     LEFT JOIN area_master ar ON ar.area_id = a.area_id
     WHERE vc.createdby = '$loginid'
       AND vc.companyid = '$companyid'
-      AND vc.is_saved =0
+      AND vc.checkout_time IS NULL
       AND DATE(vc.checkin_time) = CURDATE()
     ORDER BY vc.entry_id DESC
     LIMIT 1
@@ -423,8 +362,6 @@ $openVisit = $obj->executequery("
                                 <input type="hidden" name="latitude" id="latitude">
                                 <input type="hidden" name="longitude" id="longitude">
                                 <input type="hidden" name="address" id="address">
-                                <input type="hidden" name="accuracy" id="accuracy">
-                                <input type="hidden" name="force_checkin" id="force_checkin" value="0">
                                 <input type="submit" name="submit" id="save_order_btn" class="btn btn-primary"
                                     value="Check In">
                             </div>
@@ -570,113 +507,6 @@ $openVisit = $obj->executequery("
 </body>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-    // ---- High-accuracy location capture (shared) ----
-    // NOTE: move this key to a server-side proxy endpoint before going to
-    // production — a key embedded in client JS is visible to anyone.
-    const GOOGLE_API_KEY = "AIzaSyD60TsOPfBQDMpiGwEWusBT-UBUUM6Y8O8";
-
-    const TARGET_ACCURACY = 25; // stop early once GPS is this good (meters)
-    const MAX_WAIT_TIME = 30000; // give up waiting for a better fix after this long (ms)
-
-    /**
-     * Watches GPS until accuracy <= TARGET_ACCURACY or MAX_WAIT_TIME elapses,
-     * keeping the best (lowest-accuracy-number) fix seen. Resolves with
-     * {lat, lng, accuracy} or rejects with an error message.
-     */
-    function getAccurateLocation(onProgress) {
-        return new Promise((resolve, reject) => {
-
-            if (!navigator.geolocation) {
-                reject('Geolocation is not supported by this browser.');
-                return;
-            }
-
-            let bestPosition = null;
-            let bestAccuracy = Infinity;
-            let watchId = null;
-            let finished = false;
-
-            function finish() {
-                if (finished) return;
-                finished = true;
-                if (watchId !== null) navigator.geolocation.clearWatch(watchId);
-
-                if (bestPosition) {
-                    resolve({
-                        lat: bestPosition.coords.latitude,
-                        lng: bestPosition.coords.longitude,
-                        accuracy: bestPosition.coords.accuracy
-                    });
-                } else {
-                    reject('GPS location not found. Please turn on GPS and try again.');
-                }
-            }
-
-            watchId = navigator.geolocation.watchPosition(
-                function(position) {
-                    let accuracy = position.coords.accuracy;
-
-                    if (accuracy < bestAccuracy) {
-                        bestAccuracy = accuracy;
-                        bestPosition = position;
-                        if (onProgress) onProgress(accuracy);
-                    }
-
-                    if (bestAccuracy <= TARGET_ACCURACY) {
-                        finish();
-                    }
-                },
-                function(error) {
-                    if (finished) return;
-                    finished = true;
-                    if (watchId !== null) navigator.geolocation.clearWatch(watchId);
-
-                    let message = 'Location permission denied. Please allow GPS.';
-                    if (error.code === 1) message = 'Location permission denied. Please enable location access.';
-                    else if (error.code === 2) message = 'Location unavailable. Please turn on GPS.';
-                    else if (error.code === 3) message = 'Location timeout. Please try again.';
-                    reject(message);
-                }, {
-                    enableHighAccuracy: true,
-                    maximumAge: 0,
-                    timeout: MAX_WAIT_TIME
-                }
-            );
-
-            setTimeout(finish, MAX_WAIT_TIME);
-        });
-    }
-
-    /** Reverse-geocode via Google, falling back to OpenStreetMap on failure. */
-    async function reverseGeocode(lat, lng) {
-        try {
-            let res = await fetch(
-                'https://maps.googleapis.com/maps/api/geocode/json?latlng=' +
-                lat + ',' + lng + '&key=' + GOOGLE_API_KEY
-            );
-            let data = await res.json();
-
-            if (data.status === 'OK' && data.results.length > 0) {
-                return data.results[0].formatted_address;
-            }
-        } catch (e) {
-            console.log('Google geocode failed', e);
-        }
-
-        try {
-            let res = await fetch(
-                'https://nominatim.openstreetmap.org/reverse?format=json' +
-                '&lat=' + lat + '&lon=' + lng + '&zoom=18&addressdetails=1'
-            );
-            let data = await res.json();
-            return data.display_name || '';
-        } catch (e) {
-            console.log('OSM geocode failed', e);
-            return '';
-        }
-    }
-    // ---------------------------------------------------
-
     $(document).ready(function() {
         $(".chosen-select").chosen({
             width: "100%",
@@ -761,41 +591,68 @@ $openVisit = $obj->executequery("
             return;
         }
 
-        // --- Get Location First (high accuracy) ---
-        getAccurateCounterLocation();
-    }
-
-    async function getAccurateCounterLocation() {
+        // --- Get Location First ---
+        if (!navigator.geolocation) {
+            Swal.fire('Error', 'Geolocation is not supported by this browser.', 'error');
+            return;
+        }
 
         Swal.fire({
-            title: 'Finding accurate GPS location...',
+            title: 'Getting Location...',
+            text: 'Please allow location access.',
             allowOutsideClick: false,
             didOpen: () => Swal.showLoading()
         });
 
-        try {
-            const loc = await getAccurateLocation((accuracy) => {
-                Swal.update({
-                    title: 'Improving GPS accuracy...',
-                    html: 'Current accuracy: ' + accuracy.toFixed(1) + ' meter'
-                });
-            });
+        navigator.geolocation.getCurrentPosition(
 
-            Swal.update({
-                title: 'Fetching address...',
-                html: ''
-            });
+            function(position) {
 
-            const address = await reverseGeocode(loc.lat, loc.lng);
+                const latitude = position.coords.latitude;
+                const longitude = position.coords.longitude;
 
-            submitCounterForm(loc.lat, loc.lng, address || '', 0, loc.accuracy);
+                // Reverse geocode via your location.php
+                fetch('location.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded'
+                        },
+                        body: new URLSearchParams({
+                            latitude,
+                            longitude
+                        })
+                    })
+                    .then(r => r.json())
+                    .then(data => {
 
-        } catch (msg) {
-            Swal.fire('Location Required', typeof msg === 'string' ? msg : 'Unable to determine your location.', 'warning');
-        }
+                        submitCounterForm(
+                            latitude,
+                            longitude,
+                            data.address || ''
+                        );
+
+                    })
+                    .catch(() => {
+                        Swal.fire('Error', 'Unable to fetch address. Check your internet connection.', 'error');
+                    });
+            },
+
+            function(error) {
+                let msg = 'Please allow location access to continue.';
+                if (error.code === error.PERMISSION_DENIED) {
+                    msg = 'Location permission denied. Please enable location access.';
+                }
+                Swal.fire('Location Required', msg, 'warning');
+            },
+
+            {
+                timeout: 10000,
+                maximumAge: 0
+            }
+        );
     }
 
-    function submitCounterForm(latitude, longitude, address, force_save = 0, accuracy = '') {
+    function submitCounterForm(latitude, longitude, address, force_save = 0) {
 
         let formData = new FormData();
 
@@ -813,7 +670,6 @@ $openVisit = $obj->executequery("
         formData.append('latitude', latitude);
         formData.append('longitude', longitude);
         formData.append('location_address', address);
-        formData.append('accuracy', accuracy);
 
         // IMPORTANT
         formData.append('force_save', force_save);
@@ -892,8 +748,7 @@ $openVisit = $obj->executequery("
                                 latitude,
                                 longitude,
                                 address,
-                                1,
-                                accuracy
+                                1
                             );
                         }
 
@@ -963,9 +818,6 @@ $openVisit = $obj->executequery("
             btn.disabled = true;
             btn.value = "Checking In...";
         }
-
-        // reset force flag on every fresh attempt
-        $('#force_checkin').val(0);
 
         getLocationAndProceed(btn);
     });
@@ -1045,31 +897,6 @@ $openVisit = $obj->executequery("
                     );
                     enableBtn(btn);
 
-                } else if (response.indexOf('location_mismatch') === 0) {
-
-                    let parts = response.split('|');
-                    let distance = parts[1] ? Math.round(parts[1]) : '';
-
-                    Swal.fire({
-                        title: 'You Are Far From The Counter',
-                        html: 'Your current location is about <b>' + distance +
-                            ' meters</b> away from this counter\'s registered location.<br><br>' +
-                            'Do you still want to check in from here?',
-                        icon: 'warning',
-                        showCancelButton: true,
-                        confirmButtonText: 'Yes, Check In Anyway',
-                        cancelButtonText: 'Cancel'
-                    }).then((result) => {
-
-                        if (result.isConfirmed) {
-                            $('#force_checkin').val(1);
-                            submitCheckInForm(btn);
-                        } else {
-                            enableBtn(btn);
-                        }
-
-                    });
-
                 } else {
 
                     Swal.fire(
@@ -1100,54 +927,86 @@ $openVisit = $obj->executequery("
         }
     }
 
-    async function getLocationAndProceed(btn) {
+    function getLocationAndProceed(btn) {
 
-        Swal.fire({
-            title: 'Finding accurate GPS location...',
-            allowOutsideClick: false,
-            didOpen: () => Swal.showLoading()
-        });
+        let latitude = '';
+        let longitude = '';
+        let address = '';
 
-        try {
-            const loc = await getAccurateLocation((accuracy) => {
-                Swal.update({
-                    title: 'Improving GPS accuracy...',
-                    html: 'Current accuracy: ' + accuracy.toFixed(1) + ' meter'
-                });
-            });
-
-            Swal.update({
-                title: 'Fetching address...',
-                html: ''
-            });
-
-            const address = await reverseGeocode(loc.lat, loc.lng);
-
-            if (!address) {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Location Not Saved',
-                    text: 'Unable to fetch address. Please try again.'
-                });
-                enableBtn(btn);
-                return;
-            }
-
-            $('#latitude').val(loc.lat);
-            $('#longitude').val(loc.lng);
+        function proceedSave() {
+            $('#latitude').val(latitude);
+            $('#longitude').val(longitude);
             $('#address').val(address);
-            $('#accuracy').val(loc.accuracy);
 
             submitCheckInForm(btn);
-
-        } catch (msg) {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Location Required',
-                text: typeof msg === 'string' ? msg : 'Unable to determine your location.'
-            });
-            enableBtn(btn);
         }
+
+        if (!navigator.geolocation) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Location Required',
+                text: 'Geolocation is not supported by this browser.'
+            });
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+
+            function(position) {
+
+                latitude = position.coords.latitude;
+                longitude = position.coords.longitude;
+
+                fetch('location.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: new URLSearchParams({
+                            latitude: latitude,
+                            longitude: longitude
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+
+                        if (!data.address) {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Location Not Saved',
+                                text: 'Unable to fetch address. Please try again.'
+                            });
+                            return;
+                        }
+
+                        address = data.address;
+                        proceedSave();
+                    })
+                    .catch(() => {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Location Not Saved',
+                            text: 'Unable to fetch location. Please check your internet connection.'
+                        });
+                    });
+
+            },
+
+            function(error) {
+
+                let msg = 'Please allow location access to continue.';
+
+                if (error.code === error.PERMISSION_DENIED) {
+                    msg = 'Location permission denied. Please enable location access.';
+                }
+
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Location Required',
+                    text: msg
+                });
+            }
+        );
     }
 
 

@@ -19,6 +19,14 @@ if ($account_id > 0) {
 } else {
     $account_name = "";
 }
+
+$fy = $obj->executequery("SELECT fromdate, todate
+    FROM m_session
+    WHERE status='1'
+");
+
+$fy_from = $fy[0]['fromdate'];
+$fy_to   = $fy[0]['todate'];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -27,20 +35,6 @@ if ($account_id > 0) {
     <!-- meta tag -->
     <?php include('component/css.php'); ?>
     <!-- meta tag -->
-
-    <style>
-        #printArea {
-            font-family: 'Inter', sans-serif;
-            color: #161616;
-            font-size: 18px !important;
-        }
-
-        #printArea h1,
-        #printArea h2 {
-            font-family: 'Sora', sans-serif;
-            color: #0d6efd;
-        }
-    </style>
 </head>
 
 <body class="bg-light">
@@ -66,13 +60,13 @@ if ($account_id > 0) {
                                         <strong><label for="fromdate">From Date <span
                                                     class="text-danger">*</span></label></strong>
                                         <input type="date" class="form-control form-control-sm" name="fromdate" id="fromdate"
-                                            value="<?php echo $fromdate; ?>">
+                                            value="<?php echo $fromdate; ?>" min="<?= $fy_from ?>" max="<?= $fy_to ?>" >
                                     </div>
                                     <div class="col-md-3 mb-2">
                                         <strong><label for="todate">To Date <span
                                                     class="text-danger">*</span></label></strong>
                                         <input type="date" class="form-control form-control-sm" name="todate" id="todate"
-                                            value="<?php echo $todate; ?>">
+                                            value="<?php echo $todate; ?>" min="<?= $fy_from ?>" max="<?= $fy_to ?>">
                                     </div>
                                     <div class="col-md-3 mb-2">
                                         <strong><label>Customer/Counter Name <span
@@ -115,7 +109,7 @@ if ($account_id > 0) {
 
                                 $ledger_array = [];
 
-                                $opening_bal = $obj->get_opening_ledger($account_id, $fromdate);
+                                $opening_bal = $obj->get_opening_ledger($account_id, $fromdate, $todate);
 
                                 $ledger_array[] = [
                                     "led_date"   => $fromdate,
@@ -126,7 +120,7 @@ if ($account_id > 0) {
                                 ];
 
                                 // Order Entries
-                                $purchase = $obj->executequery("SELECT * FROM transaction_entry WHERE account_id='$account_id' AND type='order' AND is_approved='1' AND billdate BETWEEN '$fromdate' AND '$todate' ORDER BY billdate");
+                                $purchase = $obj->executequery("SELECT * FROM transaction_entry WHERE account_id='$account_id' AND type='order' AND is_approved='1' AND invoice_no!='' AND billdate BETWEEN '$fromdate' AND '$todate' ORDER BY billdate");
                                 foreach ($purchase as $row) {
                                     $ledger_array[] = [
                                         "led_date"   => $row['billdate'],
@@ -138,19 +132,8 @@ if ($account_id > 0) {
                                 }
 
                                 // Payments
-                                $payment = $obj->executequery("
-    SELECT 
-        p.*,
-        o.invoice_no,
-        o.billno AS order_billno
-    FROM transaction_entry p
-    LEFT JOIN transaction_entry o
-        ON o.transaction_id = p.ref_bill_id
-        AND o.type = 'order'
-    WHERE p.account_id='$account_id'
-      AND p.type='payment'
-      AND p.pay_status=1  AND p.billdate BETWEEN '$fromdate' AND '$todate'
-");
+                                $payment = $obj->executequery("SELECT p.*,o.invoice_no,o.billno AS order_billno FROM transaction_entry p LEFT JOIN transaction_entry o
+        ON o.transaction_id = p.ref_bill_id AND o.type = 'order' WHERE p.account_id='$account_id' AND p.type='payment'  AND p.pay_status=1  AND p.billdate BETWEEN '$fromdate' AND '$todate'");
                                 foreach ($payment as $row) {
 
                                     $ledger_array[] = [
@@ -281,24 +264,6 @@ if ($account_id > 0) {
                                             </tr>
                                         </tfoot>
                                     </table>
-                                    <table class="table table-borderless">
-                                        <tr>
-                                            <td style="vertical-align: bottom;">
-                                                <div style="float:left;">
-                                                    <strong>Export Date :</strong> <?= date("d F Y h:i A"); ?><br>
-                                                    <strong>Exported By :</strong>
-                                                    <?= $obj->getvalfield("user", "fullname", "userid='$loginid'"); ?>
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <div style="float:right; text-align:center;">
-                                                    <img src="uploaded/sign.png" width="120"><br>
-                                                    <strong><?= $obj->getvalfield("company_setting", "company_name", "1=1"); ?></strong><br>
-                                                    <small>Authorized Signatory</small>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    </table>
                                 </div>
                             <?php } ?>
                         </div>
@@ -316,6 +281,14 @@ if ($account_id > 0) {
     $(document).ready(function() {
         $('#example').DataTable();
         $(".chosen-select").chosen();
+    });
+
+    $('#fromdate').on('change', function() {
+        $('#todate').attr('min', this.value);
+    });
+
+    $('#todate').on('change', function() {
+        $('#fromdate').attr('max', this.value);
     });
 </script>
 

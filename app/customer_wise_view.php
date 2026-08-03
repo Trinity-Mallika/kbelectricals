@@ -559,8 +559,7 @@ $cards = [
             <!-- Cards -->
             <?php foreach ($cards as $c):
                 $display = $c['key'] === 'business'
-                    ? '₹' . ($c['val'] >= 100000
-                        ? number_format($c['val'] / 100000, 1) . 'L'
+                    ? '₹' . ($c['val'] >= 100000 ? number_format($c['val'] / 100000, 1) . 'L'
                         : number_format($c['val'] / 1000, 1) . 'K')
                     : number_format($c['val']);
             ?>
@@ -822,10 +821,7 @@ $cards = [
         }
 
         function fmt(n) {
-            n = parseFloat(n) || 0;
-            if (n >= 100000) return (n / 100000).toFixed(1) + 'L';
-            if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
-            return n.toFixed(0);
+            return Math.round(parseFloat(n) || 0);
         }
 
         function esc(s) {

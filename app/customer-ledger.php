@@ -14,6 +14,14 @@ if ($account_id > 0) {
 } else {
     $account_name = "";
 }
+
+$fy = $obj->executequery("SELECT fromdate, todate
+    FROM m_session
+    WHERE status='1'
+");
+
+$fy_from = $fy[0]['fromdate'];
+$fy_to   = $fy[0]['todate'];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -47,10 +55,10 @@ if ($account_id > 0) {
                         <div class="card border-0 shadow-lg mb-3 p-2">
                             <div class="row">
                                 <div class="col-6 mb-3">
-                                    <input type="date" name="from_date" id="from_date" class="form-control" value="<?php echo $fromdate ?>">
+                                    <input type="date" name="from_date" id="from_date" class="form-control" value="<?php echo $fromdate ?>" min="<?= $fy_from ?>" max="<?= $fy_to ?>">
                                 </div>
                                 <div class="col-6 mb-3">
-                                    <input type="date" name="to_date" id="to_date" class="form-control" value="<?php echo $todate ?>">
+                                    <input type="date" name="to_date" id="to_date" class="form-control" value="<?php echo $todate ?>" min="<?= $fy_from ?>" max="<?= $fy_to ?>">
                                 </div>
                                 <div class="col-12 mb-2">
                                     <select class="form-select chosen-select" name="account_id" id="account_id">
@@ -93,7 +101,7 @@ if ($account_id > 0) {
 
                             $ledger_array = [];
 
-                            $opening_bal = $obj->get_opening_ledger($account_id, $fromdate);
+                            $opening_bal = $obj->get_opening_ledger($account_id, $fromdate, $todate);
 
                             $ledger_array[] = [
                                 "led_date"   => $fromdate,
@@ -116,8 +124,7 @@ if ($account_id > 0) {
                             }
 
                             // Payments
-                            $payment = $obj->executequery("
-    SELECT 
+                            $payment = $obj->executequery("SELECT 
         p.*,
         o.invoice_no,
         o.billno AS order_billno

@@ -5,7 +5,9 @@ $pagename = "route-wise-details.php";
 $month_digi = date('m');
 $year       = date('Y');
 $batch_no = isset($_GET['batch_no']) ? $obj->test_input($_GET['batch_no']) : '';
-
+$view = isset($_GET['view']) && $_GET['view'] === 'daily' ? 'daily' : 'monthly';
+$today_dow = date('l');
+$route_filter_today = $view === 'daily' ? " AND r.day_of_week = '$today_dow' " : "";
 $route_filter_rc = !empty($batch_no) ? " AND rc.batch_no='$batch_no' " : "";
 $route_filter_r  = !empty($batch_no) ? " AND r.batch_no='$batch_no' " : "";
 $route_filter_rp = !empty($batch_no) ? " AND rp.batch_no='$batch_no' " : "";
@@ -28,7 +30,8 @@ LEFT JOIN monthly_target mt
    AND mt.month = '$month_digi'
    AND mt.year = '$year'
 WHERE rp.sales_executive_id='$loginid'
-$route_filter_r
+$route_filter_r 
+$route_filter_today
 GROUP BY r.route_id,r.route_name,r.batch_no
 ORDER BY r.route_name
 ");
@@ -59,6 +62,7 @@ LEFT JOIN monthly_target mt
    AND mt.year='$year'
 WHERE rp.sales_executive_id='$loginid'
 $route_filter_rc
+$route_filter_today
 ORDER BY r.route_name,a.account_name
 ");
 
@@ -417,28 +421,28 @@ ORDER BY achieved DESC
     <section class="top-sec">
         <?php include("inc/header.php"); ?>
         <div class="container">
-
-            <!-- Route filter -->
-            <div class="col-12 mt-2 mb-3">
-                <form class="card border-0 shadow-sm p-3">
-                    <label class="form-label fw-semibold small mb-1">Select a Route</label>
-                    <select name="batch_no" id="batch_no" class="form-control chosen-select mb-3">
-                        <option value="">All Routes</option>
-                        <?php foreach ($route_options as $r): ?>
-                            <option value="<?= $r['batch_no'] ?>"
-                                <?= ($batch_no == $r['batch_no']) ? 'selected' : '' ?>>
-                                <?= htmlspecialchars($r['route_name']) ?>
-                                [<?= htmlspecialchars($r['days']) ?>]
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                    <div class="d-flex gap-2 mt-3">
-                        <button type="submit" class="btn btn-primary btn-sm w-50">Search</button>
-                        <a href="<?= $pagename ?>" class="btn btn-red btn-sm w-50">Reset</a>
-                    </div>
-                </form>
-            </div>
-
+            <?php if ($view == "monthly") { ?>
+                <!-- Route filter -->
+                <div class="col-12 mt-2 mb-3">
+                    <form class="card border-0 shadow-sm p-3">
+                        <label class="form-label fw-semibold small mb-1">Select a Route</label>
+                        <select name="batch_no" id="batch_no" class="form-control chosen-select mb-3">
+                            <option value="">All Routes</option>
+                            <?php foreach ($route_options as $r): ?>
+                                <option value="<?= $r['batch_no'] ?>"
+                                    <?= ($batch_no == $r['batch_no']) ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($r['route_name']) ?>
+                                    [<?= htmlspecialchars($r['days']) ?>]
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <div class="d-flex gap-2 mt-3">
+                            <button type="submit" class="btn btn-primary btn-sm w-50">Search</button>
+                            <a href="<?= $pagename ?>" class="btn btn-red btn-sm w-50">Reset</a>
+                        </div>
+                    </form>
+                </div>
+            <?php } ?>
             <?php if (empty($routes)): ?>
                 <div class="empty-state">
                     <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
@@ -451,8 +455,8 @@ ORDER BY achieved DESC
             <?php else: ?>
                 <div class="brand-summary mb-3">
 
-                    <h6 class="mb-2 fw-bold">
-                        🏆 Brand Performance
+                    <h6 class="mb-2 fw-bold bg-white p-1 rounded-4">
+                        🏆 Brand Wise
                     </h6>
 
                     <div class="brand-scroll">

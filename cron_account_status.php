@@ -2,12 +2,12 @@
 include("action.php");
 
 $data = $obj->executequery("
-    SELECT a.account_id, a.class, SUM(t.amount) as sales
+    SELECT a.account_id, a.class, SUM(t.grand_total) as sales
     FROM account a
     LEFT JOIN transaction_entry t 
         ON t.account_id=a.account_id
         AND t.type='order'
-        AND t.date >= DATE_SUB(CURDATE(), INTERVAL 3 MONTH)
+        AND t.billdate >= DATE_SUB(CURDATE(), INTERVAL 3 MONTH)
     GROUP BY a.account_id
 ");
 
@@ -24,7 +24,7 @@ foreach ($data as $d) {
 
     $obj->executequery("
         UPDATE account 
-        SET is_active='$active'
+        SET status='$active'
         WHERE account_id='{$d['account_id']}'
     ");
 }

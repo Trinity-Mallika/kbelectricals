@@ -57,7 +57,7 @@ $execRows  = $obj->executequery("
 
 
 $classThresholds = [];
-$thresholdRows = $obj->executequery("SELECT class, min_sales FROM kra_productivity_config WHERE companyid=$companyid");
+$thresholdRows = $obj->executequery("SELECT class, min_sales FROM kra_productivity_config");
 foreach ($thresholdRows as $t) $classThresholds[$t['class']] = (float)$t['min_sales'];
 
 $acctPerf      = [];
@@ -132,13 +132,13 @@ $kraList = [
 ];
 
 $slabs = [];
-$slabRows = $obj->executequery("SELECT * FROM kra_config WHERE company_id=$companyid ORDER BY kra_key,min_value");
+$slabRows = $obj->executequery("SELECT * FROM kra_config  ORDER BY kra_key,min_value");
 foreach ($slabRows as $s) $slabs[$s['kra_key']][] = $s;
 
-$behaviourItems = $obj->executequery("SELECT * FROM kra_behaviour WHERE companyid=$companyid ORDER BY kra_behaviour_id");
+$behaviourItems = $obj->executequery("SELECT * FROM kra_behaviour  ORDER BY kra_behaviour_id");
 
 $bscores = [];
-$bscoreRows = $obj->executequery("SELECT * FROM kra_behaviour_score WHERE company_id=$companyid AND month='$month' AND year='$year'");
+$bscoreRows = $obj->executequery("SELECT * FROM kra_behaviour_score WHERE month='$month' AND year='$year'");
 foreach ($bscoreRows as $bs) $bscores[$bs['emp_id']][$bs['behaviour_id']] = $bs['score'];
 
 function colorClass($pct)

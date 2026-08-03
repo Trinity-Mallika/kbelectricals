@@ -1,8 +1,18 @@
 <?php include("appsession.php");
 $title = "Customer List";
 $fullname = $obj->getvalfield("user", "fullname", "userid='$loginid'");
-$data          = $obj->getRouteDashboardData($loginid, $companyid);
-$batch_no      = $data['batch_no'];
+$batchRows = $obj->executequery("
+    SELECT DISTINCT batch_no
+    FROM route_plan
+    WHERE sales_executive_id = '$loginid'
+");
+
+$batchNos = array_column($batchRows, 'batch_no');
+
+$batchNosSql = !empty($batchNos)
+    ? implode(',', array_map('intval', $batchNos))
+    : '0';
+
 $crit = "1=1";
 if (isset($_GET["route_planid"]) && $_GET["route_planid"] != '') {
     $route_planid = $obj->test_input($_GET["route_planid"]);
@@ -13,7 +23,7 @@ if (isset($_GET["route_planid"]) && $_GET["route_planid"] != '') {
 if ($route_planid > 0) {
     $crit .= " and rc.batch_no = '$route_planid'";
 } else {
-    $crit .= " and rc.batch_no in ($batch_no)";
+    $crit .= " and rc.batch_no in ($batchNosSql)";
 }
 
 $messages = [];
@@ -391,7 +401,7 @@ $avatarColors = ['#3a55e8', '#7c3aed', '#059669', '#dc2626', '#d97706', '#0891b2
 
                 <!-- Customer Timeline -->
                 <div class="col-12 mb-4">
-                    <?php
+                    <?php 
                     $res = $obj->executequery("
     SELECT a.*, cm.common_name, am.area_name,
            de.last_visit_date

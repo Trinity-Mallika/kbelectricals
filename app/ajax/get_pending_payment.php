@@ -13,95 +13,61 @@ $route_plan_ids_sql = implode(',', $route_plan_ids);
 $companyid = (int)$_POST['companyid'];
 
 $sql = "SELECT
-            x.sequence,
-            x.account_id,
-            x.account_name,
-            SUM(x.pending_amount) AS pending_amount
-        FROM
-        (
-            /* Opening Balance */
-            SELECT
-                rc.sequence,
-                a.account_id,
-                a.account_name,
-                a.opening_balance AS pending_amount
+            rc.sequence,
+            a.account_id,
+            a.account_name,
 
-            FROM route_plan rp
-
-            INNER JOIN route_counter rc
-                ON rc.batch_no = rp.batch_no
-
-            INNER JOIN account a
-                ON a.account_id = rc.account_id
-
-            WHERE rp.route_planid IN ($route_plan_ids_sql)
-              AND rp.companyid = '$companyid'
-              AND rc.companyid = '$companyid'
-              AND rc.is_active = 1
-
-            UNION ALL
-
-            /* Invoice Pending */
-            SELECT
-                rc.sequence,
-                a.account_id,
-                a.account_name,
-
-                GREATEST(
-                    (
-                        CASE
-                            WHEN o.invoice_no IS NOT NULL
-                                 AND o.invoice_no <> ''
-                            THEN o.invoice_amt
-                            ELSE 0
-                        END
-                    )
-                    -
-                    COALESCE(pay.paid_amount,0),
-                    0
-                ) AS pending_amount
-
-            FROM route_plan rp
-
-            INNER JOIN route_counter rc
-                ON rc.batch_no = rp.batch_no
-
-            INNER JOIN account a
-                ON a.account_id = rc.account_id
-
-            INNER JOIN transaction_entry o
-                ON o.account_id = a.account_id
-               AND o.type = 'order'
-               AND o.is_approved = 1
-               AND o.companyid = '$companyid'
-
-            LEFT JOIN
             (
-                SELECT
-                    ref_bill_id,
-                    SUM(grand_total) AS paid_amount
-                FROM transaction_entry
-                WHERE type='payment' and pay_status=1
-                  AND companyid='$companyid'
-                GROUP BY ref_bill_id
-            ) pay
-                ON pay.ref_bill_id = o.transaction_id
+                a.opening_balance
+                +
+                COALESCE(SUM(
+                    CASE
+                        WHEN te.type='order'
+                             AND te.is_approved=1
+                             AND te.invoice_no<>''
+                        THEN te.invoice_amt
+                        ELSE 0
+                    END
+                ),0)
+                -
+                COALESCE(SUM(
+                    CASE
+                        WHEN te.type='payment'
+                             AND te.pay_status=1
+                        THEN te.grand_total + IFNULL(te.cash_disc,0)
+                        ELSE 0
+                    END
+                ),0)
+            ) AS pending_amount
 
-            WHERE rp.route_planid IN ($route_plan_ids_sql)
-              AND rp.companyid = '$companyid'
-              AND rc.companyid = '$companyid'
-              AND rc.is_active = 1
+        FROM route_plan rp
 
-        ) x
+        INNER JOIN route_counter rc
+            ON rc.batch_no = rp.batch_no
+           AND rc.companyid = rp.companyid
+           AND rc.is_active = 1
+
+        INNER JOIN account a
+            ON a.account_id = rc.account_id
+
+        LEFT JOIN transaction_entry te
+            ON te.account_id = a.account_id
+           AND te.companyid = '$companyid'
+
+        WHERE rp.route_planid IN ($route_plan_ids_sql)
+          AND rp.companyid = '$companyid'
 
         GROUP BY
-            x.sequence,
-            x.account_id,
-            x.account_name
+            rc.sequence,
+            a.account_id,
+            a.account_name,
+            a.opening_balance
 
-        HAVING SUM(x.pending_amount) > 0
+        HAVING pending_amount > 0
 
-        ORDER BY x.sequence ASC";
+        ORDER BY
+            rc.sequence,
+            a.account_name";
 
 $res = $obj->executequery($sql);
 

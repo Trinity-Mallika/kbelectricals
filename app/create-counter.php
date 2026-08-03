@@ -10,6 +10,7 @@ $current_date = date('Y-m-d');
 $data         = $obj->getRouteDashboardData($loginid, $companyid);
 $batchNosSql  = $data['batch_no'];
 $imgpath = "../admin/uploaded/accounts/";
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $batch_no     = $obj->test_input($_POST['route_planid']  ?? '');
@@ -26,6 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $latitude        = $obj->test_input($_POST['latitude'] ?? '');
     $longitude       = $obj->test_input($_POST['longitude'] ?? '');
     $location_address = $obj->test_input($_POST['location_address'] ?? '');
+    $force_save = isset($_POST['force_save']) ? (int)$_POST['force_save'] : 0;
 
     if (!$account_name || !$common_id || !$class || !$area_id) {
         echo 'error';
@@ -35,15 +37,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $count = $obj->getvalfield(
         $tblname,
         "count(*)",
-        "account_name='$account_name' AND area_id='$area_id' AND account_id!='$keyvalue'"
+        "mobile_no='$mobile_no'  AND account_id!='$keyvalue'"
     );
     if ($count > 0) {
         echo 'duplicate';
         exit;
     }
 
-    $counter_image  = $obj->getvalfield("account", "counter_image", "account_id='$keyvalue'");
-    $visiting_image = $obj->getvalfield("account", "visiting_image", "account_id='$keyvalue'");
+    $count_name = $obj->getvalfield(
+        "account",
+        "count(*)",
+        "account_name='$account_name' AND type='customer' AND account_id!='$keyvalue'"
+    );
+
+    if ($count_name > 0 && $force_save == 0) {
+        echo "duplicate_name";
+        exit;
+    }
+    if ($keyvalue > 0) {
+        $counter_image  = $obj->getvalfield("account", "counter_image", "account_id='$keyvalue'");
+        $visiting_image = $obj->getvalfield("account", "visiting_image", "account_id='$keyvalue'");
+    } else {
+        $counter_image = $visiting_image = "";
+    }
 
     if (!empty($_FILES['counter_image']['tmp_name'])) {
 
@@ -94,6 +110,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'ipaddress'         => $ipaddress,
         'counter_image'     => $counter_image,
         'visiting_image'    => $visiting_image,
+        "userid"       => $loginid
     ];
 
     if ($keyvalue == 0) {
@@ -232,7 +249,7 @@ if (isset($_GET[$tblpkey])) {
                         </div>
 
                         <div class="col-lg-12 col-12 mb-1">
-                            <label class="form-label form-label-sm">WhatsApp Number</label>
+                            <label class="form-label form-label-sm">WhatsApp Number<span class="text-danger">*</span></label>
                             <input type="text" class="form-control form-control-sm" id="mobile_no" name="mobile_no"
                                 placeholder="10-digit number" maxlength="10" value="<?= htmlspecialchars($mobile_no) ?>"
                                 oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,10)">
@@ -240,14 +257,14 @@ if (isset($_GET[$tblpkey])) {
 
                         <div class="col-lg-12 col-12 mb-1">
                             <label class="form-label form-label-sm">
-                                Owner Name <span class="text-danger" id="owner_name_star">*</span>
+                                Owner Name <span class="text-danger">*</span>
                             </label>
                             <input type="text" class="form-control form-control-sm" id="owner_name" name="owner_name"
                                 placeholder="Enter Owner Name" value="<?= htmlspecialchars($owner_name ?? '') ?>">
                         </div>
-                        <div class="col-lg-12 col-12 mb-1" >
+                        <div class="col-lg-12 col-12 mb-1">
                             <label class="form-label form-label-sm">
-                                Owner Mobile No. <span class="text-danger" id="owner_mobile_star">*</span>
+                                Owner Mobile No. <span class="text-danger">*</span>
                             </label>
                             <input type="text" class="form-control form-control-sm" id="owner_mobile" name="owner_mobile"
                                 placeholder="10-digit number" maxlength="10" value="<?= htmlspecialchars($owner_mobile ?? '') ?>"
@@ -276,6 +293,7 @@ if (isset($_GET[$tblpkey])) {
 
                         <div class="col-12 mt-2">
                             <input type="hidden" name="account_id" value="<?= $keyvalue ?>">
+                            <input type="hidden" name="force_save" id="force_save" value="0">
                             <input type="hidden" name="latitude" id="latitude">
                             <input type="hidden" name="longitude" id="longitude">
                             <input type="hidden" name="location_address" id="location_address">
@@ -355,6 +373,25 @@ if (isset($_GET[$tblpkey])) {
                 return enableBtn(btn);
             }
 
+            if (!$('#mobile_no').val()) {
+                Swal.fire('Enter Whatsapp Number');
+                $('#mobile_no').focus();
+                return enableBtn(btn);
+            }
+
+               if (!$('#mobile_no').val()) {
+                Swal.fire('Enter Owner Name');
+                $('#owner_name').focus();
+                return enableBtn(btn);
+            }
+
+               if (!$('#owner_mobile').val()) {
+                Swal.fire('Enter Owner Number');
+                $('#owner_mobile').focus();
+                return enableBtn(btn);
+            }
+
+
             if (!IS_EDIT && !$('#counter_image').val()) {
                 Swal.fire('Please upload a Counter Image');
                 return enableBtn(btn);
@@ -390,6 +427,22 @@ if (isset($_GET[$tblpkey])) {
                     } else if (r === 'duplicate') {
                         Swal.fire('Duplicate entry — same counter name exists in this area', '', 'warning');
                         enableBtn(btn);
+                    } else if (r === 'duplicate_name') {
+                        Swal.fire({
+                            title: 'Account name already exists.',
+                            text: 'Do you want to save?',
+                            icon: 'warning',
+                            showCancelButton: true,
+                            confirmButtonText: 'Yes, save',
+                            cancelButtonText: 'Cancel'
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                $('#force_save').val('1');
+                                submitForm(btn);
+                            } else {
+                                enableBtn(btn);
+                            }
+                        });
                     } else if (r === 'invalid_image') {
                         Swal.fire('Only JPG, PNG images allowed', '', 'warning');
                         enableBtn(btn);

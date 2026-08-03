@@ -133,10 +133,10 @@ $kraList = [
 
 
 
-$behaviourItems = $obj->executequery("SELECT * FROM kra_behaviour WHERE companyid=$companyid ORDER BY kra_behaviour_id");
+$behaviourItems = $obj->executequery("SELECT * FROM kra_behaviour  ORDER BY kra_behaviour_id");
 
 $bscores = [];
-$bscoreRows = $obj->executequery("SELECT * FROM kra_behaviour_score WHERE company_id=$companyid AND month='$month' AND year='$year'");
+$bscoreRows = $obj->executequery("SELECT * FROM kra_behaviour_score WHERE month='$month' AND year='$year'");
 foreach ($bscoreRows as $bs) $bscores[$bs['emp_id']][$bs['behaviour_id']] = $bs['score'];
 
 function colorClass($pct)
@@ -185,8 +185,6 @@ function kraValLabel($key, $val)
         <?php include('component/header.php'); ?>
 
         <div class="container-fluid pb-4">
-
-            <!-- ── Filter card ───────────────────────────────────────── -->
             <div class="row">
                 <div class="col-lg-12 mb-2">
                     <form id="kraFilterForm" method="GET" action="<?= $pagename ?>">
@@ -241,8 +239,6 @@ function kraValLabel($key, $val)
                     </form>
                 </div>
             </div>
-
-            <!-- ── Main Report Card ──────────────────────────────────── -->
             <div class="row">
                 <div class="col-lg-12 employee-kra-list">
                     <div class="card">

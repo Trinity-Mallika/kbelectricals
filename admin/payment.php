@@ -182,48 +182,91 @@ $crit = " where t.account_id='$account_id' and t.type='payment'";
 
                                             $opening_paid = (float)$obj->getvalfield(
                                                 "transaction_entry",
-                                                "IFNULL(SUM(grand_total),0)",
+                                                "IFNULL(SUM(grand_total + IFNULL(cash_disc,0)),0)",
                                                 "account_id='$account_id'
-     AND type='payment'
-     AND pay_type='opening' and pay_status=1 and transaction_id!='$keyvalue'"
+    AND type='payment'
+    AND pay_type='opening'
+    AND transaction_id!='$keyvalue'"
                                             );
 
                                             $opening_pending = $opening_amt - $opening_paid;
 
+                                            /* Opening Balance */
                                             if ($opening_pending > 0) {
 
-                                                echo '<option value="opening" data-total="' . $opening_amt . '" data-pending="' . $opening_pending . '">Opening Balance (Pending ₹' . number_format($opening_pending, 2) . ')</option>';
-                                            } else {
-                                                $res = $obj->executequery("SELECT t.transaction_id,t.billno,t.invoice_no,t.billdate,t.grand_total AS total_amt,
-            IFNULL(SUM(p.grand_total),0) AS total_paid FROM transaction_entry t LEFT JOIN transaction_entry p ON p.ref_bill_id = t.transaction_id AND p.type = 'payment'
-            AND p.pay_type = 'bill' and p.pay_status=1 and p.transaction_id!='$keyvalue'  WHERE t.account_id = '$account_id' AND t.type = 'order' AND t.is_approved = 1 AND t.invoice_no <> ''  GROUP BY t.transaction_id ORDER BY t.billdate ASC, t.transaction_id ASC");
-                                                foreach ($res as $row) {
+                                                echo '<option
+            value="opening"
+            data-total="' . $opening_amt . '"
+            data-pending="' . $opening_pending . '"
+            selected>
+            Opening Balance (Pending ₹' . number_format($opening_pending, 2) . ')
+          </option>';
+                                            }
 
-                                                    $total   = (float)$row['total_amt'];
-                                                    $paid    = (float)$row['total_paid'];
-                                                    $pending = $total - $paid;
+                                            $res = $obj->executequery("
+SELECT
+    t.transaction_id,
+    t.billno,
+    t.invoice_no,
+    t.billdate,
+    t.grand_total AS total_amt,
 
+    IFNULL(
+        SUM(
+            p.grand_total + IFNULL(p.cash_disc,0)
+        ),
+        0
+    ) AS total_paid
+
+FROM transaction_entry t
+
+LEFT JOIN transaction_entry p
+    ON p.ref_bill_id = t.transaction_id
+    AND p.type='payment'
+    AND p.pay_type='bill'
+    AND p.transaction_id!='$keyvalue'
+
+WHERE t.account_id='$account_id'
+AND t.type='order'
+AND t.is_approved=1
+AND t.invoice_no<>''
+
+GROUP BY t.transaction_id
+ORDER BY t.billdate ASC, t.transaction_id ASC
+");
+
+                                            foreach ($res as $row) {
+
+                                                $total   = (float)$row['total_amt'];
+                                                $paid    = (float)$row['total_paid'];
+                                                $pending = $total - $paid;
+                                                if ($opening_pending > 0) {
+                                                    $disabled = "disabled";
+                                                } else {
                                                     $disabled = ($pending <= 0) ? "disabled" : "";
-                                                    $selected = ($bill_id == $row['transaction_id']) ? "selected" : "";
+                                                }
 
-                                                    echo '<option
+                                                $selected = ($bill_id == $row['transaction_id']) ? "selected" : "";
+
+                                                echo '<option
             value="' . $row['transaction_id'] . '"
             data-total="' . $total . '"
             data-pending="' . $pending . '"
             ' . $disabled . '
             ' . $selected . '>';
 
-                                                    if ($pending <= 0) {
-                                                        echo '✅ ';
-                                                    }
-
-                                                    echo $row['invoice_no'] .
-                                                        ' (₹' . number_format($total, 2) .
-                                                        ' | Pending ₹' . number_format($pending, 2) .
-                                                        ') / ' . $obj->dateformatindia($row['billdate']);
-
-                                                    echo '</option>';
+                                                if ($pending <= 0) {
+                                                    echo '✅ ';
+                                                } elseif ($opening_pending > 0) {
+                                                    echo '🔒 ';
                                                 }
+
+                                                echo $row['invoice_no']
+                                                    . ' (₹' . number_format($total, 2)
+                                                    . ' | Pending ₹' . number_format($pending, 2)
+                                                    . ') / ' . $obj->dateformatindia($row['billdate']);
+
+                                                echo '</option>';
                                             }
                                             ?>
                                         </select>
@@ -404,26 +447,20 @@ $crit = " where t.account_id='$account_id' and t.type='payment'";
                                                     <?= $row['remark']; ?>
                                                 </td>
                                                 <td>
-                                                    <?php $chkedit = $obj->check_editBtn($pagename, $loginid);
-                                                    if ($chkedit > 0 || $_SESSION['usertype'] == 'admin') {
-                                                    ?>
-                                                        <a href="<?= $pagename ?>?transaction_id=<?= $row[$tblpkey]; ?>"
-                                                            class="btn btn-sm btn-success"
-                                                            title="Edit">
-                                                            <i class="bi bi-pencil-square"></i>
-                                                        </a>
-                                                    <?php }
-                                                    $chkdel = $obj->check_delBtn($pagename, $loginid);
-                                                    if ($chkdel > 0 || $_SESSION['usertype'] == 'admin') {
-                                                    ?>
-                                                        <a href="javascript:void(0)"
-                                                            class="btn btn-sm btn-danger"
-                                                            onclick="funDel('<?= $row[$tblpkey]; ?>','<?= $row['imgname']; ?>');"
-                                                            title="Delete">
-                                                            <i class="bi bi-trash"></i>
-                                                        </a>
-                                                    <?php
-                                                    } ?>
+
+                                                    <a href="<?= $pagename ?>?transaction_id=<?= $row[$tblpkey]; ?>"
+                                                        class="btn btn-sm btn-success"
+                                                        title="Edit">
+                                                        <i class="bi bi-pencil-square"></i>
+                                                    </a>
+
+                                                    <a href="javascript:void(0)"
+                                                        class="btn btn-sm btn-danger"
+                                                        onclick="funDel('<?= $row[$tblpkey]; ?>','<?= $row['imgname']; ?>');"
+                                                        title="Delete">
+                                                        <i class="bi bi-trash"></i>
+                                                    </a>
+
                                                 </td>
                                             </tr>
                                         <?php } ?>
@@ -446,7 +483,7 @@ $crit = " where t.account_id='$account_id' and t.type='payment'";
     $(document).ready(function() {
         $('#example').DataTable();
         $(".chosen-select").chosen();
-        handleBillChange('<?= $bill_id; ?>');
+        handleBillChange();
         load_ledger(<?= $account_id; ?>);
     });
 
@@ -488,6 +525,8 @@ $crit = " where t.account_id='$account_id' and t.type='payment'";
 
 
     function handleBillChange(bill_id) {
+
+        bill_id = $('#bill_id').val();
 
         if (!bill_id) {
             $('#pending_amt').val('');

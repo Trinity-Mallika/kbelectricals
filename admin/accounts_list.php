@@ -238,6 +238,12 @@ $to   = $todate . " 23:59:59";
                                                             data-id="<?= $row_get['account_id']; ?>">
                                                             Approve
                                                         </button>
+                                                        <button type="button"
+                                                            title="Delete"
+                                                            class="btn btn-outline-danger"
+                                                            onclick="funDel(<?= $row_get['account_id']; ?>);">
+                                                            <i class="bi bi-trash3-fill"></i>
+                                                        </button>
                                                     <?php } else { ?>
                                                         <span class="badge bg-success">Approved</span>
                                                     <?php } ?>
@@ -288,6 +294,23 @@ $to   = $todate . " 23:59:59";
             }
         });
     });
+
+    function funDel(id) {
+        tblname = '<?php echo $tblname; ?>';
+        tblpkey = '<?php echo $tblpkey; ?>';
+        if (confirm("Are you sure! You want to delete this record.")) {
+            jQuery.ajax({
+                type: 'POST',
+                url: 'ajax/delete_pending_counter.php',
+                data: 'id=' + id + '&tblname=' + tblname + '&tblpkey=' + tblpkey,
+                dataType: 'html',
+                success: function(data) {
+                    location = '<?php echo $pagename . "?action=3"; ?>';
+                }
+            }); //ajax close
+        } //confirm close
+    } //fun close
+
 </script>
 
 </html>

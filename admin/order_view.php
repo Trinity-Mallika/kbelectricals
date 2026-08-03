@@ -51,12 +51,7 @@ if (isset($_REQUEST['order_trans_id'])) {
     echo 1;
     die;
 }
-if (isset($_REQUEST['dis_trans_details_id'])) {
-    $dis_trans_details_id  = $_REQUEST['dis_trans_details_id'];
-    $obj->update_record("transaction_details", ['tran_detail_id' => $dis_trans_details_id], ['is_dispatched' => 1, 'dispatch_date' => date('Y-m-d')]);
-    echo 1;
-    die;
-}
+
 ?>
 
 <!DOCTYPE html>
@@ -114,7 +109,9 @@ if (isset($_REQUEST['dis_trans_details_id'])) {
                                     </button>
                                     <span class="badge bg-warning px-3 py-2 text-dark me-2" style="cursor: pointer;" onclick="order_approve('<?= $transaction_id; ?>')">Click to approve order</span>
                                 <?php } ?>
-                                <a href="order_list.php" class="btn btn-sm btn-danger">Back</a>
+                                <a href="javascript:void(0);" onclick="window.close();" class="btn btn-sm btn-danger">
+                                    Back
+                                </a>
                             </div>
                         </legend>
 
@@ -319,12 +316,21 @@ ORDER BY td.tran_detail_id DESC";
 
                                 <?php if ($sqledit['is_approved'] == 1) { ?>
                                     <?php if ($dispatch_status == 0) { ?>
+
                                         <button type="button"
                                             class="btn btn-sm btn-light text-primary fw-bold"
-                                            onclick="bulk_dispatch()">
+                                            onclick="bulk_action('dispatch')">
                                             <i class="bi bi-truck"></i>
                                             Dispatch Selected
                                         </button>
+
+                                        <!-- <button type="button"
+                                            class="btn btn-sm btn-light text-danger fw-bold"
+                                            onclick="bulk_action('cancel')">
+                                            <i class="bi bi-x-circle"></i>
+                                            Cancel Selected
+                                        </button> -->
+
                                     <?php } ?>
                                 <?php } ?>
                             </div>
@@ -341,6 +347,7 @@ ORDER BY td.tran_detail_id DESC";
                                         <th class="text-end">Rate</th>
                                         <th>Qty</th>
                                         <th>Dispatch Qty</th>
+                                        <th>Cancel Qty</th>
                                         <th>Discount</th>
                                         <th class="text-end">Price After Disc.</th>
                                         <?php if ($is_gst == 0) { ?>
@@ -356,12 +363,28 @@ ORDER BY td.tran_detail_id DESC";
                                     </thead>
                                     <tbody>
                                         <?php $net_total_amt = 0;
-                                        $colspan = 10;
+                                        $colspan = 11;
                                         foreach ($res as $key) {
                                             $gst_id = $key['gst_id'];
                                             $sub_total   = (float)$key['sub_total'];
                                             $gst_name = $obj->getvalfield("gst_master", "gst_name", "gst_id='$gst_id'");
-                                            $dispatch_qty = $obj->getvalfield("dispatch_history", "sum(qty)", "tran_detail_id='{$key['tran_detail_id']}' and transaction_id='$transaction_id'");
+                                            $dispatch_qty = (float)$obj->getvalfield(
+                                                "dispatch_history",
+                                                "IFNULL(SUM(qty),0)",
+                                                "tran_detail_id='{$key['tran_detail_id']}' AND transaction_id='$transaction_id'"
+                                            );
+
+                                            $cancel_qty = (float)$obj->getvalfield(
+                                                "cancel_history",
+                                                "IFNULL(SUM(qty),0)",
+                                                "tran_detail_id='{$key['tran_detail_id']}' AND transaction_id='$transaction_id'"
+                                            );
+
+                                            $balance_qty = $key['qty'] - $dispatch_qty - $cancel_qty;
+
+                                            if ($balance_qty < 0) {
+                                                $balance_qty = 0;
+                                            }
                                         ?>
 
                                             <tr>
@@ -372,11 +395,8 @@ ORDER BY td.tran_detail_id DESC";
                                                 <td class="text-end">Rs. <?php echo $key['rate'] ?></td>
                                                 <td><?php echo $key['qty'] ?></td>
                                                 <td><?php echo $dispatch_qty ?></td>
-                                                <td><?php
-                                                    echo (floor($key['discount']) == $key['discount'])
-                                                        ? (int)$key['discount'] . ' %'
-                                                        : $key['discount'] . ' %';
-                                                    ?></td>
+                                                <td><?php echo $cancel_qty ?></td>
+                                                <td><?php echo (floor($key['discount']) == $key['discount']) ? (int)$key['discount'] . ' %' : $key['discount'] . ' %'; ?></td>
                                                 <td class="text-end">Rs. <?php echo $key['price_after_disc'] ?></td>
                                                 <?php if ($is_gst == 0) { ?>
                                                     <td>
@@ -389,20 +409,58 @@ ORDER BY td.tran_detail_id DESC";
                                                     Rs. <?php echo number_format($key['net_amt'], 2); ?>
                                                 </td>
                                                 <td class="text-center">
+
                                                     <?php if ($key['is_dispatched'] == 0) { ?>
+
                                                         <span class="badge bg-warning text-dark">Pending</span><br>
-                                                        <?php if ($sqledit['is_approved'] == 1) { ?>
+
+                                                        <?php if ($sqledit['is_approved'] == 1 && $balance_qty > 0) { ?>
+
                                                             <button class="btn btn-sm btn-outline-primary mt-1"
-                                                                onclick="order_dispatch('<?php echo $key['tran_detail_id'] ?>',
-            '<?php echo $key['product_id'] ?>',
-            '<?php echo $key['qty'] ?>',
-            '<?php echo $key['product_name'] ?>')">
+                                                                onclick="openActionModal(
+                    'dispatch',
+                    '<?= $key['tran_detail_id'] ?>',
+                    '<?= $key['product_id'] ?>',
+                    '<?= $key['qty'] ?>',
+                    '<?= htmlspecialchars($key['product_name'], ENT_QUOTES) ?>'
+                )">
                                                                 Dispatch
                                                             </button>
+
+                                                            <button class="btn btn-sm btn-outline-danger mt-1"
+                                                                onclick="openActionModal(
+                    'cancel',
+                    '<?= $key['tran_detail_id'] ?>',
+                    '<?= $key['product_id'] ?>',
+                    '<?= $key['qty'] ?>',
+                    '<?= htmlspecialchars($key['product_name'], ENT_QUOTES) ?>'
+                )">
+                                                                Cancel
+                                                            </button>
+
                                                         <?php } ?>
-                                                    <?php } else { ?>
+
+                                                    <?php } elseif ($key['is_dispatched'] == 1) { ?>
+
                                                         <span class="badge bg-success">Delivered</span>
+
+                                                    <?php } elseif ($key['is_dispatched'] == 2) { ?>
+
+                                                        <span class="badge bg-danger">Cancelled</span>
+
+                                                    <?php } elseif ($key['is_dispatched'] == 3) { ?>
+
+                                                        <span class="badge bg-primary">Partial</span><br>
+                                                        <span class="badge bg-success">
+                                                            <i class="bi bi-truck"></i> <?= $dispatch_qty ?>
+                                                        </span>
+
+                                                        <span class="badge bg-danger">
+                                                            <i class="bi bi-x-circle"></i> <?= $cancel_qty ?>
+                                                        </span>
+
                                                     <?php } ?>
+
                                                 </td>
                                                 <?php if ($dispatch_status == 0) { ?>
                                                     <td class="text-center">
@@ -422,8 +480,8 @@ ORDER BY td.tran_detail_id DESC";
                                         <?php $net_total_amt += $key['net_amt'];
                                             if ($is_gst == "1") {
                                                 $gst_percent = 18;
-                                                $cgst = ($net_total_amt * 9) / 100;
-                                                $sgst = ($net_total_amt * 9) / 100;
+                                                $cgst = (($net_total_amt + $sqledit['freight_charges']) * 9) / 100;
+                                                $sgst = (($net_total_amt + $sqledit['freight_charges']) * 9) / 100;
                                                 $gst_total = $cgst + $sgst;
                                                 $grand_total = $net_total_amt + $gst_total;
                                             } else {
@@ -437,20 +495,44 @@ ORDER BY td.tran_detail_id DESC";
                                     <tfoot>
                                         <tr>
                                             <th colspan="<?= $colspan - $is_gst ?>" class="text-end">Net Total</th>
-                                            <th class="text-end">Rs. <?php echo number_format(round($net_total_amt), 2); ?></th>
+                                            <th class="text-end">Rs. <?php echo number_format($net_total_amt, 2); ?></th>
                                             <th></th>
                                             <th></th>
                                         </tr>
                                         <?php if ($is_gst == "1") { ?>
                                             <tr>
-                                                <th colspan="<?= $colspan - $is_gst ?>" class="text-end">GST @ 18%</th>
-                                                <th class="text-end">Rs. <?php echo number_format(round($gst_total), 2); ?></th>
+                                                <th colspan="<?= $colspan - $is_gst ?>" class="text-end">Freight Charges</th>
+                                                <th class="text-end">Rs. <?php echo number_format($sqledit['freight_charges'], 2); ?></th>
+                                                <th></th>
+                                                <th></th>
+                                            </tr>
+                                            <tr>
+                                                <th colspan="<?= $colspan - $is_gst ?>" class="text-end">Taxable Amount</th>
+                                                <th class="text-end">Rs. <?php echo number_format(($net_total_amt + $sqledit['freight_charges']), 2); ?></th>
+                                                <th></th>
+                                                <th></th>
+                                            </tr>
+                                            <tr>
+                                                <th colspan="<?= $colspan - $is_gst ?>" class="text-end">SGST @ 9%</th>
+                                                <th class="text-end">Rs. <?php echo number_format($sgst, 2); ?></th>
+                                                <th></th>
+                                                <th></th>
+                                            </tr>
+                                            <tr>
+                                                <th colspan="<?= $colspan - $is_gst ?>" class="text-end">CGST @ 9%</th>
+                                                <th class="text-end">Rs. <?php echo number_format($cgst, 2); ?></th>
+                                                <th></th>
+                                                <th></th>
+                                            </tr>
+                                            <tr>
+                                                <th colspan="<?= $colspan - $is_gst ?>" class="text-end">Round Off</th>
+                                                <th class="text-end">Rs. <?php echo number_format($sqledit['round_off'], 2); ?></th>
                                                 <th></th>
                                                 <th></th>
                                             </tr>
                                             <tr>
                                                 <th colspan="<?= $colspan - $is_gst ?>" class="text-end">Grand Total</th>
-                                                <th class="text-end">Rs. <?php echo number_format(round($grand_total), 2); ?></th>
+                                                <th class="text-end">Rs. <?php echo number_format(round($grand_total + $sqledit['freight_charges']), 2); ?></th>
                                                 <th></th>
                                                 <th></th>
                                             </tr>
@@ -465,20 +547,18 @@ ORDER BY td.tran_detail_id DESC";
             <!-- Content close-->
         </div>
 
-        <div class="modal fade" id="dispatchModal" tabindex="-1">
+        <div class="modal fade" id="actionModal" tabindex="-1">
             <div class="modal-dialog modal-lg modal-dialog-centered">
                 <div class="modal-content">
-
                     <div class="modal-header">
-                        <h5 class="modal-title">
-                            <i class="bi bi-truck"></i> Product Dispatch
-                        </h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        <h5 class="modal-title" id="modal_title"></h5>
+                        <button type="button" class="btn-close" onclick="close_modal();"></button>
                     </div>
                     <div class="modal-body">
-                        <form id="dispatchForm">
+                        <form id="actionForm">
                             <input type="hidden" name="tran_detail_id" id="tran_detail_id">
                             <input type="hidden" name="product_id" id="product_id">
+                            <input type="hidden" name="action" id="action">
                             <div class="dispatch-box mb-3">
                                 <div class="row g-3">
 
@@ -489,10 +569,13 @@ ORDER BY td.tran_detail_id DESC";
                                     </div>
 
                                     <div class="col-md-4">
-                                        <label class="form-label">Dispatch Date</label>
-                                        <input type="date" name="dispatch_date"
+                                        <label class="form-label" id="date_label">Dispatch Date</label>
+                                        <input type="date"
+                                            name="action_date"
+                                            id="action_date"
                                             value="<?= date('Y-m-d') ?>"
-                                            class="form-control" readonly>
+                                            class="form-control"
+                                            readonly>
                                     </div>
                                 </div>
                             </div>
@@ -509,9 +592,11 @@ ORDER BY td.tran_detail_id DESC";
                                             class="form-control text-center bg-light" readonly>
                                     </div>
                                     <div class="col-md-4">
-                                        <label class="form-label fw-bold text-primary">Dispatch Qty</label>
-                                        <input type="number" name="dispatch_qty"
-                                            id="dispatch_qty"
+                                        <label class="form-label fw-bold text-primary" id="qty_label">
+                                            Dispatch Qty
+                                        </label>
+                                        <input type="number" name="action_qty"
+                                            id="action_qty"
                                             class="form-control text-center border-primary"
                                             placeholder="Enter Qty"
                                             required>
@@ -529,15 +614,18 @@ ORDER BY td.tran_detail_id DESC";
                             </div>
                             <div class="text-center">
                                 <button type="button"
+                                    id="save_btn"
                                     class="btn btn-primary px-3"
-                                    onclick="save_dispatch()">
-                                    <i class="bi bi-check-circle"></i> Save
+                                    onclick="save_action()">
+                                    Save
                                 </button>
                             </div>
                         </form>
                         <hr>
-                        <h6 class="fw-bold mb-2">Dispatch History</h6>
-                        <div id="dispatch_history" class="history-box"></div>
+                        <h6 class="fw-bold mb-2" id="history_title">
+                            Dispatch History
+                        </h6>
+                        <div id="history_box" class="history-box"></div>
                     </div>
                 </div>
             </div>
@@ -570,6 +658,7 @@ ORDER BY td.tran_detail_id DESC";
                 </div>
             </div>
         </div>
+    </div>
 </body>
 
 <!-- script tag -->
@@ -580,6 +669,7 @@ ORDER BY td.tran_detail_id DESC";
         $('#example').DataTable();
         $(".chosen-select").chosen();
     });
+
     $(document).on('click', '.inv-btn[data-id]', function() {
         let id = $(this).data('id');
         let order = $(this).data('order');
@@ -664,10 +754,8 @@ ORDER BY td.tran_detail_id DESC";
             }
         });
     }
-</script>
-<script>
-    function order_approve(transaction_id) {
 
+    function order_approve(transaction_id) {
         swal({
                 title: "Are you sure?",
                 text: "You want to approve this order!",
@@ -705,33 +793,71 @@ ORDER BY td.tran_detail_id DESC";
 
             });
     }
-</script>
-<script>
-    function order_dispatch(tran_detail_id, product_id, qty, product_name) {
+
+    function openActionModal(action, tran_detail_id, product_id, qty, product_name) {
+
+        $("#action").val(action);
         $("#tran_detail_id").val(tran_detail_id);
         $("#product_id").val(product_id);
-        $("#order_qty").val(qty);
         $("#product_name").val(product_name);
+        $("#order_qty").val(qty);
 
-        $("#dispatch_qty").val('');
+        $("#remarks").val('');
+        $("#action_qty").val('');
 
-        $.ajax({
-            url: "get_balance_qty.php",
-            type: "POST",
-            data: {
-                tran_detail_id: tran_detail_id,
-                order_qty: qty
-            },
-            success: function(res) {
-                $("#balance_qty").val(res);
+        $.post("get_balance_qty.php", {
+            tran_detail_id: tran_detail_id,
+            order_qty: qty
+        }, function(res) {
+
+            res = parseFloat(res) || 0;
+
+            $("#balance_qty").val(res);
+
+            $("#action_qty").attr({
+                min: 1,
+                max: res
+            });
+
+            if (res <= 0) {
+                $("#action_qty").prop("disabled", true);
+                $("#save_btn").prop("disabled", true);
+            } else {
+                $("#action_qty").prop("disabled", false);
+                $("#save_btn").prop("disabled", false);
             }
+
         });
 
-        load_dispatch_history(tran_detail_id);
+        if (action === "dispatch") {
 
-        $("#dispatchModal").modal('show');
+            $("#modal_title").html('<i class="bi bi-truck"></i> Product Dispatch');
+            $("#date_label").text("Dispatch Date");
+            $("#qty_label").text("Dispatch Qty");
+            $("#history_title").text("Dispatch History");
+            $("#save_btn").html('<i class="bi bi-truck"></i> Dispatch');
+
+            load_dispatch_history(tran_detail_id);
+
+        } else {
+
+            $("#modal_title").html('<i class="bi bi-x-circle text-danger"></i> Cancel Product');
+            $("#date_label").text("Cancel Date");
+            $("#qty_label").text("Cancel Qty");
+            $("#history_title").text("Cancel History");
+            $("#save_btn").html('<i class="bi bi-x-circle"></i> Cancel');
+
+            load_cancel_history(tran_detail_id);
+
+        }
+
+        $("#actionModal").modal("show");
     }
 
+    function close_modal() {
+        $("#actionModal").modal("hide");
+        location.reload();
+    }
 
 
     function load_dispatch_history(tran_detail_id) {
@@ -742,61 +868,135 @@ ORDER BY td.tran_detail_id DESC";
                 tran_detail_id: tran_detail_id
             },
             success: function(res) {
-                $("#dispatch_history").html(res);
+                $("#history_box").html(res);
             }
         });
     }
 
+    function load_cancel_history(tran_detail_id) {
+        $.ajax({
+            url: "ajax_cancel_history.php",
+            type: "POST",
+            data: {
+                tran_detail_id: tran_detail_id
+            },
+            success: function(res) {
+                $("#history_box").html(res);
+            }
+        });
+    }
 
+    function save_action() {
 
-    function save_dispatch() {
-        var formData = $("#dispatchForm").serialize();
-        var transaction_id = '<?php echo $transaction_id ?>';
-        var account_id = '<?php echo $account_id ?>';
-        formData += '&transaction_id=' + transaction_id;
-        formData += '&account_id=' + account_id;
+        var action = $("#action").val();
+        var actionText = (action === "dispatch") ? "dispatch" : "cancel";
+
+        var actionQty = parseFloat($("#action_qty").val());
+        var balanceQty = parseFloat($("#balance_qty").val());
+
+        if (!actionQty || actionQty <= 0) {
+            swal({
+                title: "Warning",
+                text: "Please enter a valid quantity to " + actionText + ".",
+                icon: "warning",
+                button: "OK"
+            });
+            $("#action_qty").focus();
+            return;
+        }
+
+        if (actionQty > balanceQty) {
+            swal({
+                title: "Warning",
+                text: action.charAt(0).toUpperCase() + action.slice(1) + " Qty cannot exceed Balance Qty.",
+                icon: "warning",
+                button: "OK"
+            });
+            $("#action_qty").focus();
+            return;
+        }
+
+        var formData = $("#actionForm").serialize();
+        formData += '&dispatch_qty=' + encodeURIComponent(actionQty);
+        formData += '&transaction_id=<?= $transaction_id ?>';
+        formData += '&account_id=<?= $account_id ?>';
+
         $.ajax({
             url: "save_dispatch.php",
             type: "POST",
             data: formData,
+
+            beforeSend: function() {
+                $("#save_btn")
+                    .prop("disabled", true)
+                    .html('<i class="bi bi-hourglass-split"></i> Saving...');
+            },
+
             success: function(res) {
-                if (res == 1) {
+                res = $.trim(res);
+                if (res == "1") {
                     swal({
                         title: "Success",
-                        text: "Dispatch Saved Successfully",
+                        text: action.charAt(0).toUpperCase() + action.slice(1) + " Saved Successfully",
                         icon: "success",
                         button: "OK"
                     });
-                    load_dispatch_history($("#tran_detail_id").val());
-                    order_dispatch($("#tran_detail_id").val(), $("#product_id").val(), $("#order_qty").val(), $("#product_name").val());
 
-                    $("#dispatch_qty").val('');
+                    $.post("get_balance_qty.php", {
+                        tran_detail_id: $("#tran_detail_id").val(),
+                        order_qty: $("#order_qty").val()
+                    }, function(balance) {
+                        $("#balance_qty").val(balance);
+                    });
+
+                    // Refresh history
+                    if (action === "dispatch") {
+                        load_dispatch_history($("#tran_detail_id").val());
+                    } else {
+                        load_cancel_history($("#tran_detail_id").val());
+                    }
+
+                    $("#action_qty").val('');
                     $("#remarks").val('');
 
-                    setTimeout(function() {
-                        // location.reload();
-                    }, 1000);
-                } else if (res == 2) {
+                } else if (res == "2") {
+
                     swal({
                         title: "Warning",
-                        text: "Enter Valid Dispatch Qty",
+                        text: "Enter Valid " + action.charAt(0).toUpperCase() + action.slice(1) + " Qty",
                         icon: "warning",
                         button: "OK"
                     });
-                } else if (res == 3) {
+
+                } else if (res == "3") {
+
                     swal({
                         title: "Error",
-                        text: "Dispatch Qty Exceeds Balance Qty",
+                        text: action.charAt(0).toUpperCase() + action.slice(1) + " Qty Exceeds Balance Qty",
                         icon: "error",
                         button: "OK"
                     });
+
                 } else {
+
                     swal({
                         title: "Error",
                         text: "Something Went Wrong",
                         icon: "error",
                         button: "OK"
                     });
+
+                }
+            },
+
+            complete: function() {
+
+                $("#save_btn").prop("disabled", false);
+
+                if (action === "dispatch") {
+                    $("#save_btn").html('<i class="bi bi-truck"></i> Dispatch');
+                } else {
+                    $("#save_btn").html('<i class="bi bi-x-circle"></i> Cancel');
                 }
             }
         });
@@ -810,11 +1010,12 @@ ORDER BY td.tran_detail_id DESC";
         );
     });
 
-    function bulk_dispatch() {
+    function bulk_action(action) {
 
         let approve = parseInt('<?= $sqledit['is_approved']; ?>') || 0;
         let transaction_id = parseInt('<?= $sqledit['transaction_id']; ?>') || 0;
-        var account_id = '<?php echo $account_id ?>';
+        let account_id = '<?= $account_id ?>';
+
         if (approve !== 1) {
             swal({
                 title: "Warning",
@@ -828,83 +1029,83 @@ ORDER BY td.tran_detail_id DESC";
 
         $(".dispatch_checkbox:checked").each(function() {
             products.push({
-                tran_detail_id: $(this).data('tran_detail_id'),
-                product_id: $(this).data('product_id'),
-                qty: $(this).data('qty')
+                tran_detail_id: $(this).data("tran_detail_id"),
+                product_id: $(this).data("product_id"),
+                qty: $(this).data("qty")
             });
         });
 
         if (products.length === 0) {
             swal({
                 title: "Warning",
-                text: "Select at least one product",
+                text: "Select at least one product.",
                 icon: "warning"
             });
             return;
         }
 
+        let actionText = (action === "dispatch") ? "Dispatch" : "Cancel";
+
         swal({
             title: "Are you sure?",
-            text: "Dispatch selected products?",
+            text: actionText + " selected products?",
             icon: "warning",
             buttons: true
         }).then((confirm) => {
 
             if (!confirm) return;
-            let btn = $("#dispatch_btn");
-            btn.prop("disabled", true).text("Processing...");
 
             $.ajax({
                 url: "save_bulk_dispatch.php",
                 type: "POST",
                 data: {
+                    action: action,
                     products: JSON.stringify(products),
-                    transaction_id,
-                    account_id
+                    transaction_id: transaction_id,
+                    account_id: account_id
                 },
-
                 beforeSend: function() {
                     swal({
                         title: "Processing...",
-                        text: "Dispatch in progress",
+                        text: actionText + " in progress...",
                         buttons: false,
                         closeOnClickOutside: false
                     });
                 },
-
                 success: function(res) {
-
-                    if (res == 1) {
+                    res = $.trim(res);
+                    if (res == "1") {
                         swal({
                             title: "Success",
-                            text: "Products dispatched successfully",
+                            text: actionText + " completed successfully.",
                             icon: "success"
                         });
+                        setTimeout(function() {
+                            location.reload();
+                        }, 1000);
 
-                        setTimeout(() => location.reload(), 1000);
-
+                    } else if (res == "2") {
+                        swal({
+                            title: "Warning",
+                            text: "Invalid quantity found.",
+                            icon: "warning"
+                        });
                     } else {
                         swal({
                             title: "Error",
-                            text: "Dispatch failed",
+                            text: actionText + " failed.",
                             icon: "error"
                         });
-
-                        btn.prop("disabled", false).text("Dispatch");
                     }
                 },
-
                 error: function() {
                     swal({
                         title: "Error",
-                        text: "Server not responding",
+                        text: "Server not responding.",
                         icon: "error"
                     });
-
-                    btn.prop("disabled", false).text("Dispatch");
                 }
             });
-
         });
     }
 </script>

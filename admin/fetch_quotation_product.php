@@ -16,10 +16,12 @@ if ($transaction_id > 0) {
     $grand_total = $trasc_data['grand_total'];
     $net_total_amt = $trasc_data['net_total_amt'];
     $freight_charges = $trasc_data['freight_charges'];
+    $round_off = $trasc_data['round_off'];
     $selected_columns = !empty($trasc_data['print_columns']) ? explode(',', $trasc_data['print_columns']) : [];
 } else {
     $freight_charges = 0;
     $gst_percent = 0;
+    $round_off = 0;
     $selected_columns = [];
 }
 ?>
@@ -165,7 +167,7 @@ LEFT JOIN product_master p ON p.product_id = td.product_id LEFT JOIN category_ma
                     <th colspan="<?= $colspan - $is_gst; ?>" class="text-end">Taxable Amount</th>
                     <th class="text-end">
                         <span id="taxable_amount_display">0.00</span>
-                         <input type="hidden" name="taxable_amount" id="taxable_amount">
+                        <input type="hidden" name="taxable_amount" id="taxable_amount">
                     </th>
                 </tr>
                 <tr>
@@ -177,6 +179,12 @@ LEFT JOIN product_master p ON p.product_id = td.product_id LEFT JOIN category_ma
                 <tr>
                     <th colspan="<?= $colspan - $is_gst; ?>" class="text-end">CGST @ 9%</th>
                     <th class="text-end" id="sgst_display">Rs. </th>
+                    <th></th>
+                    <th></th>
+                </tr>
+                <tr>
+                    <th colspan="<?= $colspan - $is_gst; ?>" class="text-end">Round Off</th>
+                    <th class="text-end d-flex justify-content-end gap-1 align-items-center"><span>Rs. </span> <input type="number" class="form-control form-control-sm w-50 text-end" name="round_off" id="round_off" value="<?= $round_off; ?>" oninput="calculateGST();" step="0.01"></th>
                     <th></th>
                     <th></th>
                 </tr>

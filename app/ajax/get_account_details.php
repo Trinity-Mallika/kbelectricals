@@ -3,9 +3,7 @@ include_once("../../action.php");
 
 $account_id = $_POST['account_id'];
 $row = $obj->select_record("account", ["account_id" => $account_id]);
-
 $area_name = $obj->getvalfield("area_master", "area_name", "area_id='{$row['area_id']}'");
-
 $html = '
 <div class="card p-2 bg-light">
     <table class="table table-borderless mb-0 table-sm">
@@ -15,15 +13,12 @@ $html = '
         </tr>
         <tr>
             <td class="bg-light"><label class="form-label mb-0">Site Address</label></td>
-            <td class="bg-light fs-6">' . $row['address'] . '</td>
+            <td class="bg-light fs-6">' . $row['location_address'] . '</td>
         </tr>
     </table>
 </div>
 ';
 
 echo json_encode([
-    "html" => $html,
-    "o_mobile_no" => $row['o_mobile_no'],
-    "mobile" => $row['mobile_no'],
-    "decision_maker_name" => $row['owner_name']
+    "html" => $html
 ]);

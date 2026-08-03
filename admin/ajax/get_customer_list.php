@@ -10,11 +10,11 @@ $monthStart = date('Y-m-01', mktime(0, 0, 0, $month, 1, $year));
 $monthEnd   = date('Y-m-t',  mktime(0, 0, 0, $month, 1, $year));
 $uid        = intval($loginid);
 $cid        = $companyid;
-
+$crit = ($uid > 0) ? " AND rp.sales_executive_id = $uid" : "";
 $brandRows = $obj->executequery(
     "SELECT cat_id AS id, cat_name AS name
      FROM category_master
-     WHERE type = 'brand'
+     WHERE type = 'brand' and cat_id!='35'
      ORDER BY cat_name"
 );
 
@@ -46,7 +46,7 @@ $pivotBase = "SELECT
     INNER JOIN route_counter rc
         ON rc.account_id = a.account_id AND rc.is_active = 1
     INNER JOIN route_plan rp
-        ON rp.batch_no = rc.batch_no AND rp.sales_executive_id = $uid
+        ON rp.batch_no = rc.batch_no $crit
     INNER JOIN route r
         ON r.batch_no = rp.batch_no
     INNER JOIN transaction_entry te
@@ -68,20 +68,23 @@ try {
             $customers = $obj->executequery("SELECT DISTINCT
                     a.account_id,
                     a.account_name,
-                    a.status1
+                    a.status1,
+                    r.route_name
                 FROM account a
                 INNER JOIN route_counter rc
                     ON rc.account_id = a.account_id AND rc.is_active = 1
                 INNER JOIN route_plan rp
                     ON rp.batch_no = rc.batch_no
-                   AND rp.sales_executive_id = $uid
+                INNER JOIN route r
+                    ON r.batch_no = rp.batch_no
+                  $crit
                 WHERE a.type = 'customer'
-                ORDER BY a.account_name");
+                ORDER BY r.route_name");
             break;
 
 
         case 'active':
-            $rows = $obj->executequery($pivotBase . " ORDER BY row_total DESC, a.account_name");
+            $rows = $obj->executequery($pivotBase . " ORDER BY row_total DESC,  r.route_name");
             break;
 
         case 'counter':
@@ -94,8 +97,7 @@ try {
             }
             $lastBrandCols = rtrim($lastBrandCols, ',');
 
-            $rows = $obj->executequery("
-        SELECT
+            $rows = $obj->executequery("SELECT
             a.account_id,
             a.account_name,
             r.route_id,
@@ -114,7 +116,7 @@ try {
 
         INNER JOIN route_plan rp
             ON rp.batch_no=rc.batch_no
-           AND rp.sales_executive_id=$uid
+         $crit
 
         INNER JOIN route r
             ON r.batch_no=rp.batch_no
@@ -151,7 +153,7 @@ try {
 
         ORDER BY
             last_order_date DESC,
-            a.account_name
+            r.route_name
     ");
 
             break;
@@ -160,20 +162,25 @@ try {
             $customers = $obj->executequery("SELECT DISTINCT
                     a.account_id,
                     a.account_name,
-                    a.status1
+                    a.owner_name,
+                    a.mobile_no,
+                    a.o_mobile_no,
+                     r.route_name
                 FROM account a
                 INNER JOIN route_counter rc
                     ON rc.account_id = a.account_id AND rc.is_active = 1
                 INNER JOIN route_plan rp
                     ON rp.batch_no = rc.batch_no
-                   AND rp.sales_executive_id = $uid
+                     INNER JOIN route r
+                    ON r.batch_no = rp.batch_no
+                  $crit
                 LEFT JOIN transaction_entry te
                     ON te.account_id = a.account_id
                    AND te.type = 'order'
                    AND te.companyid = $cid
                 WHERE a.type = 'customer'
                   AND te.transaction_id IS NULL
-                ORDER BY a.account_name
+                ORDER BY r.route_name
             ");
             break;
 
@@ -197,26 +204,23 @@ try {
                     COUNT(DISTINCT te.transaction_id) AS invoice_count
                 FROM account a
                 INNER JOIN route_counter rc ON rc.account_id = a.account_id AND rc.is_active = 1
-                INNER JOIN route_plan rp    ON rp.batch_no = rc.batch_no AND rp.sales_executive_id = $uid
+                INNER JOIN route_plan rp    ON rp.batch_no = rc.batch_no $crit
                 INNER JOIN route r          ON r.batch_no = rp.batch_no
                 INNER JOIN transaction_entry te
                     ON te.account_id = a.account_id
                    AND te.type = 'order' AND te.is_approved = 1
                    AND te.companyid = '$cid'
-                   AND te.createdby = $uid
                    AND te.billdate BETWEEN '$monthStart' AND '$monthEnd'
                 INNER JOIN transaction_details td
                     ON td.transaction_id = te.transaction_id AND td.type = 'order'
                 WHERE a.type = 'customer'
                 GROUP BY a.account_id, a.account_name, r.batch_no, r.route_name
-                ORDER BY invoice_count DESC, a.account_name
+                ORDER BY invoice_count DESC,  r.route_name
             ");
             break;
 
         case 'business':
-            $rows = $obj->executequery($pivotBase . "
-                ORDER BY row_total DESC, a.account_name
-            ");
+            $rows = $obj->executequery($pivotBase . " ORDER BY row_total DESC,  r.route_name");
             break;
 
         default:

@@ -35,6 +35,7 @@ if (isset($_POST['submit'])) {
 
     $grand_total = $obj->test_input($_POST['grand_total']);
     $net_total_amt = $obj->test_input($_POST['net_total_amt']);
+    $round_off = isset($_POST['round_off']) ? $obj->test_input($_POST['round_off']) : 0;
     $freight_charges = isset($_POST['freight_charges']) ? $obj->test_input($_POST['freight_charges']) : 0;
     $gst_percent = isset($_POST['gst_percent']) ? $obj->test_input($_POST['gst_percent']) : 0;
     $cgst = isset($_POST['cgst']) ? $obj->test_input($_POST['cgst']) : 0;
@@ -45,6 +46,7 @@ if (isset($_POST['submit'])) {
         "account_id" => $account_id,
         "type" => $type,
         "net_total_amt" => $net_total_amt,
+        "round_off" => $round_off,
         "cgst" => $cgst,
         "sgst" => $sgst,
         "taxable_amount" => $taxable_amount,
@@ -761,7 +763,7 @@ if ($keyvalue > 0) {
         $('#accountNameAdd').modal('show');
     }
 
-    function save_account() {
+    function save_account(force_save = 0) {
 
         var user_id = $('#user_id').val().trim();
         var account_name = $('#account_name').val().trim();
@@ -854,6 +856,7 @@ if ($keyvalue > 0) {
                 electrician_name: electrician_name,
                 electrician_mobile: electrician_mobile,
                 account_id_map: account_id_map,
+                force_save: force_save
             },
             success: function(res) {
                 res = $.trim(res);
@@ -862,7 +865,26 @@ if ($keyvalue > 0) {
                     return false;
                 }
 
-                if (res != '') {
+                if (res == 'duplicate_name') {
+
+                    var duplicateName = (common_id == '6') ?
+                        electrician_name :
+                        account_name;
+
+                    var typeName = (common_id == '6') ?
+                        'electrician' :
+                        'customer';
+
+                    if (confirm(
+                            'An ' + typeName + ' with the name "' + duplicateName +
+                            '" already exists.\n\nDo you still want to save?'
+                        )) {
+                        save_account(1);
+                    }
+
+                    return false;
+                }
+                if (res > 0) {
 
                     $('#accountNameAdd').modal('hide');
                     get_account_list(res);
@@ -1245,6 +1267,7 @@ if ($keyvalue > 0) {
 </script>
 <script>
     function calculateGST() {
+
         if ($('#gst_percent_hidden').length === 0) return;
 
         let net_total = parseFloat($('#net_total_amt').val()) || 0;
@@ -1253,21 +1276,34 @@ if ($keyvalue > 0) {
 
         let taxable_amount = net_total + freight;
 
-        let half_gst = gst_percent / 2;
         let gst_amount = (taxable_amount * gst_percent) / 100;
         let cgst = gst_amount / 2;
         let sgst = gst_amount / 2;
+
         let grand_total = taxable_amount + gst_amount;
 
-        if ($('#taxable_amount').length) $('#taxable_amount').val(taxable_amount.toFixed(2));
-        if ($('#taxable_amount_display').length) $('#taxable_amount_display').text(taxable_amount.toFixed(2));
-        if ($('#cgst_display').length) $('#cgst_display').text(cgst.toFixed(2));
-        if ($('#sgst_display').length) $('#sgst_display').text(sgst.toFixed(2));
-        if ($('#grand_total_display').length) $('#grand_total_display').text(grand_total.toFixed(2));
+        let rounded_total = Math.round(grand_total);
+        let round_off = rounded_total - grand_total;
+
+        if ($('#taxable_amount').length)
+            $('#taxable_amount').val(taxable_amount.toFixed(2));
+
+        if ($('#taxable_amount_display').length)
+            $('#taxable_amount_display').text(taxable_amount.toFixed(2));
+
+        if ($('#cgst_display').length)
+            $('#cgst_display').text(cgst.toFixed(2));
+
+        if ($('#sgst_display').length)
+            $('#sgst_display').text(sgst.toFixed(2));
+
+        if ($('#grand_total_display').length)
+            $('#grand_total_display').text(rounded_total.toFixed(2));
 
         $('#cgst').val(cgst.toFixed(2));
         $('#sgst').val(sgst.toFixed(2));
-        $('#grand_total').val(grand_total.toFixed(2));
+        $('#round_off').val(round_off.toFixed(2));
+        $('#grand_total').val(rounded_total.toFixed(2));
         $('#gst_percent_hidden').val(gst_percent);
     }
 </script>

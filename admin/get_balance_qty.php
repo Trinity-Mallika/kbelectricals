@@ -10,6 +10,13 @@ $dispatch_qty = $obj->getvalfield(
     "tran_detail_id='$tran_detail_id'"
 );
 
-$balance = $order_qty - $dispatch_qty;
+$cancel_qty = $obj->getvalfield(
+    "cancel_history",
+    "ifnull(sum(qty),0)",
+    "tran_detail_id='$tran_detail_id'"
+);
+
+
+$balance = $order_qty - $dispatch_qty - $cancel_qty;
 
 echo $balance;

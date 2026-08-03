@@ -26,7 +26,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $latitude         = $obj->test_input($_POST['latitude'] ?? '');
         $longitude        = $obj->test_input($_POST['longitude'] ?? '');
         $location_address = $obj->test_input($_POST['location_address'] ?? '');
-
+        $force_save = isset($_POST['force_save'])
+            ? (int)$_POST['force_save']
+            : 0;
         $type = "customer";
 
         if ($account_name == "" || $area_id == "" || $class == "") {
@@ -34,15 +36,26 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             exit;
         }
 
-        // Duplicate check
-        $count = $obj->getvalfield(
+        // Mobile duplicate = hard block
+        $count_mobile = $obj->getvalfield(
             "account",
             "count(*)",
-            "account_name='$account_name' AND area_id='$area_id'"
+            "mobile_no='$mobile_no' AND type='customer'"
         );
 
-        if ($count > 0) {
+        if ($count_mobile > 0) {
             echo "duplicate";
+            exit;
+        }
+
+        $count_name = $obj->getvalfield(
+            "account",
+            "count(*)",
+            "account_name='$account_name' AND type='customer'"
+        );
+
+        if ($count_name > 0 && $force_save == 0) {
+            echo "duplicate_name";
             exit;
         }
 
@@ -83,6 +96,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             'ipaddress'         => $ipaddress,
             'counter_image'     => $counter_image,
             'visiting_image'    => $visiting_image,
+            "userid"       => $loginid
         ];
 
         // INSERT INTO ACCOUNT
@@ -1375,28 +1389,38 @@ if ($keyvalue > 0) {
             );
         }
 
-        function submitCounterForm(latitude, longitude, address) {
+        function submitCounterForm(latitude, longitude, address, force_save = 0) {
 
             let formData = new FormData();
 
             formData.append('add_counter', 1);
             formData.append('route_planid', $('#route_planid').val());
             formData.append('common_id', $('#common_id').val());
-            formData.append('account_name', $('#account_name').val());
-            formData.append('mobile_no', $('#mobile_no').val());
-            formData.append('owner_name', $('#owner_name').val());
-            formData.append('owner_mobile', $('#owner_mobile').val());
+            formData.append('account_name', $('#account_name').val().trim());
+            formData.append('mobile_no', $('#mobile_no').val().trim());
+            formData.append('owner_name', $('#owner_name').val().trim());
+            formData.append('owner_mobile', $('#owner_mobile').val().trim());
             formData.append('address', $('#modal_address').val());
             formData.append('area_id', $('#area_id').val());
             formData.append('class', $('#class').val());
+
             formData.append('latitude', latitude);
             formData.append('longitude', longitude);
             formData.append('location_address', address);
 
+            // IMPORTANT
+            formData.append('force_save', force_save);
+
             let counterImg = $('#counter_image')[0].files[0];
             let visitingImg = $('#visiting_image')[0].files[0];
-            if (counterImg) formData.append('counter_image', counterImg);
-            if (visitingImg) formData.append('visiting_image', visitingImg);
+
+            if (counterImg) {
+                formData.append('counter_image', counterImg);
+            }
+
+            if (visitingImg) {
+                formData.append('visiting_image', visitingImg);
+            }
 
             Swal.fire({
                 title: 'Saving...',
@@ -1405,23 +1429,88 @@ if ($keyvalue > 0) {
             });
 
             $.ajax({
-                url: 'my-order.php',
+                url: 'check-in.php',
                 type: 'POST',
                 data: formData,
                 processData: false,
                 contentType: false,
+
                 success: function(res) {
-                    res = res.trim();
+
+                    res = $.trim(res);
+
+                    console.log('Save counter response:', res);
+
+                    // Successfully saved
                     if (res === 'success') {
-                        Swal.fire('Saved Successfully', '', 'success').then(() => location.reload());
-                    } else if (res === 'duplicate') {
-                        Swal.fire('Duplicate Counter', 'This counter already exists in this area.', 'warning');
+
+                        Swal.fire(
+                            'Saved Successfully',
+                            '',
+                            'success'
+                        ).then(() => {
+                            location.reload();
+                        });
+
+                    }
+
+                    // Mobile / hard duplicate
+                    else if (res === 'duplicate') {
+
+                        Swal.fire(
+                            'Duplicate Counter',
+                            'This mobile number/counter already exists.',
+                            'warning'
+                        );
+
+                    }
+
+                    // Name duplicate - ASK USER
+                    else if (res === 'duplicate_name') {
+
+                        Swal.fire({
+                            title: 'Counter Name Already Exists',
+                            html: 'A counter named <b>' +
+                                $('<div>').text($('#account_name').val()).html() +
+                                '</b> already exists.<br><br>' +
+                                'Do you still want to save this counter?',
+                            icon: 'warning',
+                            showCancelButton: true,
+                            confirmButtonText: 'Yes, Save Anyway',
+                            cancelButtonText: 'No, Cancel'
+                        }).then((result) => {
+
+                            if (result.isConfirmed) {
+                                submitCounterForm(
+                                    latitude,
+                                    longitude,
+                                    address,
+                                    1
+                                );
+                            }
+
+                        });
+
                     } else {
-                        Swal.fire('Error', res, 'error');
+
+                        Swal.fire(
+                            'Error',
+                            res || 'Unable to save counter.',
+                            'error'
+                        );
+
                     }
                 },
-                error: function() {
-                    Swal.fire('Error', 'Unable to save counter. Please try again.', 'error');
+
+                error: function(xhr, status, error) {
+
+                    console.error(xhr.responseText);
+
+                    Swal.fire(
+                        'Error',
+                        'Unable to save counter. Please try again.',
+                        'error'
+                    );
                 }
             });
         }

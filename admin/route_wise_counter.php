@@ -60,7 +60,7 @@ if (isset($_POST['submit'])) {
             $action = 2;
         }
 
-        echo "<script>location='$pagename?action=$action'</script>";
+        echo "<script>location='$pagename?action=$action&batch_no=$batch_no'</script>";
         exit;
     }
 }
@@ -162,7 +162,7 @@ if ($keyvalue != 0) {
                     SELECT a.account_id,a.account_name,ar.area_name
                     FROM account a
                     LEFT JOIN area_master ar ON ar.area_id=a.area_id
-                    WHERE a.status1='1'
+                    WHERE a.status1='1' and a.common_id=7
                     ORDER BY a.account_name
                 ");
 
@@ -252,9 +252,8 @@ if ($keyvalue != 0) {
         ON t.batch_no = r.batch_no
     JOIN account a
         ON t.account_id = a.account_id
-    WHERE t.companyid='$companyid' and a.common_id=7
+    WHERE t.companyid='$companyid' 
 AND r.batch_no='$batch_no'
-      AND a.status1='1'
     GROUP BY t.route_counter_id
     ORDER BY t.sequence DESC
 ");
@@ -305,7 +304,7 @@ AND r.batch_no='$batch_no'
                     '&tblpkey=' + tblpkey,
                 dataType: 'html',
                 success: function(data) {
-                    location = '<?php echo $pagename . "?action=3"; ?>';
+                    location = '<?php echo $pagename . "?action=3&batch_no=" . $batch_no; ?>';
                 }
             }); //ajax close
         } //confirm close

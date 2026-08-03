@@ -247,18 +247,12 @@ if (!empty($account_id)) {
                                                             <i class="bi bi-check-circle-fill"></i>
                                                         </a>
 
-                                                        <?php $chkedit = $obj->check_editBtn($pagename, $loginid);
-                                                        if ($chkedit > 0 || $_SESSION['usertype'] == 'admin') {
-                                                        ?>
                                                             <a href="javascript:void(0)" onclick="open_modal('<?= $row[$tblpkey]; ?>');"
                                                                 class="btn btn-sm btn-success"
                                                                 title="Edit">
                                                                 <i class="bi bi-pencil-square"></i>
                                                             </a>
-                                                        <?php }
-                                                        $chkdel = $obj->check_delBtn($pagename, $loginid);
-                                                        if ($chkdel > 0 || $_SESSION['usertype'] == 'admin') {
-                                                        ?>
+
                                                             <a href="javascript:void(0)"
                                                                 class="btn btn-sm btn-danger"
                                                                 onclick="funDel('<?= $row[$tblpkey]; ?>','<?= $row['imgname']; ?>');"
@@ -266,13 +260,9 @@ if (!empty($account_id)) {
                                                                 <i class="bi bi-trash"></i>
                                                             </a>
                                                     <?php
-                                                        }
+                                                        
                                                     } ?>
 
-                                                    <!-- Button trigger modal
-                                                    <button type="button" class="btn btn-primary" onclick="open_editmodal();">
-                                                        modal
-                                                    </button> -->
                                                 </td>
                                             </tr>
                                         <?php } ?>

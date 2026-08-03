@@ -8,6 +8,7 @@ $tblname = "account";
 $tblpkey = "account_id";
 $keyvalue = (isset($_GET["account_id"])) ? $obj->test_input($_GET["account_id"]) : 0;
 $action = (isset($_GET["action"])) ? $obj->test_input($_GET["action"]) : "";
+$show_duplicate_confirm = false;
 
 if (isset($_POST['submit'])) {
     $user_id = $obj->test_input($_POST['user_id']);
@@ -34,9 +35,14 @@ if (isset($_POST['submit'])) {
     }
 
     //check Duplicate
-    $count = $obj->getvalfield("$tblname", "count(*)", "account_name='$account_name' and $tblpkey!='$keyvalue'");
+    $confirm_duplicate_account_name = isset($_POST['confirm_duplicate_account_name']) ? $obj->test_input($_POST['confirm_duplicate_account_name']) : 0;
+    $account_name_count = $obj->getvalfield("$tblname", "count(*)", "account_name='$account_name' and $tblpkey!='$keyvalue'");
+    $mobile_count = $obj->getvalfield("$tblname", "count(*)", "mobile_no='$mobile_no' and $tblpkey!='$keyvalue'");
 
-    if ($count > 0) {
+    if ($account_name_count > 0 && $confirm_duplicate_account_name != 1) {
+        $process = "Duplicate";
+        $show_duplicate_confirm = true;
+    } elseif ($mobile_count > 0) {
         $action = 4;
         $process = "Duplicate";
     } else //insert
@@ -101,8 +107,10 @@ if (isset($_POST['submit'])) {
         }
     }
 
-    echo "<script>location='$pagename?action=$action'</script>";
-    die;
+    if (!$show_duplicate_confirm) {
+        echo "<script>location='$pagename?action=$action'</script>";
+        die;
+    }
 }
 
 
@@ -126,7 +134,7 @@ if (isset($_GET[$tblpkey])) {
     $no_of_family  =  $sqledit['no_of_family'];
     $doa  =  $sqledit['doa'];
     $dob  =  $sqledit['dob'];
-} else {
+} elseif (!isset($_POST['submit'])) {
     $account_name = $owner_name = $opening_balance = $o_mobile_no = $mobile_no = $address = $area_id =  "";
     $type = $class = $no_of_kid = $no_of_family = $doa = $dob = $user_id = "";
     $common_id = "7";
@@ -173,7 +181,7 @@ $counterTypes = $obj->executequery("SELECT
                     <fieldset class="mt-2">
                         <legend><?= $module ?></legend>
                         <?php include('component/alert.php'); ?>
-                        <form action="" method="post">
+                        <form method="post" id="accountForm">
                             <div class="card">
                                 <div class="card-header text-white">
                                     <?= $module ?>
@@ -292,15 +300,13 @@ $counterTypes = $obj->executequery("SELECT
                                             <strong> <label for="mobile_no">Opening Date <span class="text-danger fw-bold"></span></label> </strong>
                                             <input type="date" class="form-control form-control-sm" name="opening_date" id="opening_date" placeholder="Opening Date" value="<?php echo $opening_date; ?>" maxlength="10" autocomplete="off">
                                         </div>
-                                        <!-- <div class="col-lg-6 col-md-6 col-sm-12 mb-2">
-                                            <strong> <label for="mobile">Address <span class="text-danger fw-bold"></span></label></strong>
-                                            <textarea class="form-control form-control-sm" name="address" id="address" placeholder="Address" autocomplete="off"><?php echo $address; ?></textarea>
-                                        </div> -->
 
                                         <div class="col-md-4 mt-4">
-                                            <input type="submit" name="submit" class="btn btn-theme btn-sm" value="<?php echo $btn_name; ?>" onclick="return checkinputmaster('user_id,account_name,common_id,area_id');">
+                                            <input type="submit" name="submit" class="btn btn-theme btn-sm" value="<?php echo $btn_name; ?>" onclick="return checkinputmaster('user_id,account_name,mobile_no,common_id,area_id');">
+                                            <button type="submit" name="submit" id="confirmDuplicateSubmit" class="d-none" value="confirm"></button>
                                             <a href="<?php echo $pagename; ?>" class="btn btn-danger btn-sm"> Reset </a>
                                             <input type="hidden" name="<?php echo $tblpkey; ?>" id="<?php echo $tblpkey; ?>" value="<?php echo $keyvalue; ?>">
+                                            <input type="hidden" name="confirm_duplicate_account_name" id="confirm_duplicate_account_name" value="0">
                                         </div>
                                     </div>
                                 </div>
@@ -365,6 +371,7 @@ $counterTypes = $obj->executequery("SELECT
                                         <?php if ($usertype == "admin") { ?>
                                             <th>Created By</th>
                                         <?php } ?>
+                                        <th>Counter Image</th>
                                         <th class="text-center">Action</th>
                                         <th style="display:none;">Customer Name</th>
                                         <th style="display:none;">Owner Name</th>
@@ -419,6 +426,7 @@ SELECT
     FROM transaction_entry te
     WHERE te.account_id = a.account_id
 ) AS txn_count
+ 
 
 FROM account a
 
@@ -434,8 +442,7 @@ LEFT JOIN common_master cm
 LEFT JOIN area_master am
     ON am.area_id = a.area_id
 
-WHERE a.status1 != 0
-AND a.type = 'customer'
+WHERE a.type = 'customer'
 
 ORDER BY a.account_id DESC
 ");
@@ -549,15 +556,25 @@ ORDER BY a.account_id DESC
                                                 <?php if ($usertype == "admin") { ?>
                                                     <td><?= $row_get['created_name'] ?></td>
                                                 <?php } ?>
+                                                <td> <?php if (!empty($row_get['counter_image'])) { ?>
+                                                        <a href="../admin/uploaded/accounts/<?= $row_get['counter_image']; ?>"
+                                                            target="_blank">
+                                                            <img src="../admin/uploaded/accounts/<?= $row_get['counter_image']; ?>"
+                                                                width="50" height="50"
+                                                                style="object-fit:cover;border-radius:5px;">
+                                                        </a>
+                                                    <?php } else { ?>
+                                                        No Image
+                                                    <?php } ?>
+                                                </td>
                                                 <td class="text-center">
                                                     <div class="btn-group btn-group-sm">
-
                                                         <a href="accounts.php?account_id=<?= $row_get['account_id']; ?>"
                                                             title="Edit"
                                                             class="btn btn-outline-success">
                                                             <i class="bi bi-pencil-square"></i>
                                                         </a>
-                                                        <?php if ($row_get['txn_count'] == 0) { ?>
+                                                        <?php if ($row_get['txn_count'] == 0 && $row_get['opening_balance'] == 0) { ?>
                                                             <button type="button"
                                                                 title="Delete"
                                                                 class="btn btn-outline-danger"
@@ -613,6 +630,16 @@ ORDER BY a.account_id DESC
 <!-- script tag -->
 <?php include('component/script.php'); ?>
 <!-- script tag -->
+<?php if ($show_duplicate_confirm) { ?>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            if (confirm('Account name already exists. Do you want to save?')) {
+                document.getElementById('confirm_duplicate_account_name').value = '1';
+                document.getElementById('confirmDuplicateSubmit').click();
+            }
+        });
+    </script>
+<?php } ?>
 <script>
     $(document).ready(function() {
         $(".chosen-select").chosen();
