@@ -1,310 +1,362 @@
-<?php
-include("../adminsession.php");
-$title = "QR Display";
-$pagename = "qr-display.php";
-$module = "QR Display";
-$submodule = "QR Display List";
-$btn_name = "Save";
-$action = (isset($_GET["action"])) ? $obj->test_input($_GET["action"]) : "";
-$location_id = intval($_GET['location_id'] ?? 0);
+<?php include("../adminsession.php");
 
-if (!$location_id) {
-    $latest = $obj->executequery("
+$title    = "QR Display";
+$pagename = "qr-display.php";
+
+/* =========================
+   GET MEETING/QR
+========================= */
+
+$meeting_id = intval($_GET['meeting_id'] ?? 0);
+
+if (!$meeting_id) {
+  $latest = $obj->executequery("
         SELECT *
-        FROM store_location
-        ORDER BY location_id DESC
+        FROM bni_meetings
+        WHERE status = 1
+        ORDER BY meeting_id DESC
         LIMIT 1
     ");
 
-    if ($latest) {
-        $location_id = $latest[0]['location_id'];
-    }
+  if ($latest) {
+    $meeting_id = $latest[0]['meeting_id'];
+  }
 }
 
 $meeting = [];
 
-if ($location_id) {
-    $result = $obj->executequery("
-        SELECT *
-        FROM store_location
-        WHERE location_id = '$location_id'
+if ($meeting_id) {
+  $result = $obj->executequery("
+        SELECT m.*, c.company_name AS shop_name
+        FROM bni_meetings m
+        LEFT JOIN company_setting c ON c.company_id = m.company_id
+        WHERE m.meeting_id = '$meeting_id'
+        AND m.status = 1
+        LIMIT 1
     ");
 
-    if ($result) {
-        $meeting = $result[0];
-    }
+  if ($result) {
+    $meeting = $result[0];
+  }
 }
 
-$meetings = $obj->executequery("
-    SELECT *
-    FROM store_location
-    ORDER BY location_id DESC
+/* =========================
+   QR LIST (active QRs with shop names) for dropdown
+========================= */
+
+$qrs = $obj->executequery("
+    SELECT m.meeting_id, m.title, m.company_id, c.company_name AS shop_name
+    FROM bni_meetings m
+    LEFT JOIN company_setting c ON c.company_id = m.company_id
+    WHERE m.status = 1
+    ORDER BY c.company_name
 ");
 
+/* =========================
+   QR URL
+========================= */
 
 $protocol = (
-    isset($_SERVER['HTTPS']) &&
-    $_SERVER['HTTPS'] == 'on'
+  isset($_SERVER['HTTPS']) &&
+  $_SERVER['HTTPS'] == 'on'
 ) ? 'https' : 'http';
 
 $base_url =
-    $protocol .
-    '://' .
-    $_SERVER['HTTP_HOST'] .
-    dirname(dirname($_SERVER['PHP_SELF']));
+  $protocol .
+  '://' .
+  $_SERVER['HTTP_HOST'] .
+  dirname(dirname($_SERVER['PHP_SELF']));
 
 $scan_url = '';
 
 if ($meeting) {
-    $scan_url =
-        $base_url .
-        '/member/scan.php?token=' .
-        $meeting['qr_token'];
+  $scan_url =
+    $base_url .
+    '/member/scan.php?token=' .
+    $meeting['qr_token'];
 }
 
 $qr_api =
-    'https://api.qrserver.com/v1/create-qr-code/?size=360x360&margin=18&data=' .
-    urlencode($scan_url);
+  'https://api.qrserver.com/v1/create-qr-code/?size=360x360&margin=18&data=' .
+  urlencode($scan_url);
 
 ?>
 
-
 <!DOCTYPE html>
-<html lang="en">
+<html>
 
 <head>
-    <!-- Meta tag -->
-    <?php include('component/css.php'); ?>
-    <style>
-        /* Chrome, Safari, Edge, Opera */
-        input::-webkit-outer-spin-button,
-        input::-webkit-inner-spin-button {
-            -webkit-appearance: none;
-            margin: 0;
-        }
 
-        /* Firefox */
-        input[type=number] {
-            -moz-appearance: textfield;
-        }
+  <?php include('component/css.php'); ?>
 
-        .card-header {
-            background-color: #06163a;
-        }
+  <style>
+    .qr-card {
+      background: linear-gradient(41deg, #0a2f50, #1399d5, #1a6ca8);
+      border-radius: 26px;
+      color: #fff;
+    }
 
+    .qr-box {
+      background: #fff;
+      border-radius: 22px;
+      padding: 18px;
+      display: inline-block;
+    }
 
-        @media print {
-            body * {
-                visibility: hidden;
-            }
+    .copy-url {
+      background: rgba(255, 255, 255, .12);
+      border: 1px solid rgba(255, 255, 255, .2);
+      color: #fff;
+    }
 
-            .print-area,
-            .print-area * {
-                visibility: visible;
-            }
+    .copy-url:focus {
+      background: rgba(255, 255, 255, .16);
+      color: #fff;
+      box-shadow: none;
+    }
 
-            .print-area {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
-            }
+    @media print {
+      body * {
+        visibility: hidden;
+      }
 
-            .no-print {
-                display: none !important;
-            }
-        }
-    </style>
+      .print-area,
+      .print-area * {
+        visibility: visible;
+      }
+
+      .print-area {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+      }
+
+      .no-print {
+        display: none !important;
+      }
+    }
+  </style>
+
 </head>
 
 <body class="bg-light">
 
-    <!-- Sidebar -->
-    <?php include('component/sidebar.php'); ?>
-    <!-- Sidebar Close-->
-    <div class="main w-auto">
-        <!-- Header -->
-        <?php include('component/header.php'); ?>
-        <!-- Header Close-->
-        <!-- Content -->
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-lg-12">
-                    <fieldset class="mt-2">
-                        <legend><?php echo $title ?></legend>
-                        <?php include('component/alert.php'); ?>
-                        <div class="row g-3">
-                            <div class="col-lg-4 ">
+  <?php include('component/sidebar.php'); ?>
 
-                                <div class="card border-0 shadow-sm rounded-4">
+  <div class="main w-auto">
 
-                                    <div class="card-body">
+    <?php include('component/header.php'); ?>
 
-                                        <h5 class="mb-3">
-                                            Select Location Name
-                                        </h5>
+    <div class="container-fluid py-3">
 
-                                        <form method="GET">
+      <div class="row g-3">
 
-                                            <select name="location_id"
-                                                class="form-select mb-3"
-                                                onchange="this.form.submit()">
+        <!-- SELECT QR -->
 
-                                                <option value="">
-                                                    Select Location Name for QR
-                                                </option>
+        <div class="col-lg-4">
 
-                                                <?php foreach ($meetings as $m) { ?>
+          <div class="card border-0 shadow-sm rounded-4">
 
-                                                    <option value="<?php echo $m['location_id']; ?>"
-                                                        <?php echo ($location_id == $m['location_id']) ? 'selected' : ''; ?>>
+            <div class="card-body">
 
-                                                        <?php
-                                                        echo $m['location_name'];
-                                                        ?>
+              <h5 class="mb-3">
+                Select Shop QR
+              </h5>
 
-                                                    </option>
+              <form method="GET">
 
-                                                <?php } ?>
+                <select name="meeting_id"
+                  class="form-select mb-3"
+                  onchange="this.form.submit()">
 
-                                            </select>
+                  <option value="">
+                    Select Shop QR
+                  </option>
 
-                                        </form>
+                  <?php foreach ($qrs as $q) { ?>
 
-                                        <?php if ($meeting) { ?>
+                    <option value="<?php echo $q['meeting_id']; ?>"
+                      <?php echo ($meeting_id == $q['meeting_id']) ? 'selected' : ''; ?>>
 
-                                            <p>
-                                                <b>Venue:</b>
-                                                <?php echo $meeting['location_name']; ?>
-                                            </p>
+                      <?php
+                      echo htmlspecialchars($q['shop_name'] ?? $q['title']);
+                      ?>
 
-                                            <p>
-                                                <b>Radius:</b>
-                                                <?php echo $meeting['radius_meter']; ?> meter
-                                            </p>
+                    </option>
 
-                                        <?php } ?>
+                  <?php } ?>
 
-                                    </div>
+                </select>
 
-                                </div>
+              </form>
 
-                            </div>
-                            <div class="col-lg-8">
+              <?php if ($meeting) { ?>
 
-                                <?php if ($meeting) { ?>
+                <div class="alert alert-info">
 
-                                    <div class="card border-0 shadow-lg ">
+                  <b>Shop:</b>
+                  <?php echo htmlspecialchars($meeting['shop_name'] ?? '—'); ?>
+                  <br>
 
-                                        <div class="card-body text-center p-4 print-area">
+                  <b>Venue:</b>
+                  <?php echo htmlspecialchars($meeting['location_name']); ?>
+                  <br>
 
-                                            <p class="text-info mb-3">
+                  <b>Radius:</b>
+                  <?php echo $meeting['radius_meter']; ?> meter
+                  <br>
 
-                                                <i class="bi bi-geo-alt"></i>
+                  <b>Status:</b>
+                  <?php if ($meeting['status']) { ?>
+                    <span class="badge bg-success">Active</span>
+                  <?php } else { ?>
+                    <span class="badge bg-danger">Inactive</span>
+                  <?php } ?>
 
-                                                <?php echo $meeting['location_name']; ?>
-
-                                            </p>
-
-                                            <div class="qr-box shadow">
-
-                                                <img src="<?php echo $qr_api; ?>"
-                                                    alt="Location QR"
-                                                    class="img-fluid"
-                                                    id="qrImage">
-
-                                            </div>
-
-                                            <div class="mt-4 no-print">
-
-                                                <label class="text-start d-block mb-1">
-                                                    QR Attendance URL
-                                                </label>
-
-                                                <div class="input-group">
-
-                                                    <input type="text"
-                                                        id="scanUrl"
-                                                        class="form-control copy-url"
-                                                        value="<?php echo $scan_url; ?>"
-                                                        readonly
-                                                        placeholder="QR attendance URL">
-
-                                                    <button type="button"
-                                                        class="btn btn-info"
-                                                        onclick="copyUrl()">
-
-                                                        <i class="bi bi-clipboard"></i>
-                                                        Copy URL
-
-                                                    </button>
-
-                                                </div>
-
-                                            </div>
-
-                                            <div class="d-flex gap-2 justify-content-center flex-wrap mt-4 no-print">
-
-                                                <!-- <a href="<?php //echo $scan_url; 
-                                                                ?>"
-                                                    class="btn btn-light rounded-pill"
-                                                    target="_blank">
-
-                                                    <i class="bi bi-box-arrow-up-right"></i>
-                                                    Open Scan URL
-
-                                                </a> -->
-
-                                                <a href="<?php echo $qr_api; ?>"
-                                                    class="btn btn-success rounded-pill"
-                                                    download="bni-meeting-qr.png">
-
-                                                    <i class="bi bi-download"></i>
-                                                    Download QR
-
-                                                </a>
-
-                                                <button type="button"
-                                                    class="btn btn-light rounded-pill"
-                                                    onclick="window.print()">
-
-                                                    <i class="bi bi-printer"></i>
-                                                    Print QR
-
-                                                </button>
-
-                                            </div>
-
-                                        </div>
-
-                                    </div>
-
-                                <?php } else { ?>
-
-                                    <div class="alert alert-warning">
-                                        Please create meeting first.
-                                    </div>
-
-                                <?php } ?>
-
-                            </div>
-                        </div>
-                    </fieldset>
                 </div>
+
+              <?php } ?>
+
             </div>
+
+          </div>
+
         </div>
+
+        <!-- QR DISPLAY -->
+
+        <div class="col-lg-8">
+
+          <?php if ($meeting) { ?>
+
+            <div class="card qr-card border-0 shadow-lg print-area">
+
+              <div class="card-body text-center p-4">
+
+                <h3 class="mb-1">
+                  <?php echo htmlspecialchars($meeting['title']); ?>
+                </h3>
+
+                <p class="text-info mb-1">
+
+                  <i class="bi bi-shop"></i>
+
+                  <?php echo htmlspecialchars($meeting['shop_name'] ?? '—'); ?>
+
+                </p>
+
+                <p class="text-white mb-3" style="font-size:13px;">
+
+                  <i class="bi bi-geo-alt"></i>
+
+                  <?php echo htmlspecialchars($meeting['location_name']); ?>
+                  &nbsp;|&nbsp; Radius: <?php echo $meeting['radius_meter']; ?>m
+
+                </p>
+
+                <div class="qr-box shadow">
+
+                  <img src="<?php echo $qr_api; ?>"
+                    alt="Shop QR"
+                    class="img-fluid"
+                    id="qrImage">
+
+                </div>
+
+                <div class="mt-4 no-print">
+
+                  <label class="text-start d-block mb-1">
+                    QR Attendance URL
+                  </label>
+
+                  <div class="input-group">
+
+                    <input type="text"
+                      id="scanUrl"
+                      class="form-control copy-url"
+                      value="<?php echo $scan_url; ?>"
+                      style="background: #ffffff47;"
+                      readonly
+                      placeholder="QR attendance URL">
+
+                    <button type="button"
+                      class="btn btn-light"
+                      onclick="copyUrl()">
+
+                      <i class="bi bi-clipboard"></i>
+                      Copy URL
+
+                    </button>
+
+                  </div>
+
+                </div>
+
+                <div class="d-flex gap-2 justify-content-center flex-wrap mt-4 no-print">
+
+                  <a href="<?php echo $scan_url; ?>"
+                    class="btn btn-light rounded-pill"
+                    target="_blank">
+
+                    <i class="bi bi-box-arrow-up-right"></i>
+                    Open Scan URL
+
+                  </a>
+
+                  <a href="<?php echo $qr_api; ?>"
+                    class="btn btn-success rounded-pill"
+                    download="shop-qr.png" target="_blank">
+
+                    <i class="bi bi-download"></i>
+                    Download QR
+
+                  </a>
+
+                  <button type="button"
+                    class="btn btn-outline-light rounded-pill"
+                    onclick="window.print()">
+
+                    <i class="bi bi-printer"></i>
+                    Print QR
+
+                  </button>
+
+                </div>
+
+              </div>
+
+            </div>
+
+          <?php } else { ?>
+
+            <div class="alert alert-warning">
+              <i class="bi bi-exclamation-triangle"></i>
+              Please create a Shop QR first from <a href="meeting-master.php">Create QR</a> page.
+            </div>
+
+          <?php } ?>
+
+        </div>
+
+      </div>
+
     </div>
-    <!-- Content Close-->
+
+  </div>
+
+  <?php include('component/script.php'); ?>
+
+  <script>
+    function copyUrl() {
+      let url = document.getElementById('scanUrl').value;
+
+      navigator.clipboard.writeText(url).then(function() {
+        alert('QR URL copied');
+      });
+    }
+  </script>
 
 </body>
-
-<!-- Script tags -->
-<?php include('component/script.php'); ?>
-<script>
-    $(document).ready(function() {
-        $(".chosen-select").chosen();
-        $("#example").DataTable();
-    });
-</script>
 
 </html>

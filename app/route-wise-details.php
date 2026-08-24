@@ -10,105 +10,75 @@ $today_dow = date('l');
 $route_filter_today = $view === 'daily' ? " AND r.day_of_week = '$today_dow' " : "";
 $route_filter_rc = !empty($batch_no) ? " AND rc.batch_no='$batch_no' " : "";
 $route_filter_r  = !empty($batch_no) ? " AND r.batch_no='$batch_no' " : "";
-$route_filter_rp = !empty($batch_no) ? " AND rp.batch_no='$batch_no' " : "";
 
+/* FIX 1: WHERE 1 added so batch/day filters actually filter (they were
+   silently attaching to the LEFT JOIN ON clause before) */
 $routes = $obj->executequery("
 SELECT
-    r.route_id,
-    r.route_name,
-    r.batch_no,
+    r.route_id, r.route_name, r.batch_no,
     COALESCE(SUM(mt.total_target),0) AS route_target
-FROM route_plan rp
-INNER JOIN route r
-    ON r.batch_no = rp.batch_no
-LEFT JOIN route_counter rc
-    ON rc.batch_no = r.batch_no
-   AND rc.is_active=1
-LEFT JOIN monthly_target mt
-    ON mt.account_id = rc.account_id
-   AND mt.createdby = '$loginid'
-   AND mt.month = '$month_digi'
-   AND mt.year = '$year'
-WHERE rp.sales_executive_id='$loginid'
-$route_filter_r 
+FROM (SELECT DISTINCT batch_no FROM route_plan WHERE sales_executive_id='$loginid') rp
+INNER JOIN route r ON r.batch_no = rp.batch_no
+LEFT JOIN route_counter rc ON rc.batch_no = r.batch_no AND rc.is_active=1
+LEFT JOIN monthly_target mt ON mt.account_id = rc.account_id
+    AND mt.createdby='$loginid' AND mt.month='$month_digi' AND mt.year='$year'
+WHERE 1
+$route_filter_r
 $route_filter_today
-GROUP BY r.route_id,r.route_name,r.batch_no
+GROUP BY r.route_id, r.route_name, r.batch_no
 ORDER BY r.route_name
 ");
 
 $all_counters = $obj->executequery("
-SELECT
-    a.account_id,
-    a.account_name,
-    r.route_id,
-    mt.target_id,
-    mt.comment,
-    CASE
-        WHEN mt.target_id IS NULL THEN 0
-        ELSE 1
-    END AS has_target
-FROM route_plan rp
-INNER JOIN route r
-    ON r.batch_no=rp.batch_no
-INNER JOIN route_counter rc
-    ON rc.batch_no=r.batch_no
-   AND rc.is_active=1
-INNER JOIN account a
-    ON a.account_id=rc.account_id
-LEFT JOIN monthly_target mt
-    ON mt.account_id=a.account_id
-   AND mt.createdby='$loginid'
-   AND mt.month='$month_digi'
-   AND mt.year='$year'
-WHERE rp.sales_executive_id='$loginid'
-$route_filter_rc
-$route_filter_today
-ORDER BY r.route_name,a.account_name
+    SELECT a.account_id, a.account_name, r.route_id,
+        COALESCE(mt.target_id, 0) AS target_id,
+        COALESCE(mt.comment, '') AS comment,
+        CASE WHEN mt.target_id IS NULL THEN 0 ELSE 1 END AS has_target
+    FROM route_counter rc
+    INNER JOIN route r ON r.batch_no = rc.batch_no
+    INNER JOIN (SELECT DISTINCT batch_no FROM route_plan WHERE sales_executive_id='$loginid') rp
+        ON rp.batch_no = rc.batch_no
+    INNER JOIN account a ON a.account_id = rc.account_id
+    LEFT JOIN monthly_target mt ON mt.account_id = a.account_id
+        AND mt.createdby = '$loginid' AND mt.month = '$month_digi' AND mt.year = '$year'
+    WHERE rc.is_active = 1
+    $route_filter_rc
+    $route_filter_today
+    ORDER BY r.route_name, a.account_name
 ");
 
+/* FIX 2: no route_counter join here — it duplicated every brand row for
+   accounts sitting on 2+ batches (targets came out doubled) */
 $all_brands = $obj->executequery("
-SELECT
-    mtd.target_id,
-    mtd.brand_id,
-    mtd.target,
-    cm.cat_name
+SELECT mtd.target_id, mtd.brand_id, mtd.target, cm.cat_name
 FROM monthly_target_details mtd
-INNER JOIN monthly_target mt
-    ON mt.target_id = mtd.target_id
-INNER JOIN route_counter rc
-    ON rc.account_id = mt.account_id
-   AND rc.is_active = 1
-INNER JOIN category_master cm
-    ON cm.cat_id = mtd.brand_id
+INNER JOIN monthly_target mt ON mt.target_id = mtd.target_id
+INNER JOIN category_master cm ON cm.cat_id = mtd.brand_id
 WHERE mt.createdby='$loginid'
   AND mt.month='$month_digi'
   AND mt.year='$year'
-$route_filter_rc
 ");
 
+/* FIX 3: DISTINCT account subquery instead of a direct route_counter join —
+   the old join doubled sales for accounts on multiple batches.
+   cat_name added so untargeted brand sales can be displayed. */
 $all_achieved = $obj->executequery("
-SELECT
-    t.account_id,
-    td.brand_id,
-    SUM(td.net_amt) AS achieved
+SELECT t.account_id, td.brand_id, cm.cat_name, SUM(td.net_amt) AS achieved
 FROM transaction_entry t
-INNER JOIN transaction_details td
-    ON td.transaction_id=t.transaction_id
-INNER JOIN route_counter rc
-    ON rc.account_id=t.account_id
-   AND rc.is_active=1
-INNER JOIN route_plan rp
-    ON rp.batch_no=rc.batch_no
-WHERE
-    rp.sales_executive_id='$loginid'
-    $route_filter_rp
-    AND MONTH(t.billdate)='$month_digi'
-    AND YEAR(t.billdate)='$year'
-    AND t.type='order'
-    AND t.is_approved=1
-GROUP BY
-    t.account_id,
-    td.brand_id
+INNER JOIN transaction_details td ON td.transaction_id = t.transaction_id
+INNER JOIN category_master cm ON cm.cat_id = td.brand_id
+INNER JOIN (
+    SELECT DISTINCT rc.account_id
+    FROM route_counter rc
+    INNER JOIN (SELECT DISTINCT batch_no FROM route_plan WHERE sales_executive_id='$loginid') rp
+        ON rp.batch_no = rc.batch_no
+    WHERE rc.is_active = 1
+    " . (!empty($batch_no) ? " AND rc.batch_no='$batch_no' " : "") . "
+) x ON x.account_id = t.account_id
+WHERE t.type='order' AND t.is_approved=1
+  AND td.brand_id != 35
+  AND MONTH(t.billdate)='$month_digi' AND YEAR(t.billdate)='$year'
+GROUP BY t.account_id, td.brand_id, cm.cat_name
 ");
 
 $counters_by_route = [];
@@ -121,70 +91,75 @@ foreach ($all_brands as $b) {
     $brands_by_target[$b['target_id']][] = $b;
 }
 
-$achieved_map = [];
+/* FIX 4: build the same maps as admin side — total sales per account and
+   per-account brand detail, so untargeted sales are visible everywhere */
+$achieved_map              = [];
+$account_total_achieved    = [];
+$account_brand_details_map = [];
+$brand_ach_map             = [];
+$brand_name_map            = [];
 foreach ($all_achieved as $a) {
-    $achieved_map[$a['account_id'] . ':' . $a['brand_id']] = (float)$a['achieved'];
+    $acc    = $a['account_id'];
+    $brand  = (int)$a['brand_id'];
+    $amount = (float)$a['achieved'];
+
+    $achieved_map[$acc . ':' . $brand] = $amount;
+    $account_total_achieved[$acc] = ($account_total_achieved[$acc] ?? 0) + $amount;
+    $account_brand_details_map[$acc][] = [
+        'cat_name' => $a['cat_name'],
+        'brand_id' => $brand,
+        'target'   => 0,
+    ];
+    $brand_ach_map[$brand] = ($brand_ach_map[$brand] ?? 0) + $amount;
+    $brand_name_map[$brand] = $a['cat_name'];
 }
+
+/* FIX 5: brand summary computed in PHP from the two maps instead of the old
+   SQL that joined route_plan (sales were multiplied by assigned weeks!).
+   Targets are summed per unique target_id over the filtered counter set, so
+   batch/day filters apply consistently and no account is counted twice. */
+$brand_target_map = [];
+$seen_target_ids  = [];
+foreach ($all_counters as $c) {
+    $tid = $c['target_id'];
+    if (!$tid || isset($seen_target_ids[$tid])) continue;
+    $seen_target_ids[$tid] = true;
+    foreach ($brands_by_target[$tid] ?? [] as $b) {
+        $bid = (int)$b['brand_id'];
+        $brand_target_map[$bid] = ($brand_target_map[$bid] ?? 0) + (float)$b['target'];
+        $brand_name_map[$bid]   = $b['cat_name'];
+    }
+}
+
+$brand_summary = [];
+foreach ($brand_name_map as $bid => $bname) {
+    $t = $brand_target_map[$bid] ?? 0;
+    $ach = $brand_ach_map[$bid] ?? 0;
+    if ($t <= 0 && $ach <= 0) continue;
+    $brand_summary[] = ['brand_id' => $bid, 'cat_name' => $bname, 'target' => $t, 'achieved' => $ach];
+}
+usort($brand_summary, fn($a, $b) => [$b['achieved'], $b['target']] <=> [$a['achieved'], $a['target']]);
 
 function achievement_color(float $pct): string
 {
-    if ($pct > 100) return 'var(--clr-blue)';   // over-achieved
-    if ($pct >= 100) return 'var(--clr-green)';  // exactly 100%
-    if ($pct >= 60)  return 'var(--clr-amber)';  // on track
-    return 'var(--clr-red)';                     // behind
+    if ($pct > 100) return 'var(--clr-blue)';
+    if ($pct >= 100) return 'var(--clr-green)';
+    if ($pct >= 60)  return 'var(--clr-amber)';
+    return 'var(--clr-red)';
 }
 
+/* FIX 6: DISTINCT so days don't repeat once per route_plan week row */
 $route_options = $obj->executequery("
     SELECT r.batch_no, r.route_name,
-           GROUP_CONCAT(r.day_of_week
+           GROUP_CONCAT(DISTINCT r.day_of_week
                ORDER BY FIELD(r.day_of_week,'Monday','Tuesday','Wednesday',
                               'Thursday','Friday','Saturday')
                SEPARATOR ', ') AS days
     FROM route r
-    LEFT JOIN route_plan rp ON rp.batch_no = r.batch_no
+    INNER JOIN route_plan rp ON rp.batch_no = r.batch_no
     WHERE rp.sales_executive_id = '$loginid'
     GROUP BY r.batch_no, r.route_name
     ORDER BY r.route_name
-");
-
-$brand_summary = $obj->executequery("
-SELECT
-    td.brand_id,
-    cm.cat_name,
-    SUM(td.net_amt) AS achieved,
-    COALESCE((
-        SELECT SUM(mtd.target)
-        FROM monthly_target_details mtd
-        INNER JOIN monthly_target mt
-            ON mt.target_id=mtd.target_id
-        INNER JOIN route_counter rc2
-            ON rc2.account_id=mt.account_id
-           AND rc2.is_active=1
-        WHERE mtd.brand_id=td.brand_id
-          AND mt.createdby='$loginid'
-          AND mt.month='$month_digi'
-          AND mt.year='$year'
-          " . (!empty($batch_no) ? " AND rc2.batch_no='$batch_no'" : "") . "
-    ),0) AS target
-FROM transaction_entry t
-INNER JOIN transaction_details td
-    ON td.transaction_id=t.transaction_id
-INNER JOIN category_master cm
-    ON cm.cat_id=td.brand_id
-INNER JOIN route_counter rc
-    ON rc.account_id=t.account_id
-   AND rc.is_active=1
-INNER JOIN route_plan rp
-    ON rp.batch_no=rc.batch_no
-WHERE
-    rp.sales_executive_id='$loginid'
-    $route_filter_rp
-    AND MONTH(t.billdate)='$month_digi'
-    AND YEAR(t.billdate)='$year'
-    AND t.type='order'
-    AND t.is_approved=1
-GROUP BY td.brand_id
-ORDER BY achieved DESC
 ");
 ?>
 <!DOCTYPE html>
@@ -518,13 +493,11 @@ ORDER BY achieved DESC
                     $r_achieved = 0;
                     $r_counters = $counters_by_route[$route['route_id']] ?? [];
 
+                    // FIX: all sales of the route's counters, incl. untargeted brands
                     foreach ($r_counters as $c) {
-                        foreach ($brands_by_target[$c['target_id']] ?? [] as $b) {
-                            $r_achieved += $achieved_map[$c['account_id'] . ':' . $b['brand_id']] ?? 0;
-                        }
+                        $r_achieved += $account_total_achieved[$c['account_id']] ?? 0;
                     }
 
-                    // No min() cap — show real percentage
                     $r_pct   = $r_target > 0 ? round($r_achieved / $r_target * 100) : 0;
                     $r_color = achievement_color($r_pct);
                     $r_star  = $r_pct > 100 ? ' ⭐' : '';
@@ -564,22 +537,29 @@ ORDER BY achieved DESC
                                 <p class="text-muted small p-3 mb-0">No counters assigned.</p>
                             <?php else: ?>
                                 <div class="counter-list">
-                                    <?php foreach ($r_counters as $c):
-                                        $c_brands   = $brands_by_target[$c['target_id']] ?? [];
-                                        $c_target   = array_sum(array_column($c_brands, 'target'));
-                                        $c_achieved = 0;
-                                        foreach ($c_brands as $b) {
-                                            $c_achieved += $achieved_map[$c['account_id'] . ':' . $b['brand_id']] ?? 0;
+                                    <?php $slno = 1;
+                                    foreach ($r_counters as $c):
+                                        $c_brands = $brands_by_target[$c['target_id']] ?? [];
+
+                                        // FIX: append sales-only brands (no target on this counter)
+                                        $targeted_ids = array_column($c_brands, 'brand_id');
+                                        foreach ($account_brand_details_map[$c['account_id']] ?? [] as $extra) {
+                                            if (!in_array($extra['brand_id'], $targeted_ids)) {
+                                                $c_brands[] = $extra;   // target = 0
+                                            }
                                         }
-                                        // No min() cap
-                                        $c_pct   = $c_target > 0 ? round($c_achieved / $c_target * 100) : 0;
+                                        usort($c_brands, fn($a, $b) => strcmp($a['cat_name'], $b['cat_name']));
+
+                                        $c_target   = array_sum(array_column($c_brands, 'target'));
+                                        $c_achieved = $account_total_achieved[$c['account_id']] ?? 0;  // ALL sales
+                                        $c_pct      = $c_target > 0 ? round($c_achieved / $c_target * 100) : 0;
                                         $c_color = achievement_color($c_pct);
                                         $c_star  = $c_pct > 100 ? ' ⭐' : '';
                                     ?>
                                         <div class="counter-card">
                                             <div class="counter-header">
                                                 <span class="counter-name">
-                                                    <?= htmlspecialchars($c['account_name']) ?>
+                                                    <?= $slno++; ?>. <?= htmlspecialchars($c['account_name']) ?>
                                                 </span>
                                                 <span class="counter-meta">
                                                     <span style="color:<?= $c_color ?>;font-weight:700;">
@@ -605,28 +585,29 @@ ORDER BY achieved DESC
                                                     <tbody>
                                                         <?php foreach ($c_brands as $b):
                                                             $b_achieved = $achieved_map[$c['account_id'] . ':' . $b['brand_id']] ?? 0;
-                                                            // No min() cap
-                                                            $b_pct   = $b['target'] > 0
-                                                                ? round($b_achieved / $b['target'] * 100)
-                                                                : 0;
+                                                            $b_tgt = (float)$b['target'];
+                                                            $b_pct = $b_tgt > 0 ? round($b_achieved / $b_tgt * 100) : 0;
                                                             $b_color = achievement_color($b_pct);
                                                             $b_star  = $b_pct > 100 ? ' ⭐' : '';
                                                         ?>
                                                             <tr>
-                                                                <td><?= htmlspecialchars($b['cat_name']) ?></td>
-                                                                <td>₹<?= number_format($b['target']) ?></td>
+                                                                <td><?= htmlspecialchars($b['cat_name']) ?><?= $b_tgt <= 0 ? ' *' : '' ?></td>
+                                                                <td><?= $b_tgt > 0 ? '₹' . number_format($b_tgt) : '—' ?></td>
                                                                 <td>₹<?= number_format($b_achieved) ?></td>
                                                                 <td>
-                                                                    <div style="display:flex;align-items:center;gap:5px;">
-                                                                        <div class="mini-bar-wrap">
-                                                                            <!-- bar width capped at 100% visually -->
-                                                                            <div class="mini-bar"
-                                                                                style="width:<?= min($b_pct, 100) ?>%;background:<?= $b_color ?>;"></div>
+                                                                    <?php if ($b_tgt > 0): ?>
+                                                                        <div style="display:flex;align-items:center;gap:5px;">
+                                                                            <div class="mini-bar-wrap">
+                                                                                <div class="mini-bar"
+                                                                                    style="width:<?= min($b_pct, 100) ?>%;background:<?= $b_color ?>;"></div>
+                                                                            </div>
+                                                                            <span class="pct-badge" style="background:<?= $b_color ?>;">
+                                                                                <?= $b_pct ?>%<?= $b_star ?>
+                                                                            </span>
                                                                         </div>
-                                                                        <span class="pct-badge" style="background:<?= $b_color ?>;">
-                                                                            <?= $b_pct ?>%<?= $b_star ?>
-                                                                        </span>
-                                                                    </div>
+                                                                    <?php else: ?>
+                                                                        <span class="counter-meta">Sales only</span>
+                                                                    <?php endif; ?>
                                                                 </td>
                                                             </tr>
                                                         <?php endforeach; ?>

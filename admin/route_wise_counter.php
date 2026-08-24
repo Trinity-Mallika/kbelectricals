@@ -21,7 +21,6 @@ if (isset($_POST['submit'])) {
         "count(*)",
         "batch_no='$batch_no'
          AND account_id='$account_id'
-         AND companyid='$companyid'
          AND $tblpkey!='$keyvalue'"
     );
 

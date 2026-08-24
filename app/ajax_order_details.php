@@ -4,43 +4,46 @@ if (isset($_POST['transaction_id'])) {
     $transaction_id = $_POST['transaction_id'];
     $res = $obj->select_record("transaction_entry", ['transaction_id' => $transaction_id]);
     $account_name = $obj->getvalfield("account", "account_name", "account_id='{$res['account_id']}'");
-}
+    function status_badge($status)
+    {
+        if ($status == 1) {
+            return '<span class="status-pill status-dispatched float-end"><i class="bi bi-check2-circle"></i> Dispatched</span>';
+        }
+
+        return '<span class="status-pill status-pending float-end"><i class="bi bi-clock-history"></i> Pending</span>';
+    }
 ?>
-<table class="table table-sm table-borderless m-2">
-    <tr>
-        <td>Customer Name</td>
-        <td>: &nbsp; <?php echo $account_name; ?></td>
-    </tr>
-    <tr>
-        <td>Bill No.</td>
-        <td>: &nbsp; <?php echo $res['billno']; ?></td>
-    </tr>
-    <tr>
-        <td>Bill Date</td>
-        <td>: &nbsp; <?php echo $obj->dateformatindia($res['billdate']); ?></td>
-    </tr>
-
-    <tr>
-        <td>Remark</td>
-        <td>: &nbsp; <?php echo $res['remark']; ?></td>
-    </tr>
-
-    <tr>
-        <th><i class="bi bi-geo-alt"></i> Location</th>
-        <td>
-            <?php echo $res['address']; ?><br>
-            <?php if ($res['latitude'] != '') { ?>
-                <a target="_blank" class="btn btn-sm btn-primary mt-1"
-                    href="https://www.google.com/maps?q=<?php echo $res['latitude']; ?>,<?php echo $res['longitude']; ?>">
-                    View Map
-                </a>
-            <?php } ?>
-        </td>
-    </tr>
-</table>
-<?php
-$sql = "
-SELECT 
+    <table class="table table-sm table-borderless" style="font-size: 14px;">
+        <tr>
+            <td>Customer Name</td>
+            <td>: &nbsp; <?php echo $account_name; ?></td>
+        </tr>
+        <tr>
+            <td>Bill No.</td>
+            <td>: &nbsp; <?php echo $res['billno']; ?></td>
+        </tr>
+        <tr>
+            <td>Bill Date</td>
+            <td>: &nbsp; <?php echo $obj->dateformatindia($res['billdate']); ?></td>
+        </tr>
+        <tr>
+            <td>Remark</td>
+            <td>: &nbsp; <?php echo $res['remark']; ?></td>
+        </tr>
+        <?php if ($res['latitude'] != '') { ?>
+            <tr>
+                <th><i class="bi bi-geo-alt"></i> Location</th>
+                <td>
+                    <a target="_blank" class="btn btn-sm btn-primary mt-1"
+                        href="https://www.google.com/maps?q=<?php echo $res['latitude']; ?>,<?php echo $res['longitude']; ?>">
+                        View Map
+                    </a>
+                </td>
+            </tr>
+        <?php } ?>
+    </table>
+    <?php
+    $sql = "SELECT 
     td.*,
     p.product_name,
     b.cat_name AS brand_name,
@@ -56,25 +59,33 @@ LEFT JOIN category_master b
 LEFT JOIN category_master u 
     ON u.cat_id = td.unit_id AND u.type='unit'
 WHERE td.transaction_id = '$transaction_id' AND td.account_id='{$res['account_id']}' AND td.type='order'
-ORDER BY td.tran_detail_id DESC
-";
-$res = $obj->executequery($sql);
-foreach ($res as $key) { ?>
+ORDER BY td.tran_detail_id DESC";
+    $res = $obj->executequery($sql);
+    $i = 1;
+    foreach ($res as $key) { ?>
+        <div class="col-lg-12 col-12">
+            <div class="card border-0 mb-2 p-2">
+                <span class="text-blue fw-semibold mb-1"><?= $i++; ?>. <?php echo $key['product_name'] ?> (<?php echo $key['category_name'] ?>)</span>
+                <table class="table table-sm table-bordered mb-0 align-middle table-striped" style="font-size: 12px;">
+                    <tr>
+                        <td>Brand</td>
+                        <td>Unit</td>
+                        <td>Qty</td>
+                        <td>MRP</td>
+                    </tr>
+                    <tr>
+                        <th><?php echo $key['brand_name'] ?></th>
+                        <th><?php echo $key['unit_name'] ?></th>
+                        <th><?php echo $key['qty'] ?></th>
+                        <th><?php echo $key['rate'] ?></th>
+                    </tr>
 
-    <div class="col-lg-12 col-12">
-
-        <div class="card border-0 shadow-lg m-2 p-2">
-            <table class="table table-sm table-borderless mb-0 align-middle">
-                <tr>
-                    <th>
-                        <span class="text-blue"><?php echo $key['product_name'] ?> (<?php echo $key['category_name'] ?>)</span><br>
-                        <small class="fw-lighter">Brand : <?php echo $key['brand_name'] ?>, Unit : <?php echo $key['unit_name'] ?>, Qty : <?php echo $key['qty'] ?>, MRP : <?php echo $key['rate'] ?>, Total Amount : <?php echo $key['total_amt'] ?></small>
-                    </th>
-
-                </tr>
-            </table>
-
+                </table>
+                <p class="mb-0 mt-1">
+                    <small class="fw-semibold">Total Amount : <?php echo $key['total_amt'] ?></small>
+                    <?= status_badge($key['is_dispatched']) ?>
+                </p>
+            </div>
         </div>
-
-    </div>
-<?php } ?>
+<?php }
+} ?>

@@ -352,29 +352,45 @@ $sideImg = '/uploaded/company/' . $comp_logo_side; ?>
             </li>
             <li class="nav-item ">
 
-                <a class="nav-link <?php echo ($pagename == "payment_list.php" || $pagename == "daily_productivity_report.php") ? "active" : ""; ?> " href="#" data-bs-toggle="collapse" data-bs-target="#reports" aria-expanded="true">
+                <a class="nav-link <?php echo ($pagename == "payment_list.php" || $pagename == "operations_report.php" || $pagename == "daily_productivity_report.php" || $pagename == "sales-report.php" || $pagename == "salesman_wise_report.php") ? "active" : ""; ?> " href="#" data-bs-toggle="collapse" data-bs-target="#reports" aria-expanded="true">
                     <i class="bi bi-bar-chart-line"></i>&nbsp; Reports
                     <span class="float-end down"><i class="bi bi-chevron-right"></i></span>
                 </a>
 
-                <div class="collapse <?php echo ($pagename == "payment_list.php" || $pagename == "daily_productivity_report.php") ? "show" : ""; ?>" id="reports">
+                <div class="collapse <?php echo ($pagename == "payment_list.php" || $pagename == "operations_report.php" || $pagename == "daily_productivity_report.php" || $pagename == "sales-report.php" || $pagename == "salesman_wise_report.php") ? "show" : ""; ?>" id="reports">
 
                     <ul class="btn-toggle-nav list-group list-unstyled fw-normal pb-1 small">
-
-                        <li>
-
-                            <a href="payment_list.php" class="list-group-item bg-submenu list-group-item-action <?php echo ($pagename == "payment_list.php") ? "active" : ""; ?>">
-
-                                <i class="bi bi-chevron-right"></i> &nbsp; Payment List
-                            </a>
-
-                        </li>
-                        <?php if ($_SESSION['usertype'] == "admin") { ?>
+                        <?php if ($_SESSION['usertype'] != "admin") { ?>
                             <li>
 
-                                <a href="daily_productivity_report.php" class="list-group-item bg-submenu list-group-item-action <?php echo ($pagename == "daily_productivity_report.php") ? "active" : ""; ?>">
+                                <a href="payment_list.php" class="list-group-item bg-submenu list-group-item-action <?php echo ($pagename == "payment_list.php") ? "active" : ""; ?>">
 
-                                    <i class="bi bi-chevron-right"></i> &nbsp; Route Wise Daily Visit
+                                    <i class="bi bi-chevron-right"></i> &nbsp; Payment List
+                                </a>
+
+                            </li>
+                        <?php } ?>
+                        <li>
+
+                            <a href="operations_report.php" class="list-group-item bg-submenu list-group-item-action <?php echo ($pagename == "operations_report.php") ? "active" : ""; ?>">
+
+                                <i class="bi bi-chevron-right"></i> &nbsp; Operations
+                            </a>
+                        </li>
+                        <?php
+                        if ($_SESSION['usertype'] == "admin") { ?>
+                            <li>
+
+                                <a href="sales-report.php" class="list-group-item bg-submenu list-group-item-action <?php echo ($pagename == "sales-report.php") ? "active" : ""; ?>">
+
+                                    <i class="bi bi-chevron-right"></i> &nbsp; Sales
+                                </a>
+                            </li>
+                            <li>
+
+                                <a href="salesman_wise_report.php" class="list-group-item bg-submenu list-group-item-action <?php echo ($pagename == "salesman_wise_report.php") ? "active" : ""; ?>">
+
+                                    <i class="bi bi-chevron-right"></i> &nbsp; Monthly KRA
                                 </a>
                             </li>
                         <?php } ?>
@@ -397,6 +413,67 @@ $sideImg = '/uploaded/company/' . $comp_logo_side; ?>
                     <span class="float-end"><i class="bi bi-chevron-right"></i></span>
                 </a>
             </li>
+            <?php if ($_SESSION['usertype'] == "admin") { ?>
+                <li class="nav-item ">
+
+                    <a class="nav-link <?php echo ($pagename == 'chapter-master.php' || $pagename == "shift-master.php" || $pagename == "meeting-master.php" || $pagename == "qr-display.php" || $pagename == "attendance-calendar.php" || $pagename == "attendance-report.php" || $pagename == "salary_generate.php") ? "active" : ""; ?> " href="#" data-bs-toggle="collapse" data-bs-target="#attendance" aria-expanded="true">
+                        <i class="bi bi-bar-chart-line"></i>&nbsp; Attendance Module
+                        <span class="float-end down"><i class="bi bi-chevron-right"></i></span>
+                    </a>
+
+                    <div class="collapse <?php echo ($pagename == 'chapter-master.php' || $pagename == "shift-master.php" || $pagename == "meeting-master.php" || $pagename == "qr-display.php" || $pagename == "attendance-calendar.php" || $pagename == "attendance-report.php" || $pagename == "salary_generate.php") ? "show" : ""; ?>" id="attendance">
+
+                        <ul class="btn-toggle-nav list-group list-unstyled fw-normal pb-1 small">
+                            <li>
+
+                                <a href="shift-master.php" class="list-group-item bg-submenu list-group-item-action <?php echo ($pagename == "shift-master.php") ? "active" : ""; ?>">
+
+                                    <i class="bi bi-chevron-right"></i> &nbsp; Shift Master
+                                </a>
+                            </li>
+                            <li>
+
+                                <a href="meeting-master.php" class="list-group-item bg-submenu list-group-item-action <?php echo ($pagename == "meeting-master.php") ? "active" : ""; ?>">
+
+                                    <i class="bi bi-chevron-right"></i> &nbsp; Create QR
+                                </a>
+                            </li>
+                            <li>
+
+                                <a href="qr-display.php" class="list-group-item bg-submenu list-group-item-action <?php echo ($pagename == "qr-display.php") ? "active" : ""; ?>">
+
+                                    <i class="bi bi-chevron-right"></i> &nbsp; QR Display
+                                </a>
+                            </li>
+                            <li>
+
+                                <a href="attendance-calendar.php" class="list-group-item bg-submenu list-group-item-action <?php echo ($pagename == "attendance-calendar.php") ? "active" : ""; ?>">
+
+                                    <i class="bi bi-chevron-right"></i> &nbsp; Employee Attendance
+                                </a>
+                            </li>
+
+                            <li>
+
+                                <a href="attendance-report.php" class="list-group-item bg-submenu list-group-item-action <?php echo ($pagename == "attendance-report.php") ? "active" : ""; ?>">
+
+                                    <i class="bi bi-chevron-right"></i> &nbsp; Attendance Report
+                                </a>
+                            </li>
+
+                            <li>
+
+                                <a href="salary_generate.php" class="list-group-item bg-submenu list-group-item-action <?php echo ($pagename == "salary_generate.php") ? "active" : ""; ?>">
+
+                                    <i class="bi bi-chevron-right"></i> &nbsp; Salary Generate
+                                </a>
+                            </li>
+                        </ul>
+
+                    </div>
+
+                </li>
+            <?php } ?>
             <?php if ($_SESSION['usertype'] == "admin") { ?>
                 <li class="nav-item ">
                     <a class="nav-link <?php echo ($pagename == "month-wise-details.php") ? "active" : ""; ?>" href="month-wise-details.php">

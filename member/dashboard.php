@@ -1,38 +1,149 @@
-<?php
-// die;
-include('session.php');
+<?php include('session.php');
 
-
-$userid = $_SESSION['userid'];
-
-$userData = $obj->executequery("
-    SELECT *
-    FROM user
-    WHERE userid='$userid'
-    LIMIT 1
-");
-
-if (empty($userData)) {
-    session_destroy();
-    echo "<script>location='index.php';</script>";
-    exit;
-}
-
-$user = $userData[0];
+$member_id = $_SESSION['member_id'];
+$chapter_id = $_SESSION['chapter_id'];
+$member = $obj->executequery("SELECT * FROM user  WHERE userid='$member_id'")[0];
 
 $totalAttendance = $obj->getvalfield(
-    'attendance_entry',
+    'bni_attendance',
     'count(*)',
-    "member_id='$userid'"
+    "userid='$member_id'"
 );
 
+// This month's attendance: distinct days present vs total days in month
+$thisMonth    = date('Y-m');                       // e.g. "2026-07"
+$thisMonthNum = (int)date('n');                    // 1-12
+$thisYearNum  = (int)date('Y');
+$totalDaysInMonth = (int)cal_days_in_month(CAL_GREGORIAN, $thisMonthNum, $thisYearNum);
+$daysPresent = (int)$obj->getvalfield(
+    'bni_attendance',
+    'COUNT(DISTINCT DATE(scan_time))',
+    "userid='$member_id' AND DATE_FORMAT(scan_time, '%Y-%m')='$thisMonth'"
+);
+
+// Late days this month: count distinct days where first scan_time exceeded shift grace window
+$shiftForLate = $obj->getShift($member['shift_id'] ?? null);
+$graceInLate  = (int)(($shiftForLate['grace_in_minutes'] ?? $shiftForLate['grace_minutes']) ?? 0);
+$monthDayRows = $obj->executequery("
+    SELECT DATE(scan_time) AS day, MIN(scan_time) AS first_in
+    FROM bni_attendance
+    WHERE userid = '$member_id'
+      AND DATE_FORMAT(scan_time, '%Y-%m') = '$thisMonth'
+    GROUP BY DATE(scan_time)
+");
+$lateDays = 0;
+foreach ($monthDayRows as $row) {
+    $dayStartTs = strtotime($row['day'] . ' ' . $shiftForLate['start_time']) + ($graceInLate * 60);
+    if (strtotime($row['first_in']) > $dayStartTs) {
+        $lateDays++;
+    }
+}
+
 $latestMeeting = $obj->executequery("
-    SELECT *
-    FROM store_location
-    WHERE status = 1
-    ORDER BY location_id DESC
+    SELECT m.*, c.company_name AS shop_name
+    FROM bni_meetings m
+    LEFT JOIN company_setting c ON c.company_id = m.company_id
+    WHERE m.status = 1
+    ORDER BY m.meeting_id DESC
     LIMIT 1
 ");
+
+/* =========================================================
+   Today's sessions for this employee (multi-session model)
+========================================================= */
+
+$today = date('Y-m-d');
+
+$todaySessions = $obj->executequery("
+    SELECT
+        a.attendance_id,
+        a.shop_id,
+        a.scan_time AS in_time,
+        a.out_time,
+        a.type,
+        s.company_name AS shop_name
+    FROM bni_attendance a
+    LEFT JOIN company_setting s ON s.company_id = a.shop_id
+    WHERE a.userid = '$member_id'
+      AND DATE(a.scan_time) = '$today'
+    ORDER BY a.attendance_id ASC
+");
+
+// Compute aggregate state
+$hasOpen        = false;
+$workedSec      = 0;
+$firstInTs      = null;
+$lastOutTs      = null;
+
+foreach ($todaySessions as $s) {
+    $inTs  = strtotime($s['in_time']);
+    $outTs = $s['out_time'] ? strtotime($s['out_time']) : null;
+
+    if ($firstInTs === null) $firstInTs = $inTs;
+    if ($outTs !== null) {
+        $lastOutTs  = $outTs;
+        $workedSec += ($outTs - $inTs);
+    } else {
+        $hasOpen = true;
+    }
+}
+
+$todayState = empty($todaySessions) ? 'absent' : ($hasOpen ? 'in' : 'out');
+
+// Shift comparisons (loaded from shift_master table per employee)
+$shift = $obj->getShift($member['shift_id'] ?? null);
+$shiftStartTs = strtotime($today . ' ' . $shift['start_time']);
+$shiftEndTs   = strtotime($today . ' ' . $shift['end_time']);
+
+// Split grace: separate IN grace and OUT grace (with legacy fallback)
+$graceInSec  = (int)(($shift['grace_in_minutes']  ?? $shift['grace_minutes']) ?? 0) * 60;
+$graceOutSec = (int)(($shift['grace_out_minutes'] ?? $shift['grace_minutes']) ?? 0) * 60;
+
+// Expected work hours for the shift (e.g. 8.00)
+$expectedWorkSec = (float)($shift['expected_work_hours'] ?? 0) * 3600;
+
+// Late: only count if IN > (shift_start + grace_in).
+// Reported lateness is measured from (shift_start + grace_in), not shift_start.
+$lateSec  = ($firstInTs && $firstInTs > ($shiftStartTs + $graceInSec))
+          ? ($firstInTs - ($shiftStartTs + $graceInSec))
+          : 0;
+
+// Early: only count if OUT < (shift_end - grace_out).
+// Reported early-leave is measured from (shift_end - grace_out), not shift_end.
+$earlySec = ($lastOutTs && $lastOutTs < ($shiftEndTs - $graceOutSec))
+          ? (($shiftEndTs - $graceOutSec) - $lastOutTs)
+          : 0;
+
+// Short hours: only when all sessions closed, compare worked vs expected
+$shortSec = (!$hasOpen && $expectedWorkSec > 0 && $workedSec < $expectedWorkSec)
+          ? ($expectedWorkSec - $workedSec)
+          : 0;
+
+// Day status for salary: complete / incomplete / pending / absent
+$dayStatus = 'absent';
+if (!empty($todaySessions)) {
+    if ($hasOpen) {
+        $dayStatus = 'pending';
+    } elseif ($expectedWorkSec > 0 && $workedSec < $expectedWorkSec) {
+        $dayStatus = 'incomplete';
+    } else {
+        $dayStatus = 'complete';
+    }
+}
+
+// Shift display strings
+$shiftStartDisp = date('h:i A', $shiftStartTs);
+$shiftEndDisp   = date('h:i A', $shiftEndTs);
+$lunchStartDisp = $shift['lunch_start'] ? date('h:i A', strtotime($today . ' ' . $shift['lunch_start'])) : '—';
+$lunchEndDisp   = $shift['lunch_end']   ? date('h:i A', strtotime($today . ' ' . $shift['lunch_end']))   : '—';
+
+// Helper: format seconds as "Xh Ym"
+function formatDuration($sec) {
+    $h = floor($sec / 3600);
+    $m = floor(($sec % 3600) / 60);
+    if ($h > 0) return "{$h}h {$m}m";
+    return "{$m}m";
+}
 
 ?>
 
@@ -408,12 +519,16 @@ $latestMeeting = $obj->executequery("
 
                     <h4>
                         Hi,
-                        <?php echo $user['fullname']; ?>
+                        <?php echo $member['fullname']; ?>
                     </h4>
 
                     <small>
 
-                        <?php echo ucfirst($user['usertype']); ?>
+                        <?php
+                        echo htmlspecialchars(
+                            $member['usertype']
+                        );
+                        ?>
 
                     </small>
 
@@ -442,7 +557,7 @@ $latestMeeting = $obj->executequery("
 
         <div class="row g-3 mb-3">
 
-            <div class="col-6">
+            <div class="col-md-3 col-6">
                 <a href="my-attendance.php" class="text-decoration-none text-dark">
 
                     <div class="card-box stat-card">
@@ -460,147 +575,273 @@ $latestMeeting = $obj->executequery("
                         </h3>
 
                         <div class="small-label">
-                            Total Attendance
+                            Total Sessions
                         </div>
 
                     </div>
                 </a>
             </div>
 
-            <div class="col-6">
+            <div class="col-md-3 col-6">
+
+                <a href="my-attendance.php?month=<?php echo $thisMonth; ?>" class="text-decoration-none text-dark">
+                    <div class="card-box stat-card">
+
+                        <div class="stat-icon bg-info-subtle text-info">
+
+                            <i class="bi bi-calendar-check"></i>
+
+                        </div>
+
+                        <h3>
+                            <?php echo $daysPresent; ?>
+                            <small style="font-size:.55em; color:#6c757d; font-weight:500;">
+                                / <?php echo $totalDaysInMonth; ?>
+                            </small>
+                        </h3>
+
+                        <div class="small-label">
+                            Days Present
+                            <small class="text-muted d-block" style="font-size:10px;">
+                                in <?php echo date('F Y'); ?>
+                            </small>
+                        </div>
+
+                    </div>
+                </a>
+
+            </div>
+
+            <div class="col-md-3 col-6">
 
                 <div class="card-box stat-card">
 
                     <div class="stat-icon bg-success-subtle text-success">
 
-                        <i class="bi bi-geo-alt"></i>
+                        <i class="bi bi-stopwatch"></i>
 
                     </div>
 
                     <h3>
-                        GPS
+                        <?php echo formatDuration($workedSec); ?>
                     </h3>
 
                     <div class="small-label">
-                        GPS Verified
+                        Today's Hours
                     </div>
 
                 </div>
 
             </div>
+
+            <div class="col-md-3 col-6">
+
+                <a href="my-attendance.php?month=<?php echo $thisMonth; ?>" class="text-decoration-none text-dark">
+                    <div class="card-box stat-card">
+
+                        <div class="stat-icon bg-danger-subtle text-danger">
+
+                            <i class="bi bi-clock-history"></i>
+
+                        </div>
+
+                        <h3>
+                            <?php echo $lateDays; ?>
+                        </h3>
+
+                        <div class="small-label">
+                            Late Days
+                            <small class="text-muted d-block" style="font-size:10px;">
+                                in <?php echo date('F Y'); ?>
+                            </small>
+                        </div>
+
+                    </div>
+                </a>
+
+            </div>
+
 
         </div>
 
         <!-- QR CARD -->
 
         <?php
-
-        /* TODAY ATTENDANCE CHECK */
-
-        //         $todayAttendance = $obj->executequery("
-        //     SELECT
-        //         a.*,
-        //     FROM attendance_entry a
-        //     INNER JOIN store_location m
-        //         ON m.location_id = a.location_id
-        //     WHERE a.member_id = '$userid'
-        //     AND DATE(a.scan_time) = CURDATE()
-        //     ORDER BY a.attendance_id DESC
-        //     LIMIT 1
-        // ");
-
-        $todayAttendance = $obj->executequery("
-    SELECT *
-    FROM attendance_entry
-    WHERE member_id='$userid'
-    AND DATE(scan_time)=CURDATE()
-    ORDER BY attendance_id DESC
-    LIMIT 1
-");
-
+        /* =========================================================
+           TODAY'S STATUS (multi-session IN/OUT)
+        ========================================================== */
         ?>
 
-        <?php if ($todayAttendance) {
+        <?php if (!empty($todaySessions)) { ?>
 
-            $att = $todayAttendance[0];
-
-        ?>
-
-            <!-- TODAY ATTENDANCE -->
+            <!-- TODAY'S SESSIONS CARD -->
 
             <div class="card-box attendance-success mb-3">
 
-                <div class="success-icon">
+                <div class="success-icon"
+                     style="<?php echo $hasOpen ? '' : 'background:linear-gradient(135deg,#fff7ed,#ffedd5);color:#f59e0b;'; ?>">
 
-                    <i class="bi bi-check-circle-fill"></i>
+                    <i class="bi <?php echo $hasOpen ? 'bi-box-arrow-in-right' : 'bi-box-arrow-right'; ?>"></i>
 
                 </div>
 
                 <h5 class="attendance-title">
 
-                    Attendance Marked
+                    <?php if ($hasOpen): ?>
+                        You are Checked IN
+                    <?php else: ?>
+                        Shift Completed
+                    <?php endif; ?>
+
+                    <?php
+                    $dayStatusInfo = [
+                        'complete'   => ['label' => 'Day Complete',    'class' => 'bg-success',         'icon' => 'bi-check-circle-fill'],
+                        'incomplete' => ['label' => 'Day Incomplete',  'class' => 'bg-warning text-dark','icon' => 'bi-exclamation-triangle-fill'],
+                        'pending'    => ['label' => 'Day Pending',     'class' => 'bg-info text-dark',   'icon' => 'bi-hourglass-split'],
+                        'absent'     => ['label' => '',                'class' => '',                    'icon' => ''],
+                    ];
+                    $dsi = $dayStatusInfo[$dayStatus] ?? null;
+                    if ($dsi && $dsi['label']):
+                    ?>
+                    <span class="badge <?= $dsi['class'] ?>" style="font-size:.5em; vertical-align:middle; margin-left:8px;">
+                        <i class="bi <?= $dsi['icon'] ?>"></i> <?= $dsi['label'] ?>
+                    </span>
+                    <?php endif; ?>
 
                 </h5>
 
                 <p class="attendance-text">
 
-                    Your attendance has already been marked today.
+                    Today's attendance summary
 
                 </p>
 
-                <div class="attendance-info">
+                <!-- Pills row: worked hours, late, early -->
 
-                    <div class="info-row">
+                <div class="mb-2" style="display:flex; gap:6px; flex-wrap:wrap; justify-content:center;">
 
-                        <span>
-                            <i class="bi bi-calendar-event"></i>
-                            Meeting
+                    <span class="badge bg-success-subtle text-success">
+                        <i class="bi bi-stopwatch"></i>
+                        Worked <?php echo formatDuration($workedSec); ?>
+                    </span>
+
+                    <?php if ($lateSec > 0): ?>
+                        <span class="badge bg-danger-subtle text-danger">
+                            <i class="bi bi-clock-history"></i>
+                            Late <?php echo formatDuration($lateSec); ?>
                         </span>
+                    <?php endif; ?>
 
-                        <b>
-                            <?php echo $att['title']; ?>
-                        </b>
-
-                    </div>
-
-                    <div class="info-row">
-
-                        <span>
-                            <i class="bi bi-clock"></i>
-                            Time
+                    <?php if ($earlySec > 0 && !$hasOpen): ?>
+                        <span class="badge bg-warning-subtle text-warning">
+                            <i class="bi bi-box-arrow-right"></i>
+                            Early <?php echo formatDuration($earlySec); ?>
                         </span>
+                    <?php endif; ?>
 
-                        <b>
-                            <?php
-                            echo date(
-                                'd M Y h:i A',
-                                strtotime($att['scan_time'])
-                            );
-                            ?>
-                        </b>
-
-                    </div>
-
-                    <div class="info-row">
-
-                        <span>
-                            <i class="bi bi-check2-circle"></i>
-                            Status
+                    <?php if ($shortSec > 0): ?>
+                        <span class="badge bg-danger-subtle text-danger">
+                            <i class="bi bi-hourglass-bottom"></i>
+                            Short by <?php echo formatDuration($shortSec); ?>
                         </span>
-
-                        <b class="text-success">
-                            Present
-                        </b>
-
-                    </div>
+                    <?php endif; ?>
 
                 </div>
+
+                <!-- Sessions table -->
+
+                <div class="table-responsive mt-2">
+                    <table class="table table-sm table-bordered align-middle" style="font-size:12px;">
+                        <thead class="table-light">
+                            <tr>
+                                <th width="30">#</th>
+                                <th>Shop</th>
+                                <th>IN</th>
+                                <th>OUT</th>
+                                <th>Duration</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($todaySessions as $i => $s):
+                                $isOpen = empty($s['out_time']);
+                                $inTs  = strtotime($s['in_time']);
+                                $outTs = $s['out_time'] ? strtotime($s['out_time']) : null;
+                                $durSec = $outTs ? ($outTs - $inTs) : 0;
+                            ?>
+                                <tr>
+                                    <td>
+                                        <span class="badge <?php echo $isOpen ? 'bg-success' : 'bg-secondary'; ?>" style="font-size:10px;">
+                                            <?php echo $i + 1; ?>
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <?php if (!empty($s['shop_name'])): ?>
+                                            <span style="color:#1a56a0; font-weight:600;">
+                                                <i class="bi bi-shop"></i>
+                                                <?php echo htmlspecialchars($s['shop_name']); ?>
+                                            </span>
+                                        <?php else: ?>
+                                            <span class="text-muted">—</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <span style="color:#16a34a; font-weight:600;">
+                                            <i class="bi bi-box-arrow-in-right"></i>
+                                            <?php echo date('h:i A', $inTs); ?>
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <?php if ($isOpen): ?>
+                                            <span class="badge bg-success" style="font-size:9px;">
+                                                <i class="bi bi-hourglass-split"></i> Open
+                                            </span>
+                                        <?php else: ?>
+                                            <span style="color:#f59e0b; font-weight:600;">
+                                                <i class="bi bi-box-arrow-right"></i>
+                                                <?php echo date('h:i A', $outTs); ?>
+                                            </span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php if ($isOpen): ?>
+                                            <span class="text-muted">ongoing</span>
+                                        <?php else: ?>
+                                            <span class="badge bg-info text-dark" style="font-size:10px; font-family:monospace;">
+                                                <?php echo formatDuration($durSec); ?>
+                                            </span>
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+
+                <?php if ($hasOpen): ?>
+                    <a href="scan.php" class="btn primary-btn text-white scan-btn w-100 mt-3">
+                        <i class="bi bi-box-arrow-right"></i>
+                        Mark OUT
+                    </a>
+                <?php else: ?>
+                    <a href="scan.php" class="btn primary-btn text-white scan-btn w-100 mt-3">
+                        <i class="bi bi-box-arrow-in-right"></i>
+                        Mark IN
+                    </a>
+                <?php endif; ?>
+
+                <?php if ($latestMeeting) { ?>
+                    <a href="scan.php?token=<?php echo $latestMeeting[0]['qr_token']; ?>"
+                        class="btn latest-btn w-100 mt-3">
+                        <i class="bi bi-lightning-charge"></i>
+                        Quick Attendance
+                    </a>
+                <?php } ?>
 
             </div>
 
         <?php } else { ?>
 
-            <!-- SCAN CARD -->
+            <!-- SCAN CARD (no sessions today) -->
 
             <div class="card-box scan-card mb-3">
 
@@ -618,7 +859,8 @@ $latestMeeting = $obj->executequery("
 
                 <p class="scan-text">
 
-                    Scan the meeting QR code and allow GPS verification to confirm your presence.
+                    Scan the QR code to mark your IN time. Shift:
+                    <b><?php echo $shiftStartDisp; ?> - <?php echo $shiftEndDisp; ?></b>
 
                 </p>
 
@@ -648,48 +890,6 @@ $latestMeeting = $obj->executequery("
 
         <?php } ?>
         <!-- MEETING -->
-
-        <?php if ($latestMeeting) { ?>
-
-            <!-- <div class="card-box p-3">
-
-                <div class="d-flex justify-content-between align-items-center mb-2">
-
-                    <h5 class="mb-0">
-
-                        <i class="bi bi-calendar-event text-primary"></i>
-
-                        Latest Meeting
-
-                    </h5>
-
-                    <span class="badge bg-success">
-
-                        Active
-
-                    </span>
-
-                </div>
-
-                <div class="meeting-box">
-
-
-
-                    <div class="small-label mt-2">
-
-                        <i class="bi bi-geo-alt"></i>
-
-                        <?php //echo $latestMeeting[0]['location_name']; 
-                        ?>
-
-                    </div>
-
-                </div>
-
-            </div> -->
-
-        <?php } ?>
-
     </div>
 
 </body>

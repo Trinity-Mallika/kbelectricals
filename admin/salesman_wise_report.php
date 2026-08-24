@@ -272,7 +272,7 @@ function kraValLabel($key, $val)
                                                     <h6 class="m-0"><?= $achPct ?>%</h6>
                                                     <small class="fs-11 fw-semibold">KRA Score</small>
                                                 </a>
-                                                <a href="javascript:void(0)" class="btn btn-outline-primary btn-sm rounded-3">
+                                                <a href="javascript:void(0)" class="btn btn-outline-primary btn-sm rounded-3 show-incentive-card" data-emp="<?= $e['userid'] ?>">
                                                     <h6 class="m-0">₹<?= number_format($totalInc) ?></h6>
                                                     <small class="fs-11 fw-semibold">Incentive</small>
                                                 </a>
@@ -344,6 +344,32 @@ function kraValLabel($key, $val)
 
             });
 
+            document.addEventListener('click', function(e) {
+                const btn = e.target.closest('.show-incentive-card');
+                if (!btn) return;
+                e.preventDefault();
+
+                let emp_id = btn.dataset.emp;
+                let month = document.getElementById('month').value;
+                let year = document.getElementById('year').value;
+
+                employeeSection.style.display = 'none';
+                kraSection.style.display = 'block';
+                kraSection.innerHTML = '<div class="text-center p-5"><i class="fa fa-spinner fa-spin"></i> Loading...</div>';
+
+                fetch('ajax/ajax_incentive_details.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded'
+                        },
+                        body: 'emp_id=' + emp_id + '&month=' + month + '&year=' + year
+                    })
+                    .then(response => response.text())
+                    .then(html => {
+                        kraSection.innerHTML = html;
+                    });
+            });
+
             // Back button
             document.addEventListener('click', function(e) {
 
@@ -365,12 +391,8 @@ function kraValLabel($key, $val)
 
                 e.preventDefault();
 
-                document.querySelectorAll(
-                    '.avg-counter-visit,.beat-productivity,.product-mix,.overall-business,.behavioural-aspects'
-                ).forEach(function(x) {
-
+                document.querySelectorAll('.kra-details > div').forEach(function(x) {
                     x.style.display = 'none';
-
                 });
 
                 let section = document.querySelector('.' + link.dataset.target);

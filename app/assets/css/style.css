@@ -337,6 +337,140 @@ header {
     transform: translate(-50%, -50%) rotate(360deg);
   }
 }
+.order-list-card {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(18, 64, 105, 0.08);
+  border-radius: 18px;
+  box-shadow: 0 10px 24px rgba(18, 64, 105, 0.08);
+  padding: 12px 12px 12px 10px;
+  margin-bottom: 14px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.order-list-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px rgba(18, 64, 105, 0.12);
+}
+
+.order-date-box {
+  min-width: 72px;
+  height: 76px;
+  background: linear-gradient(135deg, #124069, #169cd8);
+  border-radius: 16px;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 8px 6px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.order-day {
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.order-month,
+.order-year {
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  opacity: 0.95;
+}
+
+.order-main {
+  min-width: 0;
+}
+
+.order-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.order-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--main-color);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  line-height: 1;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 0.45rem 0.7rem;
+  white-space: nowrap;
+}
+
+.status-dispatched {
+  background: rgba(11, 136, 75, 0.12);
+  color: #0b874b;
+}
+
+.status-pending {
+  background: rgba(244, 170, 10, 0.15);
+  color: #8a5f00;
+}
+
+.order-meta-grid {
+  display: grid;
+  gap: 6px;
+}
+
+.order-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #3b485d;
+  font-size: 0.82rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.order-meta-item i {
+  color: var(--secondary-color);
+  font-size: 0.8rem;
+}
+
+.order-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+}
+
+.order-action-btn {
+  height: 36px;
+  border: 0;
+  border-radius: 12px;
+  background: rgba(18, 64, 105, 0.08);
+  color: var(--main-color);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.order-action-btn:hover {
+  background: rgba(18, 64, 105, 0.14);
+}
+
 .table-sm > :not(caption) > * > * {
   padding: 0.15rem 0.25rem;
 }

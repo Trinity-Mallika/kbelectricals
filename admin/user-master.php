@@ -1,94 +1,38 @@
 <?php include("../adminsession.php");
 $title = "User Master";
-
 $pagename = "user-master.php";
-
 $module = "Add Users";
-
 $submodule = "User Master";
-
 $btn_name = "Save";
-
-$keyvalue = "0";
-
 $tblname = "user";
-
 $tblpkey = "userid";
-
 $username = "";
-
 $password = "";
-
 $mobile = "";
-
-$fullname  = "";
-
+$fullname  = $salary = "";
 $status  = "";
-
 $usertypem = "user";
-
-$dup = "";
-
-
-
-if (isset($_GET['action']))
-
-    $action = addslashes(trim($_GET['action']));
-
-else
-
-    $action = "";
-
-
-
-if (isset($_GET['userid'])) {
-
-    $keyvalue = $_GET['userid'];
-} else {
-
-    $keyvalue = 0;
-}
-
-
+$action     = isset($_GET["action"]) ? $obj->test_input($_GET["action"]) : "";
+$keyvalue     = isset($_GET["userid"]) ? $obj->test_input($_GET["userid"]) : "";
 
 if (isset($_POST['submit'])) {
 
     $username = $obj->test_input($_POST['username']);
-
     $password = $obj->test_input($_POST['password']);
-
     $mobile = $obj->test_input($_POST['mobile']);
-
     $fullname = $obj->test_input($_POST['fullname']);
-
     $status = $obj->test_input($_POST['enable']);
-
-
-
+    $salary = $obj->test_input($_POST['salary']);
     $usertype = $obj->test_input($_POST['usertype']);
 
     //check Duplicate
-
     $count = $obj->getvalfield("$tblname", "count(*)", "username='$username' and $tblpkey!='$keyvalue'");
-
     if ($count > 0) {
-
         $action = 4;
-
         $process = "Duplicate";
-
-        //echo $dup; die;
-
     } else //insert
-
     {
-
-
-
         if ($keyvalue == 0) {
-
-
-
             $form_data = array(
                 'username' => $username,
                 'password' => $password,
@@ -96,22 +40,17 @@ if (isset($_POST['submit'])) {
                 'fullname' => $fullname,
                 'status' => $status,
                 'usertype' => $usertype,
+                'salary' => $salary,
                 'ipaddress' => $ipaddress,
                 "companyid" => $companyid,
                 'createdate' => $createdate
             );
-
             $obj->insert_record($tblname, $form_data);
-
             $action = 1;
-
             $process = "inserted";
         } else {
 
             //update
-
-
-
             $form_data = array(
                 'username' => $username,
                 'password' => $password,
@@ -119,17 +58,15 @@ if (isset($_POST['submit'])) {
                 'fullname' => $fullname,
                 'status' => $status,
                 'usertype' => $usertype,
+                'salary' => $salary,
                 'ipaddress' => $ipaddress,
                 "companyid" => $companyid,
                 'lastupdated' => $createdate
             );
 
             $where = array($tblpkey => $keyvalue);
-
             $obj->update_record($tblname, $where, $form_data);
-
             $action = 2;
-
             $process = "updated";
         }
     }
@@ -138,32 +75,18 @@ if (isset($_POST['submit'])) {
 }
 
 
-
-
-
 if (isset($_GET[$tblpkey])) {
-
     $btn_name = "Update";
-
     $where = array($tblpkey => $keyvalue);
-
     $sqledit = $obj->select_record($tblname, $where);
-
     $username  =  $sqledit['username'];
-
     $password  =  $sqledit['password'];
-
     $mobile  =  $sqledit['mobile'];
-
     $fullname  =  $sqledit['fullname'];
-
-
     $status  =  $sqledit['status'];
-
     $usertypem  =  $sqledit['usertype'];
+    $salary  =  $sqledit['salary'];
 }
-
-
 
 ?>
 
@@ -261,10 +184,6 @@ if (isset($_GET[$tblpkey])) {
 
                                 </div>
 
-
-
-
-
                                 <div class="card-body">
 
                                     <div class="row">
@@ -273,7 +192,7 @@ if (isset($_GET[$tblpkey])) {
 
                                             <strong> <label for="username">User Name <span class="text-danger fw-bold">*</span></label></strong>
 
-                                            <input type="text" autofocus class="form-control form-control-sm" onkeypress="return allowOnlyLetters(event,this);" name="username" id="username" placeholder="User Name" value="<?php echo $username; ?>" autocomplete="off">
+                                            <input type="text" class="form-control form-control-sm" onkeypress="return allowOnlyLetters(event,this);" name="username" id="username" placeholder="User Name" value="<?php echo $username; ?>" autocomplete="off">
 
                                         </div>
 
@@ -293,9 +212,9 @@ if (isset($_GET[$tblpkey])) {
                                         <div class="col-md-3 mb-2">
 
 
-                                            <strong> <label for="mobile">Contact No. <span class="text-danger fw-bold">*</span></label></strong>
+                                            <strong> <label for="mobile">Mobile No. <span class="text-danger fw-bold">*</span></label></strong>
 
-                                            <input type="text" class="form-control form-control-sm" name="mobile" id="mobile" placeholder="Contact No." value="<?php echo $mobile; ?>" maxlength="10" autocomplete="off">
+                                            <input type="text" class="form-control form-control-sm" name="mobile" id="mobile" placeholder="Mobile No." value="<?php echo $mobile; ?>" maxlength="10" autocomplete="off">
 
                                             <span id="errmsg" class="text-danger"></span>
 
@@ -304,14 +223,17 @@ if (isset($_GET[$tblpkey])) {
 
                                         <div class="col-md-3 mb-2">
 
-
                                             <strong> <label for="name">Fullname <span class="text-danger fw-bold">*</span></label></strong>
-
                                             <input type="text" class="form-control form-control-sm" onkeypress="return allowOnlyLetters(event,this);" name="fullname" id="fullname" placeholder="Fullname" value="<?php echo $fullname; ?>" autocomplete="off">
-
-                                            <span id="errmsg" class="text-danger"></span>
-
                                         </div>
+
+
+                                        <div class="col-md-3 mb-2">
+                                            <strong> <label for="name">Monthly Salary <span class="text-danger fw-bold"></span></label></strong>
+                                            <input type="text" class="form-control form-control-sm" name="salary" id="salary" placeholder="Monthly Salary" value="<?php echo $salary; ?>" autocomplete="off">
+                                            <span id="errmsg1" class="text-danger"></span>
+                                        </div>
+
 
                                         <div class="col-md-3 mb-2">
 
@@ -359,9 +281,7 @@ if (isset($_GET[$tblpkey])) {
 
                                             <input type="submit" name="submit" class="btn btn-theme btn-sm" value="<?php echo $btn_name; ?>" onclick="return validateUserForm();">
 
-                                            <a href="<?php echo $pagename;
-
-                                                        ?>" class="btn btn-danger btn-sm"> Reset </a>
+                                            <a href="<?php echo $pagename; ?>" class="btn btn-danger btn-sm"> Reset </a>
 
                                             <input type="hidden" name="<?php echo $tblpkey; ?>" id="<?php echo $tblpkey; ?>" value="<?php echo $keyvalue; ?>">
 
@@ -382,21 +302,12 @@ if (isset($_GET[$tblpkey])) {
             </div>
 
             <div class="row mt-4 mb-4">
-
                 <div class="col-lg-12">
-
                     <div class="card">
-
                         <div class="card-header text-white">
-
                             <?php echo $submodule; ?> List
-
                         </div>
-
-
-
                         <div class="card-body">
-
                             <div class="table-responsive">
                                 <table id="example" class="table table-bordered table-sm table-hover">
                                     <thead>
@@ -407,6 +318,7 @@ if (isset($_GET[$tblpkey])) {
                                         <th>Mobile No.</th>
                                         <th>Full Name</th>
                                         <th>Status</th>
+                                        <th>Salary</th>
                                         <th class="text-center">Action</th>
                                     </thead>
                                     <tbody>
@@ -423,6 +335,7 @@ if (isset($_GET[$tblpkey])) {
                                                     <td><?php echo $row_get['mobile']; ?></td>
                                                     <td><?php echo $row_get['fullname']; ?></td>
                                                     <td><?php echo ($row_get['status'] == 1) ? "Enable" : "Disable"; ?></td>
+                                                    <td><?php echo $row_get['salary']; ?></td>
                                                     <td class="text-center">
                                                         <a href="user-master.php?userid=<?php echo $row_get['userid']; ?>" title="Edit" class="btn btn-sm btn-outline-success"><i class="bi bi-pencil-square"></i></a>
                                                         <button type="button" title="Delete" class="btn btn-sm btn-danger" onclick="funDel(<?php echo $row_get['userid']; ?>);"><i class="bi bi-trash3-fill"></i></button>
@@ -437,6 +350,7 @@ if (isset($_GET[$tblpkey])) {
                                                     <td><?php echo $row_get['mobile']; ?></td>
                                                     <td><?php echo $row_get['fullname']; ?></td>
                                                     <td><?php echo ($row_get['status'] == 1) ? "Enable" : "Disable"; ?></td>
+                                                    <td><?php echo $row_get['salary']; ?></td>
                                                     <td class="text-center">
                                                         <i class="bi bi-x-circle text-danger fs-6"></i>
                                                     </td>
@@ -472,84 +386,25 @@ if (isset($_GET[$tblpkey])) {
     });
 
 
-    function funDel(id)
-
-
-
-    { //alert(id);
-
-
-
+    function funDel(id){ 
         tblname = '<?php echo $tblname; ?>';
-
-
-
         tblpkey = '<?php echo $tblpkey; ?>';
-
-
-
         pagename = '<?php echo $pagename; ?>';
-
-
-
         submodule = '<?php echo $submodule; ?>';
-
-
-
         module = '<?php echo $module; ?>';
 
-
-
-        //alert(module);
-
-
-
         if (confirm("Are you sure! You want to delete this record."))
-
-
-
         {
-
-
-
             jQuery.ajax({
-
-
-
                 type: 'POST',
-
-
-
                 url: 'ajax/delete_master.php',
-
-
-
                 data: 'id=' + id + '&tblname=' + tblname + '&tblpkey=' + tblpkey + '&submodule=' + submodule + '&pagename=' + pagename + '&module=' + module,
-
-
-
                 dataType: 'html',
-
-
-
                 success: function(data) {
-
-                    //alert(data);
-
                     location = '<?php echo $pagename . "?action=3"; ?>';
-
                 }
-
-
-
             }); //ajax close
-
-
-
         } //confirm close
-
-
-
     } //fun close
 
 
@@ -567,6 +422,22 @@ if (isset($_GET[$tblpkey])) {
                 //display error message
 
                 $("#errmsg").html("Digits Only").show().fadeOut("slow");
+
+                return false;
+
+            }
+
+        });
+
+         $("#salary").keypress(function(e) {
+
+            //if the letter is not digit then display error and don't type anything
+
+            if (e.which != 8 && e.which != 0 && (e.which < 48 || e.which > 57)) {
+
+                //display error message
+
+                $("#errmsg1").html("Digits Only").show().fadeOut("slow");
 
                 return false;
 

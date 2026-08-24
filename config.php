@@ -11,7 +11,7 @@ class Database
 	public function __construct()
 	{
 
-		$isLocal = ($_SERVER['SERVER_NAME'] === 'localhost' || $_SERVER['SERVER_NAME'] === 'trinity' ||  $_SERVER['SERVER_NAME'] === '192.168.1.8');
+		$isLocal = ($_SERVER['SERVER_NAME'] === 'localhost' || $_SERVER['SERVER_NAME'] === 'trinity' ||  $_SERVER['SERVER_NAME'] === '192.168.1.37');
 
 		if ($isLocal) {
 			$dbhost = "localhost";

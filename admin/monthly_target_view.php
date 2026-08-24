@@ -66,28 +66,38 @@ $account_total_achieved = [];
 $account_brand_details_map = [];
 $brand_ach_map       = [];
 $route_ach_map       = [];
+$route_ach_all_map = [];
 
 if ($createdby > 0) {
-
     $user_name = $obj->getvalfield("user", "fullname", "userid='$createdby'");
-
-    $total_counters = $obj->getvalfield(
-        "monthly_target",
-        "count(*)",
-        "createdby='$createdby' and month='$month' and year='$year'"
-    );
-
     $grand_target = (float)$obj->getvalfield(
         "monthly_target",
         "ifnull(sum(total_target),0)",
         "createdby='$createdby' and month='$month' and year='$year'"
     );
 
-    $approval_status = (string)$obj->getvalfield(
-        "monthly_target_approval",
-        "status",
-        "createdby='$createdby' and month='$month' and year='$year'"
-    );
+    $approval_status = (string)$obj->getvalfield("monthly_target_approval", "IFNULL(status,'Pending')", "userid='$createdby' and month='$month' and year='$year'");
+
+    // NEW: account_id -> target_id, and target_id -> {brand_id: true} set
+    $account_target_id_map = [];
+    $mt_id_rows = $obj->executequery("
+        SELECT account_id, target_id
+        FROM monthly_target
+        WHERE createdby='$createdby' AND month='$month' AND year='$year'
+    ");
+    foreach ($mt_id_rows as $mtr) {
+        $account_target_id_map[$mtr['account_id']] = $mtr['target_id'];
+    }
+
+    $target_brand_set = [];
+    $tbd_rows = $obj->executequery("
+        SELECT target_id, brand_id
+        FROM monthly_target_details
+        WHERE createdby='$createdby' AND month='$month' AND year='$year'
+    ");
+    foreach ($tbd_rows as $tb) {
+        $target_brand_set[$tb['target_id']][$tb['brand_id']] = true;
+    }
 
     $all_achieved_rows = $obj->executequery("
     SELECT
@@ -109,6 +119,7 @@ if ($createdby > 0) {
     ) x ON x.account_id = t.account_id
     WHERE t.type='order'
       AND t.is_approved=1
+      AND td.brand_id != 35
       AND MONTH(t.billdate)='$month'
       AND YEAR(t.billdate)='$year'
     GROUP BY t.account_id, td.brand_id, cm.cat_name
@@ -116,31 +127,43 @@ if ($createdby > 0) {
 
     foreach ($all_achieved_rows as $a) {
         $acc    = $a['account_id'];
-        $brand  = $a['brand_id'];
+        $brand  = (int)$a['brand_id'];
         $amount = (float)$a['achieved'];
 
         $achieved_map[$acc . ':' . $brand] = $amount;
-        $account_total_achieved[$acc] = ($account_total_achieved[$acc] ?? 0) + $amount;
         $account_brand_details_map[$acc][] = [
             'cat_name' => $a['cat_name'],
             'brand_id' => $brand,
             'achieved' => $amount,
         ];
+
+        // Grand total & brand-wise summary: keep ALL brand sales (matches mobile's carousel)
+        $account_total_achieved[$acc] = ($account_total_achieved[$acc] ?? 0) + $amount;
         $brand_ach_map[$brand] = ($brand_ach_map[$brand] ?? 0) + $amount;
         $grand_achieved += $amount;
+
+        // NEW: route-level achieved only counts if this account+brand actually has a target (matches mobile logic)
+        $target_id = $account_target_id_map[$acc] ?? null;
+        if ($target_id !== null && isset($target_brand_set[$target_id][$brand])) {
+            $account_total_achieved_for_route[$acc] = ($account_total_achieved_for_route[$acc] ?? 0) + $amount;
+        }
     }
     $grand_pct = $grand_target > 0 ? round($grand_achieved / $grand_target * 100) : 0;
 
     $account_route_rows = $obj->executequery("
-    SELECT DISTINCT rc.account_id, rm.route_id
-    FROM route_plan rp
-    INNER JOIN route_counter rc ON rc.batch_no = rp.batch_no AND rc.is_active = 1
-    INNER JOIN route rm ON rm.batch_no = rp.batch_no
-    WHERE rp.sales_executive_id='$createdby'
-    ");
+SELECT DISTINCT rc.account_id, rm.route_id
+FROM (SELECT DISTINCT batch_no FROM route_plan WHERE sales_executive_id='$createdby') rp
+INNER JOIN route_counter rc ON rc.batch_no = rp.batch_no AND rc.is_active = 1
+INNER JOIN route rm ON rm.batch_no = rp.batch_no
+");
     foreach ($account_route_rows as $ar) {
         $route_id = $ar['route_id'];
-        $route_ach_map[$route_id] = ($route_ach_map[$route_id] ?? 0) + ($account_total_achieved[$ar['account_id']] ?? 0);
+
+        $route_ach_map[$route_id] = ($route_ach_map[$route_id] ?? 0)
+            + ($account_total_achieved_for_route[$ar['account_id']] ?? 0);
+
+        $route_ach_all_map[$route_id] = ($route_ach_all_map[$route_id] ?? 0)
+            + ($account_total_achieved[$ar['account_id']] ?? 0);
     }
 }
 ?>
@@ -402,7 +425,8 @@ if ($createdby > 0) {
                                             <label>Month<span class="text-danger fw-bold"> *</span></label>
                                             <select name="month" id="selMonth" class="form-control form-control-sm">
                                                 <?php for ($m = 1; $m <= 12; $m++): ?>
-                                                    <option value="<?= $m ?>" <?= $m == $month ? 'selected' : '' ?>>
+                                                    <option value="<?= str_pad($m, 2, '0', STR_PAD_LEFT) ?>"
+                                                        <?= str_pad($m, 2, '0', STR_PAD_LEFT) == $month ? 'selected' : '' ?>>
                                                         <?= date('F', mktime(0, 0, 0, $m, 1)) ?>
                                                     </option>
                                                 <?php endfor; ?>
@@ -460,22 +484,21 @@ if ($createdby > 0) {
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-3">
-                        <div class="card border-0 shadow-sm bg-success text-white">
-                            <div class="card-body">
-                                <small>Total Counters</small>
-                                <h5 class="mb-0"><?= $total_counters ?></h5>
-                            </div>
-                        </div>
-                    </div>
+
                     <div class="col-md-3">
                         <div class="card border-0 shadow-sm bg-submenu text-white">
                             <div class="card-body">
                                 <small>Grand Target</small>
                                 <h5 class="mb-0">₹<?= number_format($grand_target) ?></h5>
-                                <small>Achieved: <strong>₹<?= number_format($grand_achieved) ?></strong>
-                                    <?= pct_badge($grand_pct) ?>
-                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card border-0 shadow-sm bg-success text-white">
+                            <div class="card-body">
+                                <small>Achieved</small>
+                                <h5 class="mb-0">₹<?= number_format($grand_achieved) ?> <?= pct_badge($grand_pct) ?></h5>
+
                                 <div class="ach-bar-wrap">
                                     <div class="ach-bar" style="width:<?= min($grand_pct, 100) ?>%;"></div>
                                 </div>
@@ -505,32 +528,74 @@ if ($createdby > 0) {
                                         <tbody>
                                             <?php
                                             $i = 1;
+                                            $brand_target_map = [];
+                                            $tgt_rows = $obj->executequery("
+        SELECT brand_id, SUM(target) AS total_target
+        FROM monthly_target_details
+        WHERE createdby='$createdby'
+          AND month='$month'
+          AND year='$year'
+        GROUP BY brand_id
+    ");
+                                            foreach ($tgt_rows as $tr) {
+                                                $brand_target_map[(int)$tr['brand_id']] = (float)$tr['total_target'];
+                                            }
+
                                             $brand_sql = $obj->executequery("
-                                            SELECT
-                                                cm.cat_name,
-                                                mtd.brand_id,
-                                                SUM(mtd.target) AS total_target
-                                            FROM monthly_target_details mtd
-                                            LEFT JOIN category_master cm ON cm.cat_id = mtd.brand_id
-                                            WHERE mtd.createdby='$createdby'
-                                              AND mtd.month='$month'
-                                              AND mtd.year='$year'
-                                            GROUP BY mtd.brand_id
-                                            ORDER BY total_target DESC
-                                        ");
-                                            foreach ($brand_sql as $row):
-                                                $b_ach = $brand_ach_map[$row['brand_id']] ?? 0;
-                                                $b_tgt = (float)$row['total_target'];
+        SELECT cat_id AS brand_id, cat_name
+        FROM category_master
+        WHERE type='brand'
+        ORDER BY cat_id ASC
+    ");
+
+                                            $brand_rows = [];
+                                            foreach ($brand_sql as $row) {
+                                                $bid   = (int)$row['brand_id'];
+                                                $b_tgt = $brand_target_map[$bid] ?? 0;
+                                                $b_ach = $brand_ach_map[$bid] ?? 0;
+                                                if ($b_tgt <= 0 && $b_ach <= 0) continue;
+
+                                                $brand_rows[] = [
+                                                    'cat_name' => $row['cat_name'],
+                                                    'target'   => $b_tgt,
+                                                    'achieved' => $b_ach,
+                                                ];
+                                            }
+
+                                            usort($brand_rows, function ($a, $b) {
+                                                return [$b['target'], $b['achieved']] <=> [$a['target'], $a['achieved']];
+                                            });
+
+                                            foreach ($brand_rows as $row):
+                                                $b_tgt = $row['target'];
+                                                $b_ach = $row['achieved'];
                                                 $b_pct = $b_tgt > 0 ? round($b_ach / $b_tgt * 100) : 0;
                                             ?>
                                                 <tr>
                                                     <td><?= $i++ ?></td>
-                                                    <td><?= htmlspecialchars($row['cat_name']) ?></td>
+                                                    <td>
+                                                        <?= htmlspecialchars($row['cat_name']) ?>
+                                                        <?php if ($b_tgt <= 0 && $b_ach > 0): ?>
+                                                            <span class="badge bg-warning text-dark">No Target</span>
+                                                        <?php endif; ?>
+                                                    </td>
                                                     <td class="text-end">₹<?= number_format($b_tgt) ?></td>
                                                     <td class="text-end text-achieved">₹<?= number_format($b_ach) ?></td>
-                                                    <td><?= mini_bar($b_pct) ?></td>
+                                                    <td>
+                                                        <?php if ($b_tgt > 0): ?>
+                                                            <?= mini_bar($b_pct) ?>
+                                                        <?php else: ?>
+                                                            <span class="text-muted small">Sales only</span>
+                                                        <?php endif; ?>
+                                                    </td>
                                                 </tr>
                                             <?php endforeach; ?>
+
+                                            <?php if (empty($brand_rows)): ?>
+                                                <tr>
+                                                    <td colspan="5" class="text-center text-muted">No brand data found</td>
+                                                </tr>
+                                            <?php endif; ?>
                                         </tbody>
                                     </table>
                                 </div>
@@ -557,33 +622,66 @@ if ($createdby > 0) {
                                         <?php
                                         $i = 1;
                                         $route_summary = $obj->executequery("
-                                        SELECT
-                                            rm.route_name,
-                                            rm.route_id,
-                                            SUM(mt.total_target) AS total_target
-                                        FROM monthly_target mt
-                                        LEFT JOIN account        a  ON a.account_id  = mt.account_id
-                                        LEFT JOIN route_counter  rc ON a.account_id  = rc.account_id
-                                        LEFT JOIN route          rm ON rm.batch_no   = rc.batch_no
-                                        WHERE mt.createdby='$createdby'
-                                          AND mt.month='$month'
-                                          AND mt.year='$year'
-                                        GROUP BY rm.route_id
-                                        ORDER BY route_id ASC
-                                    ");
+        SELECT r.route_id, r.route_name,
+               COALESCE(SUM(mt.total_target),0) AS total_target
+        FROM (SELECT DISTINCT batch_no
+              FROM route_plan
+              WHERE sales_executive_id = '$createdby') rp
+        INNER JOIN route r ON r.batch_no = rp.batch_no
+        LEFT JOIN route_counter rc
+            ON rc.batch_no = r.batch_no AND rc.is_active = 1
+        LEFT JOIN monthly_target mt
+            ON mt.account_id = rc.account_id
+           AND mt.createdby = '$createdby'
+           AND mt.month = '$month'
+           AND mt.year = '$year'
+        GROUP BY r.route_id, r.route_name
+        ORDER BY r.route_name
+    ");
+
+                                        $sum_tgt = 0;
+                                        $sum_ach = 0;
+
                                         foreach ($route_summary as $row):
-                                            $r_ach = $route_ach_map[$row['route_id']] ?? 0;
                                             $r_tgt = (float)$row['total_target'];
-                                            $r_pct = $r_tgt > 0 ? round($r_ach / $r_tgt * 100) : 0;
+                                            $r_ach = $route_ach_all_map[$row['route_id']] ?? 0;   // ALL sales, always
+
+                                            $r_pct = $r_tgt > 0 ? round(($r_ach / $r_tgt) * 100) : 0;
+                                            $sum_tgt += $r_tgt;
+                                            $sum_ach += $r_ach;
                                         ?>
                                             <tr>
                                                 <td><?= $i++ ?></td>
-                                                <td><?= htmlspecialchars($row['route_name']) ?></td>
+                                                <td>
+                                                    <?= htmlspecialchars($row['route_name']) ?>
+                                                    <?php if ($r_tgt <= 0 && $r_ach > 0): ?>
+                                                        <span class="badge bg-warning text-dark">No Target</span>
+                                                    <?php endif; ?>
+                                                </td>
                                                 <td class="text-end">₹<?= number_format($r_tgt) ?></td>
-                                                <td class="text-end">₹<?= number_format($r_ach) ?></td>
-                                                <td><?= mini_bar($r_pct) ?></td>
+                                                <td class="text-end text-achieved">₹<?= number_format($r_ach) ?></td>
+                                                <td>
+                                                    <?php if ($r_tgt > 0): ?>
+                                                        <?= mini_bar($r_pct) ?>
+                                                    <?php else: ?>
+                                                        <span class="text-muted small"><?= $r_ach > 0 ? 'Sales only' : '-' ?></span>
+                                                    <?php endif; ?>
+                                                </td>
                                             </tr>
                                         <?php endforeach; ?>
+
+                                        <?php if ($i === 1): ?>
+                                            <tr>
+                                                <td colspan="5" class="text-center text-muted">No routes found</td>
+                                            </tr>
+                                        <?php else: ?>
+                                            <tr class="table-light fw-bold">
+                                                <td colspan="2" class="text-end">Total</td>
+                                                <td class="text-end">₹<?= number_format($sum_tgt) ?></td>
+                                                <td class="text-end text-achieved">₹<?= number_format($sum_ach) ?></td>
+                                                <td><?= $sum_tgt > 0 ? mini_bar(round($sum_ach / $sum_tgt * 100)) : '-' ?></td>
+                                            </tr>
+                                        <?php endif; ?>
                                     </tbody>
                                 </table>
                             </div>
@@ -604,23 +702,27 @@ if ($createdby > 0) {
                             <div class="card-body">
                                 <?php
                                 $route_sql = $obj->executequery("SELECT
-            r.route_id,
-            r.route_name,
-            r.batch_no,
-            r.day_of_week,
-            SUM(mt.total_target) route_target
-        FROM monthly_target mt
-        INNER JOIN account        a  ON a.account_id  = mt.account_id
-        INNER JOIN route_counter  rc ON rc.account_id = a.account_id
-        INNER JOIN route          r  ON r.batch_no    = rc.batch_no
-        WHERE mt.createdby='$createdby'
-          AND mt.month='$month'
-          AND mt.year='$year'
-        GROUP BY r.route_id, r.batch_no, r.day_of_week
-       ORDER BY
-                                r.day_of_week,
-                                rc.sequence
-    ");
+        r.route_id,
+        r.route_name,
+        r.batch_no,
+        r.day_of_week,
+        COALESCE(SUM(mt.total_target),0) AS route_target
+    FROM (SELECT DISTINCT batch_no
+          FROM route_plan
+          WHERE sales_executive_id = '$createdby') rp
+    INNER JOIN route r
+        ON r.batch_no = rp.batch_no
+    LEFT JOIN route_counter rc
+        ON rc.batch_no = r.batch_no AND rc.is_active = 1
+    LEFT JOIN monthly_target mt
+        ON mt.account_id = rc.account_id
+        AND mt.createdby = '$createdby'
+        AND mt.month = '$month'
+        AND mt.year = '$year'
+    WHERE 1
+    GROUP BY r.route_id, r.route_name, r.batch_no, r.day_of_week
+    ORDER BY r.day_of_week, MIN(rc.sequence)
+");
 
                                 $totalRoutes = count($route_sql);
 
@@ -632,11 +734,11 @@ if ($createdby > 0) {
                                     $batch_list = "'" . implode("','", array_map([$obj, 'test_input'], $batch_nos)) . "'";
 
                                     $counter_rows = $obj->executequery("
-                                        SELECT batch_no, COUNT(*) AS cnt
-                                        FROM route_counter
-                                        WHERE is_active=1 AND batch_no IN ($batch_list)
-                                        GROUP BY batch_no
-                                    ");
+                                       SELECT rc.batch_no, COUNT(DISTINCT rc.account_id) AS cnt
+FROM route_counter rc
+INNER JOIN account a ON a.account_id = rc.account_id
+WHERE rc.is_active=1 AND rc.batch_no IN ($batch_list)
+GROUP BY rc.batch_no");
                                     foreach ($counter_rows as $cr) {
                                         $counter_count_map[$cr['batch_no']] = (int)$cr['cnt'];
                                     }
@@ -657,8 +759,6 @@ if ($createdby > 0) {
                                     }
                                 }
 
-                                // Every brand-target line for this exec/month/year, keyed by target_id,
-                                // fetched once instead of once per counter.
                                 $target_brand_map = [];
                                 $target_detail_rows = $obj->executequery("
                                     SELECT mtd.target_id, cm.cat_name, mtd.brand_id, mtd.target
@@ -713,9 +813,9 @@ if ($createdby > 0) {
                                 </div>
 
                                 <?php foreach ($route_sql as $route):
-                                    $route_ach_val = $route_ach_map[$route['route_id']] ?? 0;
-                                    $rt_tgt = (float)$route['route_target'];
-                                    $rt_pct = $rt_tgt > 0 ? round($route_ach_val / $rt_tgt * 100) : 0;
+                                    $rt_tgt        = (float)$route['route_target'];
+                                    $route_ach_val = $route_ach_all_map[$route['route_id']] ?? 0;
+                                    $rt_pct        = $rt_tgt > 0 ? round($route_ach_val / $rt_tgt * 100) : 0;
                                     $rt_clr = ach_color($rt_pct);
                                     $batch_no = $route['batch_no'];
 
@@ -769,116 +869,71 @@ if ($createdby > 0) {
                                     }
                                 ?>
 
-                                    <div class="card route-card mb-3"
-                                        data-target="<?= number_format($rt_tgt) ?>"
-                                        data-achieved="<?= number_format($route_ach_val) ?>"
-                                        data-pct="<?= $rt_pct ?>%<?= $rt_pct > 100 ? ' ⭐' : '' ?>">
-
-                                        <div class="route-head route-toggle"
-                                            style="--route-accent:<?= $rt_clr ?>;cursor:pointer;">
-
+                                    <div class="card route-card mb-3" data-target="<?= number_format($rt_tgt) ?>" data-achieved="<?= number_format($route_ach_val) ?>" data-pct="<?= $rt_pct ?>%<?= $rt_pct > 100 ? ' ⭐' : '' ?>">
+                                        <div class="route-head route-toggle" style="--route-accent:<?= $rt_clr ?>;cursor:pointer;">
                                             <div class="row align-items-center g-3">
-
-                                                <!-- LEFT -->
                                                 <div class="col-lg-5">
-
                                                     <div class="d-flex align-items-center">
-
                                                         <i class="bi bi-chevron-right route-toggle-icon fs-6 me-2"></i>
-
                                                         <i class="bi bi-signpost-split-fill text-primary me-2"></i>
-
                                                         <div>
-
                                                             <div class="route-name mb-1">
                                                                 <span class="route-name-text">
                                                                     <?= htmlspecialchars($route['route_name']) ?>
                                                                 </span>
                                                             </div>
-
                                                             <div class="d-flex flex-wrap align-items-center gap-1">
-
                                                                 <span class="day-pill">
                                                                     <?= htmlspecialchars($route['day_of_week']) ?>
                                                                 </span>
-
                                                                 <?php foreach (array_keys($assigned_weeks) as $wk) { ?>
                                                                     <span class="week-pill">W<?= $wk ?></span>
                                                                 <?php } ?>
-
                                                             </div>
-
                                                         </div>
-
                                                     </div>
-
                                                 </div>
-
-                                                <!-- RIGHT -->
-                                                <!-- RIGHT -->
                                                 <div class="col-lg-7">
-
                                                     <div class="route-stats">
-
                                                         <span class="stat-item">
                                                             <i class="bi bi-people"></i>
                                                             <strong><?= $routeCounters ?></strong>
                                                         </span>
-
                                                         <span class="stat-item text-success">
                                                             <i class="bi bi-check-circle-fill"></i>
                                                             <strong><?= $routeVisited ?></strong>
                                                         </span>
-
                                                         <span class="stat-item text-danger">
                                                             <i class="bi bi-x-circle-fill"></i>
                                                             <strong><?= $routePending ?></strong>
                                                         </span>
-
                                                         <span class="stat-item">
-
                                                             <div class="coverage-track">
-                                                                <span class="coverage-fill bg-<?= $routeBarColor ?>"
-                                                                    style="width:<?= $routeCoverage ?>%"></span>
+                                                                <span class="coverage-fill bg-<?= $routeBarColor ?>" style="width:<?= $routeCoverage ?>%"></span>
                                                             </div>
-
                                                             <strong><?= $routeCoverage ?>%</strong>
-
                                                         </span>
-
                                                         <span class="stat-item">
-                                                            🎯
-                                                            ₹<?= number_format($rt_tgt) ?>
+                                                            🎯 ₹<?= number_format($rt_tgt) ?>
                                                         </span>
-
                                                         <span class="stat-item text-success">
-                                                            💰
-                                                            ₹<?= number_format($route_ach_val) ?>
+                                                            💰 ₹<?= number_format($route_ach_val) ?>
                                                         </span>
-
-                                                        <span class="ach-badge"
-                                                            style="background:<?= $rt_clr ?>">
-
+                                                        <span class="ach-badge" style="background:<?= $rt_clr ?>">
                                                             <?= $rt_pct ?>%
                                                             <?= $rt_pct > 100 ? "⭐" : "" ?>
-
                                                         </span>
-
                                                     </div>
-
                                                 </div>
-
                                             </div>
-
                                         </div>
-
                                         <div class="route-detail-wrap" style="display:none;">
                                             <div class="table-responsive">
                                                 <table class="table table-hover table-sm align-middle table-bordered mb-0 route-detail-table">
                                                     <thead class="table-light">
                                                         <tr>
                                                             <th>Counter</th>
-                                                            <th>Status</th>
+                                                            <th>Class</th>
                                                             <?php foreach (array_keys($assigned_weeks) as $wk): ?>
                                                                 <th class="text-center">W<?= $wk ?></th>
                                                             <?php endforeach; ?>
@@ -892,30 +947,34 @@ if ($createdby > 0) {
                                                     </thead>
                                                     <tbody>
                                                         <?php
-                                                        $counter_sql = $obj->executequery("
-        SELECT
-            a.account_id,
-            a.account_name,
-            a.class,
-            mt.target_id,
-            mt.comment,
-            CASE WHEN mt.target_id IS NULL THEN 0 ELSE 1 END AS has_target
-        FROM route_counter rc
-        INNER JOIN account a ON a.account_id = rc.account_id
-        INNER JOIN route r ON r.batch_no = rc.batch_no
-        LEFT JOIN monthly_target mt
-            ON mt.account_id = a.account_id
-           AND mt.createdby = '$createdby'
-           AND mt.month = '$month'
-           AND mt.year = '$year'
-        WHERE r.route_id='{$route['route_id']}'
-        ORDER BY a.account_name
-    ");
+                                                        $counter_sql = $obj->executequery("SELECT a.account_id,a.account_name,a.class,mt.target_id,mt.comment,
+    CASE WHEN mt.target_id IS NULL THEN 0 ELSE 1 END AS has_target
+    FROM route_counter rc
+    INNER JOIN account a ON a.account_id = rc.account_id
+    INNER JOIN route r ON r.batch_no = rc.batch_no
+    LEFT JOIN monthly_target mt ON mt.account_id = a.account_id
+        AND mt.createdby = '$createdby' AND mt.month = '$month' AND mt.year = '$year'
+    WHERE r.route_id='{$route['route_id']}'
+      AND rc.is_active = 1
+    ORDER BY a.account_name");
                                                         foreach ($counter_sql as $counter):
                                                             $outstanding = $obj->get_ledger_balance($counter['account_id']);
 
                                                             if ($counter['has_target']) {
                                                                 $brand_sql = $target_brand_map[$counter['target_id']] ?? [];
+
+                                                                // append achieved-only brands (sales with no target on this counter)
+                                                                $targeted_ids = array_column($brand_sql, 'brand_id');
+                                                                foreach ($account_brand_details_map[$counter['account_id']] ?? [] as $extra) {
+                                                                    if (!in_array($extra['brand_id'], $targeted_ids)) {
+                                                                        $brand_sql[] = [
+                                                                            'cat_name' => $extra['cat_name'] . ' *',   // mark as untargeted
+                                                                            'brand_id' => $extra['brand_id'],
+                                                                            'target'   => 0,
+                                                                        ];
+                                                                    }
+                                                                }
+                                                                usort($brand_sql, fn($a, $b) => strcmp($a['cat_name'], $b['cat_name']));
                                                             } else {
                                                                 $brand_sql = array_map(function ($row) {
                                                                     return [
@@ -932,16 +991,16 @@ if ($createdby > 0) {
                                                         ?>
                                                                 <tr>
                                                                     <td>
-                                                                        <?= htmlspecialchars($counter['account_name']) ?>
-                                                                        <?php if (!empty($counter['class'])) { ?>
-                                                                            <span class="badge bg-info text-dark"><?= $counter['class'] ?></span>
-                                                                        <?php } else { ?>
-                                                                            <span class="text-muted">-</span>
+                                                                        <?= htmlspecialchars_decode($counter['account_name']) ?>
+                                                                        <?php if (!$counter['has_target']) { ?>
+                                                                            <span class="badge bg-warning text-dark">No Target</span>
                                                                         <?php } ?>
                                                                     </td>
                                                                     <td>
-                                                                        <?php if (!$counter['has_target']) { ?>
-                                                                            <span class="badge bg-warning text-dark">No Target</span>
+                                                                        <?php if (!empty($counter['class'])) { ?>
+                                                                            <?= $counter['class'] ?>
+                                                                        <?php } else { ?>
+                                                                            -
                                                                         <?php } ?>
                                                                     </td>
                                                                     <?php foreach (array_keys($assigned_weeks) as $wk): ?>
@@ -953,14 +1012,12 @@ if ($createdby > 0) {
                                                                             <?php endif; ?>
                                                                         </td>
                                                                     <?php endforeach; ?>
-                                                                    <td class="text-muted">
-                                                                        <?= $counter_ach > 0 ? 'Sales (No Brand Target)' : 'No Brand' ?>
-                                                                    </td>
-                                                                    <td class="text-end">₹<?= number_format($outstanding, 2); ?></td>
+                                                                    <td class="text-muted"><?= $counter_ach > 0 ? 'Sales (No Brand Target)' : 'No Brand' ?></td>
+                                                                    <td class="text-end">₹0</td>
                                                                     <td class="text-end text-success">₹<?= number_format($counter_ach) ?></td>
-                                                                    <td class="text-end text-muted">-</td>
-                                                                    <td><?= $counter_ach > 0 ? 'Sales' : mini_bar(0) ?></td>
-                                                                    <td><?= htmlspecialchars($counter['comment']) ?></td>
+                                                                    <td class="text-end">₹<?= number_format($outstanding, 2); ?></td>
+                                                                    <td><?= $counter_ach > 0 ? '<span class="text-muted small">Sales only</span>' : mini_bar(0) ?></td>
+                                                                    <td><?= htmlspecialchars((string)$counter['comment']) ?></td>
                                                                 </tr>
                                                                 <?php else:
                                                                 $rowspan = count($brand_sql);
@@ -973,16 +1030,16 @@ if ($createdby > 0) {
                                                                     <tr>
                                                                         <?php if ($first): ?>
                                                                             <td rowspan="<?= $rowspan ?>" class="align-middle">
-                                                                                <?= htmlspecialchars($counter['account_name']) ?>
-                                                                                <?php if (!empty($counter['class'])) { ?>
-                                                                                    <span class="badge bg-info text-dark"><?= $counter['class'] ?></span>
-                                                                                <?php } else { ?>
-                                                                                    <span class="text-muted">-</span>
+                                                                                <?= htmlspecialchars_decode($counter['account_name']) ?>
+                                                                                <?php if (!$counter['has_target']) { ?>
+                                                                                    <span class="badge bg-warning text-dark">No Target</span>
                                                                                 <?php } ?>
                                                                             </td>
                                                                             <td rowspan="<?= $rowspan ?>" class="align-middle">
-                                                                                <?php if (!$counter['has_target']) { ?>
-                                                                                    <span class="badge bg-warning text-dark">No Target</span>
+                                                                                <?php if (!empty($counter['class'])) { ?>
+                                                                                    <?= $counter['class'] ?>
+                                                                                <?php } else { ?>
+                                                                                    -
                                                                                 <?php } ?>
                                                                             </td>
                                                                             <?php foreach (array_keys($assigned_weeks) as $wk): ?>
@@ -1031,14 +1088,13 @@ if ($createdby > 0) {
 
     <?php include('component/script.php'); ?>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
     <script>
         $(document).ready(function() {
             $(".chosen-select").chosen();
         });
 
         $(document).on('click', '.route-toggle', function() {
-
             let $current = $(this);
 
             $('.route-toggle').not($current).removeClass('active');
@@ -1048,20 +1104,57 @@ if ($createdby > 0) {
             $current.next('.route-detail-wrap').stop(true, true).slideToggle(200);
 
         });
-    </script>
 
-    <script>
         $('#exportExcel').click(function() {
-            let data = [
-                ['Route', 'Route Target', 'Route Achieved', 'Route %', 'Counter', 'Status', 'W1', 'W2', 'W3', 'W4', 'W5', 'Brand', 'Target', 'Achieved', 'Outstanding', '%', 'Comment']
-            ];
+            function rgbToHex(rgb) {
+                if (!rgb) return 'FFFFFFFF';
+                let m = rgb.match(/\d+/g);
+                if (!m) return 'FFFFFFFF';
+                let hex = m.slice(0, 3).map(function(x) {
+                    let h = parseInt(x).toString(16);
+                    return h.length === 1 ? '0' + h : h;
+                }).join('');
+                return 'FF' + hex.toUpperCase();
+            }
+
+            let headerRow = ['Counter', 'Class', 'W1', 'W2', 'W3', 'W4', 'W5', 'Brand', 'Target', 'Achieved', 'Outstanding', '%', 'Comment'];
+            let data = [headerRow];
+            let merges = [];
+            let cellStyles = {};
+
+            let headerStyle = {
+                fill: {
+                    fgColor: {
+                        rgb: 'FF374151'
+                    }
+                },
+                font: {
+                    color: {
+                        rgb: 'FFFFFFFF'
+                    },
+                    bold: true
+                }
+            };
+            for (let c = 0; c < headerRow.length; c++) {
+                cellStyles[`0_${c}`] = headerStyle;
+            }
 
             $('.route-card').each(function() {
                 let $card = $(this);
                 let routeName = $card.find('.route-name-text').text().trim();
-                let routeTarget = $card.data('target');
-                let routeAch = $card.data('achieved');
-                let routePct = $card.data('pct');
+
+                let styleAttr = $card.find('.route-toggle').attr('style') || '';
+                let accentMatch = styleAttr.match(/--route-accent:\s*([^;]+)/);
+                let accentHex = 'FF0D6EFD';
+                if (accentMatch) {
+                    let hexVal = accentMatch[1].trim().replace('#', '').toUpperCase();
+                    if (hexVal === 'DC3545') hexVal = 'E7727D';
+                    if (hexVal.length === 6) accentHex = 'FF' + hexVal;
+                }
+
+                let routeTarget = $card.attr('data-target') || '';
+                let routeAchieved = $card.attr('data-achieved') || '';
+                let routePct = $card.attr('data-pct') || '';
 
                 let $table = $card.find('.route-detail-table');
 
@@ -1073,7 +1166,45 @@ if ($createdby > 0) {
                 let weekCols = Object.keys(weekColToNumber).map(Number).sort((a, b) => a - b);
                 let weekCount = weekCols.length;
                 let fullRowLength = 8 + weekCount;
-                let subsequentRowLength = 5;
+                let subsequentRowLength = 4;
+
+                // ── heading row: route name merged, plus target/achieved/% ──
+                let headingRowIdx = data.length;
+                let headingRow = new Array(headerRow.length).fill('');
+                headingRow[0] = routeName;
+                headingRow[8] = 'Target: ' + routeTarget;
+                headingRow[9] = 'Achieved: ' + routeAchieved;
+                headingRow[11] = routePct;
+                data.push(headingRow);
+
+                merges.push({
+                    s: {
+                        r: headingRowIdx,
+                        c: 0
+                    },
+                    e: {
+                        r: headingRowIdx,
+                        c: 7
+                    }
+                });
+
+                let headingStyle = {
+                    fill: {
+                        fgColor: {
+                            rgb: accentHex
+                        }
+                    },
+                    font: {
+                        color: {
+                            rgb: 'FFFFFFFF'
+                        },
+                        bold: true,
+                        sz: 12
+                    }
+                };
+                for (let c = 0; c < headerRow.length; c++) {
+                    cellStyles[`${headingRowIdx}_${c}`] = headingStyle;
+                }
 
                 let currentCounter = '',
                     currentStatus = '',
@@ -1082,16 +1213,19 @@ if ($createdby > 0) {
 
                 $table.find('tbody tr').each(function() {
                     let cols = $(this).find('td');
+                    let rowData, weekYesNo = null;
 
                     if (cols.length === fullRowLength) {
                         currentCounter = cols.eq(0).text().trim();
                         currentStatus = cols.eq(1).text().trim();
 
                         currentWeeks = {};
+                        weekYesNo = {};
                         weekCols.forEach(function(colIdx) {
                             let weekNum = weekColToNumber[colIdx];
                             let hasVisit = cols.eq(colIdx).find('.bi-check-circle-fill').length > 0;
                             currentWeeks[weekNum] = hasVisit ? 'Yes' : 'No';
+                            weekYesNo[weekNum] = hasVisit;
                         });
 
                         let brandStart = 2 + weekCount;
@@ -1102,45 +1236,55 @@ if ($createdby > 0) {
                         let pct = cols.eq(brandStart + 4).text().trim();
                         currentComment = cols.eq(brandStart + 5).text().trim();
 
-                        data.push([routeName, routeTarget, routeAch, routePct, currentCounter, currentStatus,
+                        rowData = [currentCounter, currentStatus,
                             currentWeeks[1] || '', currentWeeks[2] || '', currentWeeks[3] || '', currentWeeks[4] || '', currentWeeks[5] || '',
                             brand, target, ach, outstanding, pct, currentComment
-                        ]);
-
+                        ];
                     } else if (cols.length === subsequentRowLength) {
                         let brand = cols.eq(0).text().trim();
                         let target = cols.eq(1).text().trim();
                         let ach = cols.eq(2).text().trim();
-                        let outstanding = cols.eq(3).text().trim();
-                        let pct = cols.eq(4).text().trim();
+                        let pct = cols.eq(3).text().trim();
 
-                        data.push([routeName, routeTarget, routeAch, routePct, currentCounter, currentStatus,
+                        rowData = [currentCounter, currentStatus,
                             currentWeeks[1] || '', currentWeeks[2] || '', currentWeeks[3] || '', currentWeeks[4] || '', currentWeeks[5] || '',
-                            brand, target, ach, outstanding, pct, ''
-                        ]);
+                            brand, target, ach, '', pct, ''
+                        ];
+                    }
+
+                    let rowIdx = data.length;
+                    data.push(rowData);
+
+                    // % column: no color styling — plain text only
+
+                    if (weekYesNo) {
+                        weekCols.forEach(function(colIdx) {
+                            let weekNum = weekColToNumber[colIdx];
+                            let colPos = 1 + weekNum;
+                            cellStyles[`${rowIdx}_${colPos}`] = {
+                                fill: {
+                                    fgColor: {
+                                        rgb: weekYesNo[weekNum] ? 'FFD1E7DD' : 'FFF8D7DA'
+                                    }
+                                },
+                                font: {
+                                    color: {
+                                        rgb: weekYesNo[weekNum] ? 'FF198754' : 'FFDC3545'
+                                    },
+                                    bold: true
+                                }
+                            };
+                        });
                     }
                 });
             });
 
             let ws = XLSX.utils.aoa_to_sheet(data);
             ws['!cols'] = [{
-                    wch: 22
-                }, // Route
-                {
-                    wch: 12
-                }, // Route Target
-                {
-                    wch: 12
-                }, // Route Achieved
-                {
-                    wch: 8
-                }, // Route %
-                {
                     wch: 26
-                }, // Counter
-                {
+                }, {
                     wch: 12
-                }, // Status
+                },
                 {
                     wch: 5
                 }, {
@@ -1151,26 +1295,31 @@ if ($createdby > 0) {
                     wch: 5
                 }, {
                     wch: 5
-                }, // W1-W5
+                },
                 {
                     wch: 20
-                }, // Brand
-                {
+                }, {
+                    wch: 14
+                }, {
+                    wch: 14
+                }, {
                     wch: 12
-                }, // Target
-                {
-                    wch: 12
-                }, // Achieved
-                {
-                    wch: 12
-                }, // Outstanding
-                {
-                    wch: 8
-                }, // %
-                {
+                }, {
+                    wch: 10
+                }, {
                     wch: 30
-                }, // Comment
+                },
             ];
+            ws['!merges'] = merges;
+
+            Object.keys(cellStyles).forEach(function(key) {
+                let [r, c] = key.split('_').map(Number);
+                let ref = XLSX.utils.encode_cell({
+                    r: r,
+                    c: c
+                });
+                if (ws[ref]) ws[ref].s = cellStyles[key];
+            });
 
             let wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'Route Target');

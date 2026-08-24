@@ -33,6 +33,30 @@ $tblpkey = 'transaction_id';
                                 <div class="col-6 mb-3">
                                     <input type="date" name="to_date" id="to_date" class="form-control" value="<?php echo $todate ?>">
                                 </div>
+                                <div class="col-12 mb-3">
+                                    <label class="form-label mb-0">
+                                        Customer Name
+                                    </label>
+                                    <select class="form-select chosen-select" name="account_id" id="account_id">
+                                        <option value="">Select</option>
+                                        <?php
+                                        $res = $obj->executequery("SELECT DISTINCT a.account_id, a.account_name,
+                                   cm.common_name AS account_type, am.area_name
+                            FROM route_plan rp
+                            JOIN route_counter rc ON rc.batch_no = rp.batch_no
+                            JOIN account a        ON a.account_id = rc.account_id
+                            LEFT JOIN common_master cm ON cm.common_id = a.common_id AND cm.type = 'acc_type'
+                            LEFT JOIN area_master am   ON am.area_id = a.area_id
+                            WHERE rp.sales_executive_id = '$loginid'
+                            ORDER BY a.account_name ASC
+                        ");
+                                        foreach ($res as $key) {
+                                            echo "<option value='{$key['account_id']}'>"
+                                                . "{$key['account_name']} [{$key['account_type']}] / {$key['area_name']}"
+                                                . "</option>";
+                                        } ?>
+                                    </select>
+                                </div>
                                 <div class="col-12">
                                     <button class="btn btn-primary w-100 btn-sm">Search</button>
                                 </div>
@@ -85,6 +109,13 @@ $tblpkey = 'transaction_id';
     <!-- js script files -->
     <?php include("inc/js-file.php"); ?>
     <script>
+        $(document).ready(function() {
+            $(".chosen-select").chosen({
+                width: "100%",
+                search_contains: true
+            });
+        });
+
         function openModal(transaction_id) {
             var myModal = new bootstrap.Modal(document.getElementById('openModal'), {
                 keyboard: false
@@ -158,12 +189,14 @@ $tblpkey = 'transaction_id';
 
             let from_date = $('#from_date').val();
             let to_date = $('#to_date').val();
+            let account_id = $('#account_id').val();
 
             $.ajax({
                 url: 'ajax_payment_list.php',
                 type: 'POST',
                 data: {
                     start: start,
+                    account_id: account_id,
                     from_date: from_date,
                     to_date: to_date
                 },

@@ -12,16 +12,16 @@ $imgpath = "uploaded/payment_proof/";
 
 
 if (isset($_POST['submit'])) {
-    $keyvalue   = $obj->test_input($_POST['transaction_id']);
+    $keyvalue = $obj->test_input($_POST['transaction_id']);
     $account_id = $obj->test_input($_POST['account_id']);
     $bill_id = $obj->test_input($_POST['bill_id']);
     $pay_type = ($bill_id == "opening") ? "$bill_id" : "bill";
-    $paymode    = $obj->test_input($_POST['paymode']);
-    $paydate    = $obj->test_input($_POST['paydate']);
-    $pay_amt    = $obj->test_input($_POST['pay_amt']);
-    $cash_disc    = $obj->test_input($_POST['cash_disc']);
+    $paymode = $obj->test_input($_POST['paymode']);
+    $paydate = $obj->test_input($_POST['paydate']);
+    $pay_amt = $obj->test_input($_POST['pay_amt']);
+    $cash_disc = $obj->test_input($_POST['cash_disc']);
     $voucher_no = $obj->test_input($_POST['voucher_no']);
-    $trans_id   = $obj->test_input($_POST['trans_id']);
+    $trans_id = $obj->test_input($_POST['trans_id']);
     $bank_id = isset($_POST['bank_id']) ? $obj->test_input($_POST['bank_id']) : '';
     $filename = '';
 
@@ -61,22 +61,22 @@ if (isset($_POST['submit'])) {
     }
 
     $form_data = array(
-        'account_id'    => $account_id,
+        'account_id' => $account_id,
         'ref_bill_id' => $bill_id,
-        'paymode'       => $paymode,
-        'imgname'       => $filename,
-        'billdate'      => $paydate,
-        'grand_total'   => $pay_amt,
-        'cash_disc'   => $cash_disc,
-        'billno'        => $voucher_no,
-        'trans_id'      => $trans_id,
-        'bank_id'      => $bank_id,
-        'type'          => 'payment',
-        'pay_status'          => '1',
-        'pay_type'      => $pay_type,
-        'createdby'     => $loginid,
-        'companyid'     => $companyid,
-        'ipaddress'     => $ipaddress
+        'paymode' => $paymode,
+        'imgname' => $filename,
+        'billdate' => $paydate,
+        'grand_total' => $pay_amt,
+        'cash_disc' => $cash_disc,
+        'billno' => $voucher_no,
+        'trans_id' => $trans_id,
+        'bank_id' => $bank_id,
+        'type' => 'payment',
+        'pay_status' => '1',
+        'pay_type' => $pay_type,
+        'createdby' => $loginid,
+        'companyid' => $companyid,
+        'ipaddress' => $ipaddress
     );
 
     if ($keyvalue == 0) {
@@ -107,12 +107,13 @@ if (isset($_GET[$tblpkey])) {
     $payment_proof = $sqledit['imgname'];
     $trans_id = $sqledit['trans_id'];
     $bill_id = $sqledit['ref_bill_id'];
+    $remark = $sqledit['remark'];
     $pending_amt = "";
 } else {
-    $pay_amt  = $payment_proof = $trans_id = $bill_id = $cash_disc = "";
+    $pay_amt = $payment_proof = $trans_id = $bill_id = $cash_disc = "";
     $paydate = date('Y-m-d');
     $pending_amt = "";
-    $voucher_no = '';
+    $voucher_no = $remark='';
     $paymode = 'Cash';
     $account_id = (isset($_GET["account_id"])) ? $obj->test_input($_GET["account_id"]) : 0;
 }
@@ -150,13 +151,15 @@ $crit = " where t.account_id='$account_id' and t.type='payment'";
                             <div class="card-body">
                                 <div class="row">
                                     <div class="col-lg-12 mb-2">
-                                        <strong><label for=""> Customer Name <span class="text-danger fw-bold">*</span></label></strong>
-                                        <select class="form-select form-select-sm chosen-select" name="account_id" id="account_id" onchange="set_url(this.value);">
+                                        <strong><label for=""> Customer Name <span
+                                                    class="text-danger fw-bold">*</span></label></strong>
+                                        <select class="form-select form-select-sm chosen-select" name="account_id"
+                                            id="account_id" onchange="set_url(this.value);">
                                             <option value="">Select</option>
                                             <?php
                                             $res = $obj->executequery("SELECT a.account_id,a.account_name,cm.common_name AS account_type,am.area_name FROM account a LEFT JOIN common_master cm ON cm.common_id = a.common_id AND cm.type = 'acc_type' LEFT JOIN area_master am ON am.area_id = a.area_id ORDER BY a.account_name ASC");
                                             foreach ($res as $key) {
-                                            ?>
+                                                ?>
                                                 <option value="<?= $key['account_id']; ?>">
                                                     <?= $key['account_name']; ?>
                                                     [<?= $key['account_type']; ?>]
@@ -170,17 +173,20 @@ $crit = " where t.account_id='$account_id' and t.type='payment'";
                                     </div>
 
                                     <div class="col-lg-12 mb-2">
-                                        <strong><label>Select a Bill<span class="text-danger fw-bold">*</span></label></strong>
-                                        <select name="bill_id" id="bill_id" class="form-select form-select-sm chosen-select" onchange="handleBillChange(this.value);">
+                                        <strong><label>Select a Bill<span
+                                                    class="text-danger fw-bold">*</span></label></strong>
+                                        <select name="bill_id" id="bill_id"
+                                            class="form-select form-select-sm chosen-select"
+                                            onchange="handleBillChange(this.value);">
                                             <option value="">Select Bill</option>
                                             <?php
-                                            $opening_amt = (float)$obj->getvalfield(
+                                            $opening_amt = (float) $obj->getvalfield(
                                                 "account",
                                                 "opening_balance",
                                                 "account_id='$account_id'"
                                             );
 
-                                            $opening_paid = (float)$obj->getvalfield(
+                                            $opening_paid = (float) $obj->getvalfield(
                                                 "transaction_entry",
                                                 "IFNULL(SUM(grand_total + IFNULL(cash_disc,0)),0)",
                                                 "account_id='$account_id'
@@ -208,6 +214,7 @@ SELECT
     t.transaction_id,
     t.billno,
     t.invoice_no,
+    t.invoice_amt,
     t.billdate,
     t.grand_total AS total_amt,
 
@@ -237,9 +244,9 @@ ORDER BY t.billdate ASC, t.transaction_id ASC
 
                                             foreach ($res as $row) {
 
-                                                $total   = (float)$row['total_amt'];
-                                                $paid    = (float)$row['total_paid'];
-                                                $pending = $total - $paid;
+                                                $total = (float) $row['total_amt'];
+                                                $paid = (float) $row['total_paid'];
+                                                $pending = $row['invoice_amt'] - $paid;
                                                 if ($opening_pending > 0) {
                                                     $disabled = "disabled";
                                                 } else {
@@ -262,7 +269,7 @@ ORDER BY t.billdate ASC, t.transaction_id ASC
                                                 }
 
                                                 echo $row['invoice_no']
-                                                    . ' (₹' . number_format($total, 2)
+                                                    . ' (₹' . number_format($row['invoice_amt'], 2)
                                                     . ' | Pending ₹' . number_format($pending, 2)
                                                     . ') / ' . $obj->dateformatindia($row['billdate']);
 
@@ -272,47 +279,76 @@ ORDER BY t.billdate ASC, t.transaction_id ASC
                                         </select>
                                     </div>
                                     <div class="col-lg-12 mb-2">
-                                        <strong><label for="">Pending Amount <span class="text-danger fw-bold">*</span></label></strong>
-                                        <input type="text" class="form-control form-control-sm" id="pending_amt" name="pending_amt" placeholder="Pending Amount" value="<?php echo $pending_amt ?>" readonly>
+                                        <strong><label for="">Pending Amount <span
+                                                    class="text-danger fw-bold">*</span></label></strong>
+                                        <input type="text" class="form-control form-control-sm" id="pending_amt"
+                                            name="pending_amt" placeholder="Pending Amount"
+                                            value="<?php echo $pending_amt ?>" readonly>
                                     </div>
                                     <div class="col-lg-12 mb-2">
-                                        <strong><label for="">Pay Mode <span class="text-danger fw-bold">*</span></label></strong>
-                                        <select class="form-control form-control-sm" id="paymode" name="paymode" placeholder="Enter Pay Mode">
+                                        <strong><label for="">Pay Mode <span
+                                                    class="text-danger fw-bold">*</span></label></strong>
+                                        <select class="form-control form-control-sm" id="paymode" name="paymode"
+                                            placeholder="Enter Pay Mode">
                                             <option value="">Select Pay Mode</option>
-                                            <option value="Cash" <?php if ($paymode == "Cash") echo "selected"; ?>>Cash</option>
-                                            <option value="Cheque" <?php if ($paymode == "Cheque") echo "selected"; ?>>Cheque</option>
-                                            <option value="Online" <?php if ($paymode == "Online") echo "selected"; ?>>Online</option>
+                                            <option value="Cash" <?php if ($paymode == "Cash")
+                                                echo "selected"; ?>>Cash
+                                            </option>
+                                            <option value="Cheque" <?php if ($paymode == "Cheque")
+                                                echo "selected"; ?>>
+                                                Cheque</option>
+                                            <option value="Online" <?php if ($paymode == "Online")
+                                                echo "selected"; ?>>
+                                                Online</option>
                                         </select>
                                     </div>
                                     <div class="col-lg-12 mb-2 conditional-field" id="proof_div" style="display:none;">
                                         <strong><label>Payment Proof <span class="text-danger">*</span></label></strong>
-                                        <input type="file" class="form-control form-control-sm" name="payment_proof" id="payment_proof" accept=".jpg,.jpeg,.png">
+                                        <input type="file" class="form-control form-control-sm" name="payment_proof"
+                                            id="payment_proof" accept=".jpg,.jpeg,.png">
                                         <?php if ($payment_proof != "") { ?>
-                                            <img src="uploads/payment_proof/<?php echo $payment_proof; ?>" alt="" style="width: 80px;" class="mt-2">
+                                            <img src="uploads/payment_proof/<?php echo $payment_proof; ?>" alt=""
+                                                style="width: 80px;" class="mt-2">
                                         <?php } ?>
                                     </div>
-                                    <div class="col-lg-12 mb-2 conditional-field" id="tansaction_div" style="display:none;">
-                                        <strong><label id="trans_label">Transaction ID <span class="text-danger">*</span></label></strong>
-                                        <input type="text" class="form-control form-control-sm" name="trans_id" id="trans_id" placeholder="Transaction ID" value="<?php echo $trans_id ?>">
+                                    <div class="col-lg-12 mb-2 conditional-field" id="tansaction_div"
+                                        style="display:none;">
+                                        <strong><label id="trans_label">Transaction ID <span
+                                                    class="text-danger">*</span></label></strong>
+                                        <input type="text" class="form-control form-control-sm" name="trans_id"
+                                            id="trans_id" placeholder="Transaction ID" value="<?php echo $trans_id ?>">
                                     </div>
                                     <div class="col-lg-12 mb-2 conditional-field" id="reciept_div">
-                                        <strong><label for="">Reciept No. <span class="text-danger fw-bold">*</span></label></strong>
-                                        <input type="text" class="form-control form-control-sm" id="voucher_no" name="voucher_no" placeholder="Enter Reciept No." value="<?php echo $voucher_no ?>">
+                                        <strong><label for="">Reciept No. <span
+                                                    class="text-danger fw-bold">*</span></label></strong>
+                                        <input type="text" class="form-control form-control-sm" id="voucher_no"
+                                            name="voucher_no" placeholder="Enter Reciept No."
+                                            value="<?php echo $voucher_no ?>">
                                     </div>
                                     <div class="col-lg-12 mb-2">
-                                        <strong><label for="" id="pay_date_l">Payment Date <span class="text-danger fw-bold">*</span></label></strong>
-                                        <input type="date" class="form-control form-control-sm" id="paydate" name="paydate" placeholder="Enter Payment Date" value="<?php echo $paydate ?>">
+                                        <strong><label for="" id="pay_date_l">Payment Date <span
+                                                    class="text-danger fw-bold">*</span></label></strong>
+                                        <input type="date" class="form-control form-control-sm" id="paydate"
+                                            name="paydate" placeholder="Enter Payment Date"
+                                            value="<?php echo $paydate ?>">
                                     </div>
                                     <div class="col-lg-12 mb-2">
-                                        <strong><label for="">Cash Discount <small class="text-danger fw-bold">(If Applicable)</small></label></strong>
-                                        <input type="text" class="form-control form-control-sm" id="cash_disc" name="cash_disc" placeholder="Enter Cash Discount" value="<?php echo $cash_disc ?>">
+                                        <strong><label for="">Cash Discount <small class="text-danger fw-bold">(If
+                                                    Applicable)</small></label></strong>
+                                        <input type="text" class="form-control form-control-sm" id="cash_disc"
+                                            name="cash_disc" placeholder="Enter Cash Discount"
+                                            value="<?php echo $cash_disc ?>">
                                     </div>
                                     <div class="col-lg-12 mb-2">
-                                        <strong><label for="" id="pay_amt_l">Payment Amount <span class="text-danger fw-bold">*</span></label></strong>
-                                        <input type="text" class="form-control form-control-sm" id="pay_amt" name="pay_amt" placeholder="Enter Payment Amount" value="<?php echo $pay_amt ?>">
+                                        <strong><label for="" id="pay_amt_l">Payment Amount <span
+                                                    class="text-danger fw-bold">*</span></label></strong>
+                                        <input type="text" class="form-control form-control-sm" id="pay_amt"
+                                            name="pay_amt" placeholder="Enter Payment Amount"
+                                            value="<?php echo $pay_amt ?>">
                                     </div>
                                     <div class="col-lg-12 mb-2 conditional-field" id="bank_div" style="display:none;">
-                                        <strong><label for="">Bank Name <span class="text-danger fw-bold">*</span></label></strong>
+                                        <strong><label for="">Bank Name <span
+                                                    class="text-danger fw-bold">*</span></label></strong>
                                         <select class="form-control form-control-sm" id="bank_id" name="bank_id">
                                             <option value="">Select Bank</option>
                                             <?php $res = $obj->executequery("Select * from bank_master");
@@ -323,13 +359,18 @@ ORDER BY t.billdate ASC, t.transaction_id ASC
                                         </select>
                                     </div>
                                     <div class="col-lg-12" id="remark_div">
-                                        <strong><label for="">Remark <span class="text-danger fw-bold"></span></label></strong>
-                                        <input type="text" class="form-control form-control-sm" id="remark" name="remark" placeholder="Enter Remarks" value="<?php echo $pay_amt ?>">
+                                        <strong><label for="">Remark <span
+                                                    class="text-danger fw-bold"></span></label></strong>
+                                        <input type="text" class="form-control form-control-sm" id="remark"
+                                            name="remark" placeholder="Enter Remarks" value="<?php echo $remark ?>">
                                     </div>
                                     <div class="col-md-12 mt-4">
-                                        <input type="hidden" name="<?= $tblpkey ?>" id="<?= $tblpkey ?>" value="<?php echo $keyvalue ?>">
-                                        <input type="submit" name="submit" class="btn btn-sm btn-primary" value="<?php echo $btn_name ?>">
-                                        <a href="<?php echo $pagename; ?>" class="btn btn-danger btn-sm" id="reset">Reset</a>
+                                        <input type="hidden" name="<?= $tblpkey ?>" id="<?= $tblpkey ?>"
+                                            value="<?php echo $keyvalue ?>">
+                                        <input type="submit" name="submit" class="btn btn-sm btn-primary"
+                                            value="<?php echo $btn_name ?>">
+                                        <a href="<?php echo $pagename; ?>" class="btn btn-danger btn-sm"
+                                            id="reset">Reset</a>
                                     </div>
                                 </div>
                             </div>
@@ -409,7 +450,7 @@ ORDER BY t.billdate ASC, t.transaction_id ASC
 
                                                 $badge = '<span class="badge bg-success">Cash</span>';
                                             }
-                                        ?>
+                                            ?>
                                             <tr>
 
                                                 <td><?= $slno++; ?></td>
@@ -434,8 +475,7 @@ ORDER BY t.billdate ASC, t.transaction_id ASC
                                                 </td>
                                                 <td class="text-center">
                                                     <?php if (!empty($row['imgname'])) { ?>
-                                                        <a href="<?= $imgpath . $row['imgname']; ?>"
-                                                            target="_blank"
+                                                        <a href="<?= $imgpath . $row['imgname']; ?>" target="_blank"
                                                             class="btn btn-sm btn-outline-primary">
                                                             <i class="bi bi-eye"></i>
                                                         </a>
@@ -449,13 +489,11 @@ ORDER BY t.billdate ASC, t.transaction_id ASC
                                                 <td>
 
                                                     <a href="<?= $pagename ?>?transaction_id=<?= $row[$tblpkey]; ?>"
-                                                        class="btn btn-sm btn-success"
-                                                        title="Edit">
+                                                        class="btn btn-sm btn-success" title="Edit">
                                                         <i class="bi bi-pencil-square"></i>
                                                     </a>
 
-                                                    <a href="javascript:void(0)"
-                                                        class="btn btn-sm btn-danger"
+                                                    <a href="javascript:void(0)" class="btn btn-sm btn-danger"
                                                         onclick="funDel('<?= $row[$tblpkey]; ?>','<?= $row['imgname']; ?>');"
                                                         title="Delete">
                                                         <i class="bi bi-trash"></i>
@@ -480,7 +518,7 @@ ORDER BY t.billdate ASC, t.transaction_id ASC
 <?php include('component/script.php'); ?>
 
 <script>
-    $(document).ready(function() {
+    $(document).ready(function () {
         $('#example').DataTable();
         $(".chosen-select").chosen();
         handleBillChange();
@@ -494,7 +532,7 @@ ORDER BY t.billdate ASC, t.transaction_id ASC
     }
 
 
-    $('#pay_amt, #cash_disc').on('input', function() {
+    $('#pay_amt, #cash_disc').on('input', function () {
 
         let pending = parseFloat($('#bill_id option:selected').data('pending')) || 0;
         let cash_disc = parseFloat($('#cash_disc').val()) || 0;
@@ -549,7 +587,7 @@ ORDER BY t.billdate ASC, t.transaction_id ASC
 
     const star = ' <span class="text-danger fw-bold">*</span>';
 
-    $('#paymode').change(function() {
+    $('#paymode').change(function () {
 
         let mode = $(this).val();
 
@@ -601,7 +639,7 @@ ORDER BY t.billdate ASC, t.transaction_id ASC
                 url: 'ajax/delete_master_img.php',
                 data: 'id=' + id + '&tblname=' + tblname + '&tblpkey=' + tblpkey + '&imgname=' + imgname + '&imgpath=' + imgpath,
                 dataType: 'html',
-                success: function(data) {
+                success: function (data) {
                     location.reload();
                 }
             }); //ajax close
@@ -616,7 +654,7 @@ ORDER BY t.billdate ASC, t.transaction_id ASC
                 url: 'ajax_load_ledger.php',
                 data: 'account_id=' + account_id,
                 dataType: 'html',
-                success: function(data) {
+                success: function (data) {
                     document.getElementById("ledger-data").innerHTML = data;
                 }
             }); //ajax close

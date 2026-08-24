@@ -294,7 +294,7 @@ $counterTypes = $obj->executequery("SELECT
 
                                         <div class="col-md-3 mb-2">
                                             <strong> <label for="mobile_no">Opening Balance <span class="text-danger fw-bold"></span></label> </strong>
-                                            <input type="number" class="form-control form-control-sm" name="opening_balance" id="opening_balance" placeholder="Opening Balance" value="<?php echo $opening_balance; ?>" autocomplete="off">
+                                            <input type="number" class="form-control form-control-sm" name="opening_balance" id="opening_balance" placeholder="Opening Balance" value="<?php echo $opening_balance; ?>" autocomplete="off" step="0.01">
                                         </div>
                                         <div class="col-md-3 mb-2">
                                             <strong> <label for="mobile_no">Opening Date <span class="text-danger fw-bold"></span></label> </strong>

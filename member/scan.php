@@ -2,6 +2,48 @@
 include('session.php');
 
 $token = $_GET['token'] ?? '';
+$member_id = $_SESSION['member_id'];
+$today = date('Y-m-d');
+
+/* =========================================================
+   Fetch today's sessions for this employee so the scan page
+   knows what state they're in (open IN / closed / no sessions).
+========================================================= */
+
+$todaySessions = $obj->executequery("
+    SELECT
+        a.attendance_id,
+        a.shop_id,
+        a.scan_time AS in_time,
+        a.out_time,
+        a.type,
+        s.company_name AS shop_name
+    FROM bni_attendance a
+    LEFT JOIN company_setting s ON s.company_id = a.shop_id
+    WHERE a.userid = '$member_id'
+      AND DATE(a.scan_time) = '$today'
+    ORDER BY a.attendance_id ASC
+");
+
+$hasOpen   = false;
+$workedSec = 0;
+$openInTime = null;
+foreach ($todaySessions as $s) {
+    $inTs  = strtotime($s['in_time']);
+    $outTs = $s['out_time'] ? strtotime($s['out_time']) : null;
+    if ($outTs !== null) {
+        $workedSec += ($outTs - $inTs);
+    } else {
+        $hasOpen = true;
+        $openInTime = $s['in_time'];
+    }
+}
+
+// Shift info for context banner (per employee)
+$member = $obj->select_record('bni_members', ['member_id' => $member_id]);
+$shift = $obj->getShift($member['shift_id'] ?? null);
+$shiftStartDisp = date('h:i A', strtotime($today . ' ' . $shift['start_time']));
+$shiftEndDisp   = date('h:i A', strtotime($today . ' ' . $shift['end_time']));
 ?>
 
 <!DOCTYPE html>
@@ -42,15 +84,119 @@ $token = $_GET['token'] ?? '';
             overflow: hidden;
         }
 
-        .manual-box {
-            background: #eef5ff;
-            border-radius: 16px;
-            padding: 12px;
-        }
-
         .location-box {
             font-size: 14px;
             line-height: 1.6;
+        }
+
+        .state-banner {
+            border-radius: 14px;
+            padding: 14px 16px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .state-banner.in {
+            background: linear-gradient(135deg, #dcfce7, #f0fdf4);
+            color: #16a34a;
+            border: 1px solid #86efac;
+        }
+
+        .state-banner.out {
+            background: linear-gradient(135deg, #fef3c7, #fffbeb);
+            color: #f59e0b;
+            border: 1px solid #fcd34d;
+        }
+
+        .state-banner.none {
+            background: #f1f5f9;
+            color: #475569;
+            border: 1px solid #e2e8f0;
+        }
+
+        .state-banner .icon {
+            font-size: 28px;
+            flex-shrink: 0;
+        }
+
+        .state-banner .text-block {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .state-banner .title {
+            font-weight: 700;
+            font-size: 15px;
+        }
+
+        .state-banner .sub {
+            font-size: 12px;
+            opacity: .85;
+            margin-top: 2px;
+        }
+
+        .shift-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(40, 122, 177, .12);
+            color: #1a56a0;
+            padding: 3px 10px;
+            border-radius: 50px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .sessions-mini {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 8px 10px;
+            margin-bottom: 12px;
+        }
+
+        .sessions-mini h6 {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            color: #64748b;
+            margin-bottom: 6px;
+        }
+
+        .mini-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            padding: 4px 0;
+            border-bottom: 1px dashed #e2e8f0;
+        }
+        .mini-row:last-child { border-bottom: 0; }
+        .mini-row .num {
+            background: #e2e8f0;
+            color: #475569;
+            width: 18px; height: 18px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center; justify-content: center;
+            font-size: 10px; font-weight: 700;
+            flex-shrink: 0;
+        }
+        .mini-row.open .num { background: #16a34a; color: #fff; }
+        .mini-row .in-pill { color: #16a34a; font-weight: 600; }
+        .mini-row .out-pill { color: #f59e0b; font-weight: 600; }
+        .mini-row .arrow { color: #94a3b8; }
+        .mini-row .shop {
+            font-size: 10px; color: #1a56a0; font-weight: 600;
+            background: rgba(40,122,177,.12);
+            padding: 1px 6px; border-radius: 50px;
+        }
+        .mini-row .dur {
+            margin-left: auto;
+            font-size: 10px; color: #64748b;
+            background: #fff;
+            padding: 1px 6px; border-radius: 50px;
         }
     </style>
 </head>
@@ -62,7 +208,7 @@ $token = $_GET['token'] ?? '';
         <div class="text-center my-3">
             <h3>
                 <i class="bi bi-qr-code-scan"></i>
-                Attendance Entry
+                Employee Attendance
             </h3>
 
             <p class="text-info">
@@ -72,48 +218,136 @@ $token = $_GET['token'] ?? '';
 
         <div class="scanner-card">
 
+            <!-- ============================================================
+                 STATE BANNER - tells employee what scan will do
+            ============================================================ -->
+            <?php if ($hasOpen): ?>
+                <div class="state-banner in">
+                    <div class="icon"><i class="bi bi-box-arrow-in-right"></i></div>
+                    <div class="text-block">
+                        <div class="title">You are Checked IN</div>
+                        <div class="sub">
+                            Since <?php echo date('h:i A', strtotime($openInTime)); ?> · Worked
+                            <?php
+                            $elapsed = time() - strtotime($openInTime);
+                            $h = floor($elapsed / 3600);
+                            $m = floor(($elapsed % 3600) / 60);
+                            echo $h > 0 ? "{$h}h {$m}m" : "{$m}m";
+                            ?>
+                        </div>
+                    </div>
+                </div>
+                <p class="text-center small text-muted mb-2">
+                    Scanning now will mark your <b>OUT time</b>.
+                </p>
+            <?php elseif (!empty($todaySessions)): ?>
+                <div class="state-banner out">
+                    <div class="icon"><i class="bi bi-box-arrow-right"></i></div>
+                    <div class="text-block">
+                        <div class="title">All sessions closed</div>
+                        <div class="sub">
+                            Total worked:
+                            <?php
+                            $h = floor($workedSec / 3600);
+                            $m = floor(($workedSec % 3600) / 60);
+                            echo $h > 0 ? "{$h}h {$m}m" : "{$m}m";
+                            ?>
+                        </div>
+                    </div>
+                </div>
+                <p class="text-center small text-muted mb-2">
+                    Scanning now will start a <b>new IN session</b>.
+                </p>
+            <?php else: ?>
+                <div class="state-banner none">
+                    <div class="icon"><i class="bi bi-moon"></i></div>
+                    <div class="text-block">
+                        <div class="title">Not checked in yet</div>
+                        <div class="sub">Scan QR to mark your IN time</div>
+                    </div>
+                </div>
+            <?php endif; ?>
+
+            <!-- ============================================================
+                 SHIFT INFO PILL
+            ============================================================ -->
+            <div class="text-center mb-3">
+                <span class="shift-pill">
+                    <i class="bi bi-clock"></i>
+                    Shift: <?php echo $shiftStartDisp; ?> - <?php echo $shiftEndDisp; ?>
+                </span>
+            </div>
+
+            <!-- ============================================================
+                 TODAY'S SESSIONS MINI LIST (only if any)
+            ============================================================ -->
+            <?php if (!empty($todaySessions)): ?>
+                <div class="sessions-mini">
+                    <h6>Today's Sessions</h6>
+                    <?php foreach ($todaySessions as $i => $s):
+                        $isOpen = empty($s['out_time']);
+                        $inTs  = strtotime($s['in_time']);
+                        $outTs = $s['out_time'] ? strtotime($s['out_time']) : null;
+                        $durSec = $outTs ? ($outTs - $inTs) : 0;
+                    ?>
+                        <div class="mini-row <?php echo $isOpen ? 'open' : ''; ?>">
+                            <span class="num"><?php echo $i + 1; ?></span>
+                            <?php if (!empty($s['shop_name'])): ?>
+                                <span class="shop"><?php echo htmlspecialchars($s['shop_name']); ?></span>
+                            <?php endif; ?>
+                            <span class="in-pill"><i class="bi bi-box-arrow-in-right"></i> <?php echo date('h:i A', $inTs); ?></span>
+                            <span class="arrow">→</span>
+                            <?php if ($isOpen): ?>
+                                <span class="out-pill" style="color:#16a34a;">Open</span>
+                            <?php else: ?>
+                                <span class="out-pill"><i class="bi bi-box-arrow-right"></i> <?php echo date('h:i A', $outTs); ?></span>
+                            <?php endif; ?>
+                            <span class="dur">
+                                <?php
+                                if ($isOpen) echo 'ongoing';
+                                else {
+                                    $h = floor($durSec / 3600);
+                                    $m = floor(($durSec % 3600) / 60);
+                                    echo $h > 0 ? "{$h}h {$m}m" : "{$m}m";
+                                }
+                                ?>
+                            </span>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+
+            <!-- ============================================================
+                 RESULT AREA
+            ============================================================ -->
             <div id="result" class="mb-2"></div>
 
+            <!-- ============================================================
+                 SCANNER / TOKEN BUTTON
+            ============================================================ -->
             <?php if ($token == '') { ?>
 
                 <div id="reader"></div>
 
-                <!-- <div class="manual-box mt-3">
-                    <label class="form-label">
-                        QR URL / Token
-                    </label>
-
-                    <input type="text"
-                        id="manualToken"
-                        class="form-control"
-                        placeholder="Paste QR URL or token">
-
-                    <button type="button"
-                        onclick="manualSubmit()"
-                        class="btn btn-primary w-100 mt-2">
-                        Submit Token
-                    </button>
-                </div> -->
-
             <?php } else { ?>
 
                 <div class="alert alert-info">
-                    QR URL detected. Click below to mark attendance.
+                    QR URL detected. Click below to capture GPS and mark attendance.
                 </div>
 
                 <button type="button"
                     class="btn btn-success w-100 btn-lg"
-                    onclick="getLocationAndMark('<?php echo htmlspecialchars($token); ?>')">
+                    onclick="getLocationAndMark('<?php echo htmlspecialchars($token, ENT_QUOTES); ?>')">
                     <i class="bi bi-geo-alt"></i>
-                    Allow Location & Mark Attendance
+                    Capture GPS &amp; Mark Attendance
                 </button>
 
             <?php } ?>
 
-            <a href="dashboard.php"
+            <!-- <a href="dashboard.php"
                 class="btn btn-outline-dark w-100 mt-3">
-                Back Dashboard
-            </a>
+                Back to Dashboard
+            </a> -->
 
         </div>
 
@@ -132,14 +366,6 @@ $token = $_GET['token'] ?? '';
                 return url.searchParams.get('token') || text;
             } catch (e) {
                 return text;
-            }
-        }
-
-        function manualSubmit() {
-            let token = extractToken(document.getElementById('manualToken').value.trim());
-
-            if (token) {
-                getLocationAndMark(token);
             }
         }
 
@@ -391,21 +617,43 @@ $token = $_GET['token'] ?? '';
                 })
                 .then(response => response.json())
                 .then(data => {
+                    // Server auto-detects IN vs OUT and returns data.action
                     let alertClass = data.status ? 'success' : 'danger';
+                    let iconClass  = data.action === 'out' ? 'bi-box-arrow-right' :
+                                    (data.action === 'in'  ? 'bi-box-arrow-in-right' : 'bi-info-circle');
 
-                    document.getElementById('result').innerHTML += `
+                    let html = `
             <div class="alert alert-${alertClass} mt-2">
-                <b>${data.title}</b><br>
+                <h5 class="alert-heading">
+                    <i class="bi ${iconClass}"></i>
+                    ${data.title}
+                </h5>
+                <hr>
                 ${data.message}
-            </div>
-        `;
+            </div>`;
+
+                    // If success, suggest going back to dashboard
+                    if (data.status) {
+                        html += `
+                <a href="dashboard.php" class="btn btn-primary w-100 mt-2">
+                    <i class="bi bi-house"></i> Back to Dashboard
+                </a>
+                <button type="button" class="btn btn-outline-secondary w-100 mt-2"
+                        onclick="location.reload()">
+                    <i class="bi bi-arrow-clockwise"></i> Scan Again
+                </button>`;
+                    }
+
+                    document.getElementById('result').innerHTML += html;
+
+                    // Scroll to result
+                    document.getElementById('result').scrollIntoView({ behavior: 'smooth', block: 'center' });
                 })
                 .catch(() => {
                     document.getElementById('result').innerHTML += `
             <div class="alert alert-danger mt-2">
                 Server error. Please try again.
-            </div>
-        `;
+            </div>`;
                 });
         }
 

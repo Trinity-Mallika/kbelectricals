@@ -155,10 +155,11 @@ class DataOperation extends Database
          AND companyid='$companyid'"
 		);
 
-		$sql = "
-SELECT
-    COALESCE(SUM(te.grand_total),0) AS Monthsales
+		$sql = "SELECT
+    COALESCE(SUM(td.net_amt),0) AS Monthsales
 FROM transaction_entry te
+INNER JOIN transaction_details td
+        ON td.transaction_id = te.transaction_id AND td.brand_id != 35
 INNER JOIN route_counter rc
     ON rc.account_id = te.account_id
    AND rc.is_active = 1
@@ -1673,6 +1674,30 @@ WHERE te.type = 'order'
 		return $data;
 	}
 
+
+	function getShift($shift_id = null)
+	{
+		static $cache = array();
+		$key = $shift_id === null ? 'default' : ('id_' . $shift_id);
+
+		if (isset($cache[$key])) {
+			return $cache[$key];
+		}
+
+		if ($shift_id === null) {
+			$rows = $this->executequery(
+				"SELECT * FROM shift_master WHERE status = 1 ORDER BY shift_id ASC LIMIT 1"
+			);
+			$cache[$key] = !empty($rows[0]) ? $rows[0] : null;
+		} else {
+			$cache[$key] = $this->select_record(
+				"shift_master",
+				array("shift_id" => $shift_id)
+			);
+		}
+
+		return $cache[$key];
+	}
 
 
 	public function checkmenu(string $module_setting, int $loginid): int

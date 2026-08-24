@@ -368,27 +368,43 @@ if ($keyvalue > 0) {
                     <div class="row">
                         <div class="col-md-12 mb-2">
                             <strong> <label for="common_id">Counter Type<span class="text-danger fw-bold">*</span> </label></strong>
-                            <select name="common_id" id="common_id" class="chosen-select form-control form-control-sm">
+                            <select name="common_id" id="common_id" class="chosen-select form-control form-control-sm" onchange="get_users(this.value);">
                                 <option value="">--Select Counter Type--</option>
                                 <?php
                                 $sql = $obj->executequery("select common_id,common_name from common_master where type='acc_type' order by common_id asc ");
                                 foreach ($sql as $key) {
                                 ?>
-                                    <option value="<?= $key['common_id'] ?>" <?= ($key['common_id'] == "7") ? "selected" : "" ?>><?= $key['common_name'] ?></option>
+                                    <option value="<?= $key['common_id'] ?>"><?= $key['common_name'] ?></option>
                                 <?php } ?>
                             </select>
                         </div>
                         <div class="col-md-12 mb-2">
                             <strong> <label for="user_id">Referred By<span class="text-danger fw-bold">*</span> </label></strong>
-                            <select id="user_id" class="chosen-select form-control form-control-sm">
+                            <select id="user_id" class="chosen-select form-control form-control-sm" onchange="toggleRoute()">
                                 <option value="">--Select Referred By--</option>
-                                <?php
-                                $sql = $obj->executequery("select userid,fullname,usertype from user where status='1' order by userid asc ");
-                                foreach ($sql as $key) {
-                                ?>
-                                    <option value="<?= $key['userid'] ?>" data-type="<?= strtolower($key['usertype']) ?>"><?= $key['fullname'] ?></option>
-                                <?php } ?>
                             </select>
+                        </div>
+                        <div id="route_div" style="display:none;">
+                            <div class="col-md-12 mb-2">
+                                <strong><label for="batch_no">Route Name <span class="text-danger fw-bold">*</span></label></strong>
+                                <select id="batch_no" class="chosen-select form-control form-control-sm">
+                                    <option value="">--Select Route--</option>
+                                    <?php
+                                    $sql = $obj->executequery("SELECT batch_no,route_name FROM route WHERE companyid='$companyid' GROUP BY batch_no,route_name ORDER BY route_name ASC");
+                                    foreach ($sql as $key) { ?>
+                                        <option value="<?= $key['batch_no'] ?>"><?= $key['route_name'] ?></option>
+                                    <?php } ?>
+                                </select>
+                            </div>
+                            <div class="col-md-12 mb-2">
+                                <strong><label for="class">Class Name <span class="text-danger fw-bold">*</span></label></strong>
+                                <select id="class" class="form-control form-control-sm">
+                                    <option value="">--Select Class--</option>
+                                    <option value="A">A</option>
+                                    <option value="B">B</option>
+                                    <option value="C">C</option>
+                                </select>
+                            </div>
                         </div>
                         <div id="electrician_div" style="display:none;">
                             <div class="col-md-12 mb-2">
@@ -425,6 +441,22 @@ if ($keyvalue > 0) {
                                 </select>
                             </div>
                         </div>
+                        <div class="col-md-12 mb-2">
+                            <strong>
+                                <label for="area_name">
+                                    Area <span class="text-danger fw-bold">* [Search existing or type a new area]</span>
+                                </label>
+                            </strong>
+
+                            <input type="text"
+                                class="form-control form-control-sm"
+                                id="area_name"
+                                placeholder="Enter 3 characters to search area"
+                                autocomplete="off">
+                            <input type="hidden" id="area_id" name="area_id">
+                            <div id="area_list" class="list-group" style="display:none;position:absolute;z-index:9999;width:95%;max-height:200px;overflow-y:auto;">
+                            </div>
+                        </div>
                         <div id="normal_customer_fields">
                             <div class="col-md-12 mb-2">
                                 <strong> <label for="account_name">Counter/Customer Name <span class="text-danger fw-bold">*</span></label></strong>
@@ -441,34 +473,6 @@ if ($keyvalue > 0) {
                             <div class="col-md-12 mb-2">
                                 <strong> <label for="mobile_no">Owner Mobile No. <span class="text-danger fw-bold"></span></label> </strong>
                                 <input type="text" class="form-control form-control-sm" name="o_mobile_no" id="o_mobile_no" placeholder="Owner Mobile No." maxlength="10" autocomplete="off">
-                            </div>
-
-                            <div class="col-md-12 mb-2" id="route_div" style="display:none;">
-                                <strong><label for="batch_no">Route Name <span class="text-danger fw-bold">*</span></label></strong>
-                                <select id="batch_no" class="chosen-select form-control form-control-sm">
-                                    <option value="">--Select Route--</option>
-                                    <?php
-                                    $sql = $obj->executequery("SELECT batch_no,route_name FROM route WHERE companyid='$companyid' GROUP BY batch_no,route_name ORDER BY route_name ASC");
-                                    foreach ($sql as $key) { ?>
-                                        <option value="<?= $key['batch_no'] ?>"><?= $key['route_name'] ?></option>
-                                    <?php } ?>
-                                </select>
-                            </div>
-                            <div class="col-md-12 mb-2">
-                                <strong>
-                                    <label for="area_name">
-                                        Area <span class="text-danger fw-bold">*</span>
-                                    </label>
-                                </strong>
-
-                                <input type="text"
-                                    class="form-control form-control-sm"
-                                    id="area_name"
-                                    placeholder="Enter 3 characters to search area"
-                                    autocomplete="off">
-                                <input type="hidden" id="area_id" name="area_id">
-                                <div id="area_list" class="list-group" style="display:none;position:absolute;z-index:9999;width:95%;max-height:200px;overflow-y:auto;">
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -679,18 +683,11 @@ if ($keyvalue > 0) {
             $("#route_div").hide();
             $("#batch_no").val('').trigger("chosen:updated");
         }
-
-
     }
-    $(document).on("change", "#common_id,#user_id", function() {
-        toggleRoute();
-    });
 
-    $(document).ready(function() {
-        toggleRoute();
-    });
 
     function get_routes(user_id) {
+
         $.ajax({
             url: "ajax/get_routes.php",
             type: "POST",
@@ -700,6 +697,23 @@ if ($keyvalue > 0) {
             success: function(data) {
                 $("#batch_no").html(data);
                 $("#batch_no").trigger("chosen:updated");
+            }
+        });
+    }
+
+    function get_users(common_id) {
+
+        toggleRoute();
+
+        $.ajax({
+            url: "ajax/get_users.php",
+            type: "POST",
+            data: {
+                common_id: common_id
+            },
+            success: function(data) {
+                $("#user_id").html(data);
+                $("#user_id").trigger("chosen:updated");
             }
         });
     }
@@ -757,9 +771,10 @@ if ($keyvalue > 0) {
         $('#batch_no').val('').trigger('chosen:updated');
         $('#user_id').val('').trigger('chosen:updated');
         $('#common_id').val('7').trigger('chosen:updated');
+        get_users(7);
+        $('#class').val('');
         $('#area_name').val('');
         $('#area_id').val('');
-
         $('#accountNameAdd').modal('show');
     }
 
@@ -772,6 +787,7 @@ if ($keyvalue > 0) {
         var o_mobile_no = $('#o_mobile_no').val().trim();
         var common_id = $('#common_id').val();
         var batch_no = $('#batch_no').val();
+        var mclass = $('#class').val();
         var area_name = $('#area_name').val().trim();
         var area_id = $('#area_id').val();
 
@@ -833,6 +849,12 @@ if ($keyvalue > 0) {
                 return false;
             }
 
+            if (user_type == 'sales' && common_id == '7' && mclass == '') {
+                alert('Select a Class');
+                $('#mclass').focus();
+                return false;
+            }
+
             if (area_name == '') {
                 alert('Enter Area Name');
                 $('#area_name').focus();
@@ -851,6 +873,7 @@ if ($keyvalue > 0) {
                 o_mobile_no: o_mobile_no,
                 common_id: common_id,
                 batch_no: batch_no,
+                class: mclass,
                 area_name: area_name,
                 area_id: area_id,
                 electrician_name: electrician_name,

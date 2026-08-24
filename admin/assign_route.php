@@ -12,38 +12,81 @@ $action = (isset($_GET["action"])) ? $obj->test_input($_GET["action"]) : "";
 
 if (isset($_POST['submit'])) {
     $sales_executive_id = $obj->test_input($_POST['sales_executive_id']);
-    $batch_no = $obj->test_input($_POST['batch_no']);
-    $week_number = $obj->test_input($_POST['week_number']);
+    $batch_no           = $obj->test_input($_POST['batch_no']);
+    $week_number        = $obj->test_input($_POST['week_number']);
 
-    if ($keyvalue == 0) {
-        $form_data = array(
-            'sales_executive_id' => $sales_executive_id,
-            'batch_no' => $batch_no,
-            'week_number' => $week_number,
-            'createdby' => $loginid,
-            'createdate' => $createdate,
-            'companyid' => $companyid,
-            'ipaddress' => $ipaddress
-        );
-        $obj->insert_record($tblname, $form_data);
-        $action = 1;
+    $dupWhere = "
+        sales_executive_id = '$sales_executive_id'
+        AND batch_no = '$batch_no'
+        AND week_number = '$week_number'
+        AND $tblpkey != '$keyvalue'
+    ";
+
+    $duplicate = $obj->getvalfield(
+        $tblname,
+        "COUNT(*)",
+        $dupWhere
+    );
+
+    if ($duplicate > 0) {
+
+        $action = 4;
+        $process = "This route is already assigned to this executive for the selected week.";
     } else {
 
-        $form_data = array(
-            'sales_executive_id' => $sales_executive_id,
-            'batch_no' => $batch_no,
-            'week_number' => $week_number,
-            'createdby' => $loginid,
-            'lastupdated' => $createdate,
-            'companyid' => $companyid,
-            'ipaddress' => $ipaddress
-        );
-        $where = array($tblpkey => $keyvalue);
-        $obj->update_record($tblname, $where, $form_data);
-        $action = 2;
+        if ($keyvalue == 0) {
+
+            $form_data = array(
+                'sales_executive_id' => $sales_executive_id,
+                'batch_no'           => $batch_no,
+                'week_number'        => $week_number,
+                'createdby'          => $loginid,
+                'createdate'         => $createdate,
+                'companyid'          => $companyid,
+                'ipaddress'          => $ipaddress
+            );
+
+            $obj->insert_record($tblname, $form_data);
+
+            $action = 1;
+        } else {
+
+            $form_data = array(
+                'sales_executive_id' => $sales_executive_id,
+                'batch_no'           => $batch_no,
+                'week_number'        => $week_number,
+                'createdby'          => $loginid,
+                'lastupdated'        => $createdate,
+                'companyid'          => $companyid,
+                'ipaddress'          => $ipaddress
+            );
+
+            $where = array(
+                $tblpkey => $keyvalue
+            );
+
+            $obj->update_record(
+                $tblname,
+                $where,
+                $form_data
+            );
+
+            $action = 2;
+        }
     }
 
-    echo "<script>location='$pagename?action=$action'</script>";
+    if ($action == 4) {
+
+        echo "<script>
+            alert('$process');
+            history.back();
+        </script>";
+    } else {
+
+        echo "<script>
+            location='$pagename?action=$action';
+        </script>";
+    }
 }
 
 if (isset($_GET[$tblpkey])) {
@@ -117,7 +160,7 @@ if (isset($_GET[$tblpkey])) {
                                                 <?php
                                                 $sql = $obj->executequery("select * from user where usertype='sales' and companyid='$companyid' order by username ASC ");
                                                 foreach ($sql as $key) {
-                                                    ?>
+                                                ?>
                                                     <option value="<?php echo $key['userid'] ?>">
                                                         <?php echo $key['fullname'] ?>
                                                     </option>
@@ -284,7 +327,7 @@ ORDER BY rp.route_planid DESC
                 url: 'ajax/delete_master.php',
                 data: 'id=' + id + '&tblname=' + tblname + '&tblpkey=' + tblpkey,
                 dataType: 'html',
-                success: function (data) {
+                success: function(data) {
                     location = '<?php echo $pagename . "?action=3"; ?>';
 
                 }
@@ -292,7 +335,7 @@ ORDER BY rp.route_planid DESC
         } //confirm close
     } //fun close
 
-    $(document).ready(function () {
+    $(document).ready(function() {
         $(".chosen-select").chosen();
         $('#example').DataTable();
     });

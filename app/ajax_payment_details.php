@@ -8,15 +8,14 @@ if (isset($_POST['transaction_id'])) {
     $res = $obj->select_record(
         "transaction_entry",
         [
-            'transaction_id' => $transaction_id,
-            'companyid'      => $companyid
+            'transaction_id' => $transaction_id
         ]
     );
 
     $account_name = $obj->getvalfield(
         "account",
         "account_name",
-        "account_id='{$res['account_id']}' AND companyid='$companyid'"
+        "account_id='{$res['account_id']}'"
     );
 
     if ($res['pay_type'] == "opening") {
@@ -25,7 +24,7 @@ if (isset($_POST['transaction_id'])) {
         $against = $obj->getvalfield(
             "transaction_entry",
             "IF(invoice_no<>'',invoice_no,billno)",
-            "transaction_id='{$res['ref_bill_id']}' AND companyid='$companyid'"
+            "transaction_id='{$res['ref_bill_id']}'"
         );
     }
 

@@ -109,7 +109,7 @@ $repTargets = $obj->executequery("
     LEFT JOIN (
         SELECT
             rp.sales_executive_id,
-            SUM(te.grand_total) AS rep_achieved
+            SUM(td.net_amt) AS rep_achieved
         FROM route_plan rp
 
         INNER JOIN route_counter rc
@@ -122,6 +122,9 @@ $repTargets = $obj->executequery("
            AND te.is_approved = 1
            AND MONTH(te.billdate) = '$curMonth'
            AND YEAR(te.billdate) = '$curYear'
+
+        INNER JOIN transaction_details td
+        ON td.transaction_id = te.transaction_id AND td.brand_id != 35
 
         GROUP BY rp.sales_executive_id
     ) ach ON ach.sales_executive_id = u.userid
@@ -274,6 +277,135 @@ $salesTrend = $obj->executequery("
 ");
 $trendLabels = array_column($salesTrend, 'mon');
 $trendData   = array_column($salesTrend, 'total');
+
+$neverVisitedCount = (int) $obj->getvalfield(
+    "route_counter rc
+     JOIN account a ON a.account_id = rc.account_id
+     LEFT JOIN daily_entries de ON de.account_id = rc.account_id
+         AND DATE(de.createdate) BETWEEN '$monthStart' AND '$today'
+     LEFT JOIN transaction_entry te ON te.account_id = rc.account_id
+         AND te.type = 'order'
+         AND te.companyid = $companyid
+         AND te.billdate BETWEEN '$monthStart' AND '$today'
+     LEFT JOIN route_plan rp ON rp.sales_executive_id = a.createdby",
+    "COUNT(DISTINCT rc.account_id)",
+    "rc.is_active = 1
+     AND de.entry_id IS NULL
+     AND te.transaction_id IS NULL
+     AND NOT (
+         DATE(a.createdate) BETWEEN '$monthStart' AND '$today'
+         AND rp.sales_executive_id IS NOT NULL
+     )"
+);
+
+$beatRows = $obj->executequery("
+    SELECT 
+        rp.batch_no,
+        r.route_name,
+        COUNT(DISTINCT rc.account_id) AS total_counters,
+        COUNT(DISTINCT CASE WHEN te.account_id IS NOT NULL THEN rc.account_id END) AS active_counters,
+        COUNT(DISTINCT te.transaction_id) AS total_orders
+    FROM route_plan rp
+
+    JOIN route_counter rc
+        ON rc.batch_no = rp.batch_no
+        AND rc.companyid = rp.companyid
+        AND rc.is_active = 1
+
+    JOIN route r
+        ON r.batch_no = rp.batch_no
+        AND r.companyid = rp.companyid
+
+    LEFT JOIN transaction_entry te
+        ON te.account_id = rc.account_id
+        AND te.type = 'order'
+        AND te.is_approved = 1
+        AND te.billdate BETWEEN '$monthStart' AND '$today'
+        AND te.companyid = $companyid
+
+    WHERE rp.companyid = $companyid
+
+    GROUP BY rp.batch_no, r.route_name
+");
+
+$leastOrders = null;
+
+foreach ($beatRows as $b) {
+    $orders = (int) $b['total_orders'];
+
+    if ($leastOrders === null || $orders < $leastOrders) {
+        $leastOrders = $orders;
+    }
+}
+
+$leastActiveBeatCount = 0;
+
+foreach ($beatRows as $b) {
+    $total = (int) $b['total_counters'];
+
+    if ($total === 0) {
+        continue;
+    }
+
+    $orders = (int) $b['total_orders'];
+
+    if ($leastOrders !== null && $orders === $leastOrders) {
+        $leastActiveBeatCount++;
+    }
+}
+
+$classCreditLimits = [
+    'A' => 1100000.00, // 11 Lakh
+    'B' => 50000.00,
+    'C' => 25000.00,
+];
+
+$monthlyRows = $obj->executequery("
+    SELECT a.account_id, a.class,
+        COALESCE(SUM(
+            CASE
+                WHEN t.type = 'order' AND t.is_approved = 1 AND t.invoice_no != '' THEN t.invoice_amt
+                WHEN t.type = 'payment' AND t.pay_status = 1 THEN -(t.grand_total + IFNULL(t.cash_disc,0))
+                ELSE 0
+            END
+        ), 0) AS monthly_balance
+    FROM account a
+    LEFT JOIN transaction_entry t
+        ON t.account_id = a.account_id
+        AND t.companyid = $companyid
+        AND t.billdate BETWEEN '$monthStart' AND '$today'
+    WHERE a.companyid = $companyid
+    GROUP BY a.account_id, a.class
+");
+
+$crossingPaymentLimitCount = 0;
+foreach ($monthlyRows as $row) {
+    $class = strtoupper(trim($row['class']));
+    $limit = $classPaymentLimits[$class] ?? null;
+    if ($limit === null) {
+        continue;
+    }
+    $monthlyBalance = (float) $row['monthly_balance'];
+    if ($monthlyBalance >= $limit) {
+        $crossingPaymentLimitCount++;
+    }
+}
+
+$missingDetailsCount = (int) $obj->getvalfield(
+    "account",
+    "COUNT(*)",
+    "type='customer'
+     AND (
+        mobile_no IS NULL OR mobile_no = ''
+        OR o_mobile_no IS NULL OR o_mobile_no = ''
+        OR owner_name IS NULL OR owner_name = ''
+        OR dob IS NULL OR dob = '0000-00-00'
+        OR doa IS NULL OR doa = '0000-00-00'
+     )"
+);
+
+
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -332,7 +464,7 @@ $trendData   = array_column($salesTrend, 'total');
                     <i class="bi bi-cash-stack stat-icon"></i>
                 </a>
                 <a href="order_list.php?dispatch_pending=1" class="stat-card" style="--c:#e74c3c">
-                    <div class="stat-label">Pending Dispatch</div>
+                    <div class="stat-label">Orders Pending for Dispatch</div>
                     <div class="stat-value"><?= number_format($pendingDispatch) ?></div>
                     <div class="stat-sub">Approved, not shipped</div>
                     <i class="bi bi-truck stat-icon"></i>
@@ -361,6 +493,11 @@ $trendData   = array_column($salesTrend, 'total');
                     <a href="payment.php" class="quick-btn">
                         <i class="bi bi-cash-coin"></i>
                         Add Payment
+                    </a>
+
+                    <a href="pending_payment.php" class="quick-btn">
+                        <i class="bi bi-hourglass-split"></i>
+                        Pending Payments
                     </a>
 
                     <a href="accounts.php" class="quick-btn">
@@ -482,114 +619,127 @@ $trendData   = array_column($salesTrend, 'total');
                         </div>
                     </a>
                 </div>
-                <div class="sec-label mt-3">
-                    <i class="bi bi-exclamation-triangle me-1"></i>
-                    Attention Required
-                </div>
+            <?php } ?>
+            <div class="sec-label mt-3">
+                <i class="bi bi-exclamation-triangle me-1"></i>
+                Attention Required
+            </div>
 
-                <div class="alert-cards-row">
-
-                    <!-- Overdue Payment -->
-                    <div class="alert-card danger">
-                        <div class="alert-icon">
-                            <i class="bi bi-cash-coin"></i>
-                        </div>
-
-                        <div style="flex:1">
-                            <div class="alert-label">Payment Overdue > 45 Days</div>
-                            <div class="alert-val">₹<?= number_format($overdueAmount) ?></div>
-                            <div class="alert-sub">
-                                <?= number_format($overdueCount) ?> order(s) unpaid beyond 45 days
-                            </div>
-                        </div>
-
-                        <a href="overdue_list.php?overdue=45"
-                            class="btn btn-sm btn-outline-danger"
-                            style="font-size:.7rem;white-space:nowrap">
-                            View All
-                        </a>
-                    </div>
-
-                    <!-- Dispatch Pending -->
+            <div class="alert-cards-row">
+                <!-- Dispatch Pending -->
+                <a href="order_list.php?dispatch_pending=1&days=10">
                     <div class="alert-card warn">
-                        <div class="alert-icon">
-                            <i class="bi bi-truck"></i>
-                        </div>
-
+                        <div class="alert-icon"><i class="bi bi-truck"></i></div>
                         <div style="flex:1">
-                            <div class="alert-label">Dispatch Pending > 10 Days</div>
-                            <div class="alert-val">₹<?= number_format($longDispAmount) ?></div>
-                            <div class="alert-sub">
-                                <?= number_format($longDispCount) ?> order(s) approved but not dispatched
+                            <div class="alert-label">Orders Pending for Dispatch &gt; 10 Days</div>
+                            <div class="alert-val"><?= number_format($longDispCount) ?></div>
+                        </div>
+                    </div>
+                </a>
+                <?php if ($usertype == "admin") { ?>
+                    <!-- Overdue Payment -->
+                    <a href="pending_payment.php?filterAging=31-60">
+                        <div class="alert-card danger">
+                            <div class="alert-icon"><i class="bi bi-cash-coin"></i></div>
+                            <div style="flex:1">
+                                <div class="alert-label">Payment Overdue &gt; 45 Days</div>
+                                <div class="alert-val">₹<?= number_format($overdueAmount) ?></div>
                             </div>
                         </div>
-
-                        <a href="order_list.php?dispatch_pending=1&days=10"
-                            class="btn btn-sm btn-outline-warning"
-                            style="font-size:.7rem;white-space:nowrap">
-                            View All
-                        </a>
-                    </div>
-
-                    <!-- Invoice Pending -->
+                    </a>
+                <?php } ?>
+                <!-- Invoice Pending -->
+                <a href="order_list.php?filter=invoice_pending">
                     <div class="alert-card info">
-                        <div class="alert-icon">
-                            <i class="bi bi-receipt"></i>
-                        </div>
-
+                        <div class="alert-icon"><i class="bi bi-receipt"></i></div>
                         <div style="flex:1">
                             <div class="alert-label">Invoice Pending</div>
-                            <div class="alert-val">
-                                <?= number_format($invoicePendingCount) ?>
-                            </div>
-                            <div class="alert-sub">
-                                Approved orders without invoice
+                            <div class="alert-val"><?= number_format($invoicePendingCount) ?></div>
+                        </div>
+                    </div>
+                </a>
+                <?php if ($usertype == "admin") { ?>
+                    <!-- Counter Never Visited -->
+                    <a href="counter_list.php?filter=never_visited">
+                        <div class="alert-card primary">
+                            <div class="alert-icon"><i class="bi bi-geo-alt"></i></div>
+                            <div style="flex:1">
+                                <div class="alert-label">Counter Not been visited Once</div>
+                                <div class="alert-val"><?= number_format($neverVisitedCount) ?></div>
                             </div>
                         </div>
+                    </a>
 
-                        <a href="order_list.php?invoice_pending=1"
-                            class="btn btn-sm btn-outline-primary"
-                            style="font-size:.7rem;white-space:nowrap">
-                            View All
-                        </a>
+                    <!-- Least Active Beat -->
+                    <a href="beat_report.php?mode=least">
+                        <div class="alert-card pink">
+                            <div class="alert-icon"><i class="bi bi-signpost-split"></i></div>
+                            <div style="flex:1">
+                                <div class="alert-label">Beat which is least Active</div>
+                                <div class="alert-val">
+                                    <?= $leastActiveBeatCount; ?>
+                                </div>
+                            </div>
+                        </div>
+                    </a>
+
+                    <!-- Counters Crossing the Limit -->
+                    <a href="counter_list.php?filter=crossing_limit">
+                        <div class="alert-card success">
+                            <div class="alert-icon"><i class="bi bi-graph-up-arrow"></i></div>
+                            <div style="flex:1">
+                                <div class="alert-label">No. Of Counter Crossing the limit</div>
+                                <div class="alert-val"><?= $crossingPaymentLimitCount ?></div>
+                            </div>
+                        </div>
+                    </a>
+
+                    <!-- Counters Missing Basic Details -->
+                    <a href="counter_list.php?missing_details=1">
+                        <div class="alert-card orange">
+                            <div class="alert-icon"><i class="bi bi-person-lines-fill"></i></div>
+                            <div style="flex:1">
+                                <div class="alert-label">Counter Not having Basic Details</div>
+                                <div class="alert-val"><?= number_format($missingDetailsCount) ?></div>
+                            </div>
+                        </div>
+                    </a>
+                <?php } ?>
+            </div>
+            <!-- ── Rep performance this month ── -->
+            <?php if (!empty($repPerf)): ?>
+                <div class="sec-label"><i class="bi bi-person-lines-fill me-1"></i> Sales Rep Performance — <?= date('F Y') ?></div>
+                <div class="panel">
+                    <div class="rep-row rep-head">
+                        <div>Representative</div>
+                        <div style="text-align:center">Month Visits</div>
+                        <div style="text-align:center">Orders</div>
+                        <div style="text-align:center">Collection</div>
+                        <div style="text-align:center">Today</div>
                     </div>
-
+                    <?php foreach ($repPerf as $r):
+                        $initials = implode('', array_map(fn($w) => strtoupper($w[0]), array_slice(explode(' ', $r['fullname']), 0, 2)));
+                    ?>
+                        <div class="rep-row">
+                            <div class="rep-name">
+                                <div class="rep-avatar"><?= $initials ?></div>
+                                <?= htmlspecialchars($r['fullname']) ?>
+                            </div>
+                            <div class="rep-cell"><?= $r['visits'] ?></div>
+                            <div class="rep-cell"><?= $r['orders'] ?></div>
+                            <div class="rep-cell"><strong>₹<?= number_format($r['collection']) ?></strong></div>
+                            <div class="rep-cell">
+                                <?php if ($r['today_visits'] > 0): ?>
+                                    <span class="pill pill-ok"><?= $r['today_visits'] ?></span>
+                                <?php else: ?>
+                                    <span class="pill" style="background:#f0f4f8;color:var(--muted)">—</span>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
                 </div>
+            <?php endif; ?>
 
-                <!-- ── Rep performance this month ── -->
-                <?php if (!empty($repPerf)): ?>
-                    <div class="sec-label"><i class="bi bi-person-lines-fill me-1"></i> Sales Rep Performance — <?= date('F Y') ?></div>
-                    <div class="panel">
-                        <div class="rep-row rep-head">
-                            <div>Representative</div>
-                            <div style="text-align:center">Month Visits</div>
-                            <div style="text-align:center">Orders</div>
-                            <div style="text-align:center">Collection</div>
-                            <div style="text-align:center">Today</div>
-                        </div>
-                        <?php foreach ($repPerf as $r):
-                            $initials = implode('', array_map(fn($w) => strtoupper($w[0]), array_slice(explode(' ', $r['fullname']), 0, 2)));
-                        ?>
-                            <div class="rep-row">
-                                <div class="rep-name">
-                                    <div class="rep-avatar"><?= $initials ?></div>
-                                    <?= htmlspecialchars($r['fullname']) ?>
-                                </div>
-                                <div class="rep-cell"><?= $r['visits'] ?></div>
-                                <div class="rep-cell"><?= $r['orders'] ?></div>
-                                <div class="rep-cell"><strong>₹<?= number_format($r['collection']) ?></strong></div>
-                                <div class="rep-cell">
-                                    <?php if ($r['today_visits'] > 0): ?>
-                                        <span class="pill pill-ok"><?= $r['today_visits'] ?></span>
-                                    <?php else: ?>
-                                        <span class="pill" style="background:#f0f4f8;color:var(--muted)">—</span>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
-                <?php endif; ?>
-            <?php } ?>
             <!-- ── Recent orders + Quotations ── -->
             <div class="sec-label"><i class="bi bi-activity me-1"></i> Live Activity</div>
             <div class="g2">

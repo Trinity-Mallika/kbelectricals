@@ -11,15 +11,15 @@ $invoice_pending = $_GET['invoice_pending'] ?? '';
 $days = $_GET['days'] ?? '';
 $dispatch_pending = $_GET['dispatch_pending'] ?? '';
 $fromdate = isset($_GET['fromdate']) ? $_GET['fromdate'] : date('Y-m-d');
-$todate   = isset($_GET['todate'])   ? $_GET['todate']   : date('Y-m-d');
+$todate = isset($_GET['todate']) ? $_GET['todate'] : date('Y-m-d');
 
 $from = $fromdate . " 00:00:00";
-$to   = $todate . " 23:59:59";
+$to = $todate . " 23:59:59";
 
 if ($invoice_pending || $dispatch_pending) {
-    $fromdate = '2000-01-01';
-    $from = '2000-01-01 00:00:00';
-    $to   = date('Y-m-d 23:59:59');
+    $fromdate = '2026-07-01';
+    $from = '2026-07-01 00:00:00';
+    $to = date('Y-m-d 23:59:59');
 }
 
 $createdby = isset($_GET['createdby']) ? $_GET['createdby'] : '';
@@ -73,8 +73,8 @@ if ($dispatch_pending) {
                       AND dispatch_status = 0";
 
     if (!empty($days)) {
-        $crit .= " AND DATEDIFF(CURDATE(), DATE(t.billdate)) >= " . (int)$days;
-        $summaryCrit .= " AND DATEDIFF(CURDATE(), DATE(billdate)) >= " . (int)$days;
+        $crit .= " AND DATEDIFF(CURDATE(), DATE(t.billdate)) >= " . (int) $days;
+        $summaryCrit .= " AND DATEDIFF(CURDATE(), DATE(billdate)) >= " . (int) $days;
     }
 
     $dstatus = 0;
@@ -111,17 +111,18 @@ if ($dispatch_pending) {
                                 <div class="row">
                                     <div class="col-md-3 mb-2">
                                         <strong><label for="fromdate">From Date</label></strong>
-                                        <input type="date" class="form-control form-control-sm" name="fromdate" id="fromdate"
-                                            value="<?php echo $fromdate; ?>">
+                                        <input type="date" class="form-control form-control-sm" name="fromdate"
+                                            id="fromdate" value="<?php echo $fromdate; ?>">
                                     </div>
                                     <div class="col-md-3 mb-2">
                                         <strong><label for="todate">To Date</label></strong>
-                                        <input type="date" class="form-control form-control-sm" name="todate" id="todate"
-                                            value="<?php echo $todate; ?>">
+                                        <input type="date" class="form-control form-control-sm" name="todate"
+                                            id="todate" value="<?php echo $todate; ?>">
                                     </div>
                                     <div class="col-md-3 mb-2">
                                         <strong><label>Order Status</label></strong>
-                                        <select name="status" id="status" class="chosen-select form-control form-control-sm">
+                                        <select name="status" id="status"
+                                            class="chosen-select form-control form-control-sm">
                                             <option value="">--Select Status--</option>
                                             <option value="0">Pending</option>
                                             <option value="1">Approved</option>
@@ -132,7 +133,8 @@ if ($dispatch_pending) {
                                     </div>
                                     <div class="col-md-3 mb-2">
                                         <strong><label>Dispatch Status</label></strong>
-                                        <select name="dstatus" id="dstatus" class="chosen-select form-control form-control-sm">
+                                        <select name="dstatus" id="dstatus"
+                                            class="chosen-select form-control form-control-sm">
                                             <option value="">--Select Status--</option>
                                             <option value="0">Pending</option>
                                             <option value="1">Approved</option>
@@ -144,12 +146,13 @@ if ($dispatch_pending) {
 
                                     <div class="col-md-3 mb-2">
                                         <strong><label>Order Received By</label></strong>
-                                        <select name="createdby" id="createdby" class="chosen-select form-control form-control-sm">
+                                        <select name="createdby" id="createdby"
+                                            class="chosen-select form-control form-control-sm">
                                             <option value="">--Select Executive--</option>
                                             <?php
                                             $sql = $obj->executequery("SELECT userid, fullname FROM user ORDER BY fullname ASC");
                                             foreach ($sql as $row) {
-                                            ?>
+                                                ?>
                                                 <option value="<?= $row['userid']; ?>">
                                                     <?= $row['fullname']; ?>
                                                 </option>
@@ -162,12 +165,13 @@ if ($dispatch_pending) {
 
                                     <div class="col-md-3 mb-2">
                                         <strong><label>Counter Name</label></strong>
-                                        <select name="account_id" id="account_id" class="chosen-select form-control form-control-sm">
+                                        <select name="account_id" id="account_id"
+                                            class="chosen-select form-control form-control-sm">
                                             <option value="">--Select Counter--</option>
                                             <?php
                                             $sql = $obj->executequery("SELECT account_id, account_name FROM account ORDER BY account_name ASC");
                                             foreach ($sql as $row) {
-                                            ?>
+                                                ?>
                                                 <option value="<?= $row['account_id']; ?>">
                                                     <?= $row['account_name']; ?>
                                                 </option>
@@ -179,8 +183,10 @@ if ($dispatch_pending) {
                                     </div>
 
                                     <div class="col-md-3 mt-4">
-                                        <input type="submit" class="btn btn-primary btn-sm" name="search" value="Search">
-                                        <a href="<?php echo $pagename; ?>" class="btn btn-danger btn-sm" id="reset">Reset</a>
+                                        <input type="submit" class="btn btn-primary btn-sm" name="search"
+                                            value="Search">
+                                        <a href="<?php echo $pagename; ?>" class="btn btn-danger btn-sm"
+                                            id="reset">Reset</a>
                                     </div>
                                 </div>
                             </div>
@@ -384,7 +390,7 @@ ORDER BY t.$tblpkey DESC
                                             $overdueDaysHtml = '';
                                             $isUnpaid = ($rowget['grand_total'] > $rowget['paid_amt']);
                                             if ($isUnpaid) {
-                                                $days = (int)$rowget['days_overdue'];
+                                                $days = (int) $rowget['days_overdue'];
                                                 $badgeClass = 'bg-danger';
                                                 if ($days <= 30) {
                                                     $badgeClass = 'bg-warning text-dark';
@@ -399,7 +405,7 @@ ORDER BY t.$tblpkey DESC
                                             }
 
 
-                                        ?>
+                                            ?>
                                             <tr>
                                                 <td class="text-center"><?= $slno++; ?></td>
                                                 <td>
@@ -451,25 +457,23 @@ ORDER BY t.$tblpkey DESC
                                                         <?php
                                                         $canEditDelete = ($rowget['dispatch_qty'] == 0);
                                                         if ($canEditDelete) {
-                                                        ?>
-                                                                <a href="order-entry.php?transaction_id=<?= $rowget['transaction_id']; ?>"
-                                                                    class="btn btn-sm btn-outline-success">
-                                                                    <i class="bi bi-pencil-square"></i>
-                                                                </a>
-                                                                <button type="button"
-                                                                    class="btn btn-sm btn-danger"
-                                                                    onclick="funDel('<?= $rowget['transaction_id']; ?>','<?= $rowget['parent_transaction_id']; ?>');">
-                                                                    <i class="bi bi-trash3-fill"></i>
-                                                                </button>
-                                                        <?php  } ?>
+                                                            ?>
+                                                            <a href="order-entry.php?transaction_id=<?= $rowget['transaction_id']; ?>"
+                                                                class="btn btn-sm btn-outline-success">
+                                                                <i class="bi bi-pencil-square"></i>
+                                                            </a>
+                                                            <button type="button" class="btn btn-sm btn-danger"
+                                                                onclick="funDel('<?= $rowget['transaction_id']; ?>','<?= $rowget['parent_transaction_id']; ?>');">
+                                                                <i class="bi bi-trash3-fill"></i>
+                                                            </button>
+                                                        <?php } ?>
                                                         <a href="order_view.php?transaction_id=<?= $rowget['transaction_id'] ?>"
                                                             class="btn btn-sm btn-warning" target="_blank">
                                                             View
                                                         </a>
 
                                                         <a href="print_order.php?transaction_id=<?= $rowget['transaction_id'] ?>"
-                                                            class="btn btn-sm btn-primary"
-                                                            title="Click To Print"
+                                                            class="btn btn-sm btn-primary" title="Click To Print"
                                                             target="_blank">
                                                             <i class="bi bi-printer"></i>
                                                         </a>
@@ -489,7 +493,8 @@ ORDER BY t.$tblpkey DESC
     </div>
     <!-- Content close-->
 
-    <div class="modal fade" id="invoiceModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="invoiceModalLabel" aria-hidden="true">
+    <div class="modal fade" id="invoiceModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1"
+        aria-labelledby="invoiceModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
@@ -500,11 +505,13 @@ ORDER BY t.$tblpkey DESC
                     <div class="row">
                         <div class="col-lg-12 mb-2">
                             <strong><label for="">Invoice No.</label><span class="text-danger fw-bold">*</span></strong>
-                            <input type="text" id="invoice_no" class="form-control" placeholder="Enter Invoice No." autocomplete="off">
+                            <input type="text" id="invoice_no" class="form-control" placeholder="Enter Invoice No."
+                                autocomplete="off">
                         </div>
                         <div class="col-lg-12">
                             <strong><label for="">Invoice Amt</label><span class="text-danger fw-bold">*</span></strong>
-                            <input type="text" id="invoice_amt" class="form-control" placeholder="Enter Invoice Amt" autocomplete="off">
+                            <input type="text" id="invoice_amt" class="form-control" placeholder="Enter Invoice Amt"
+                                autocomplete="off">
                         </div>
                     </div>
                 </div>
@@ -522,12 +529,12 @@ ORDER BY t.$tblpkey DESC
 <?php include('component/script.php'); ?>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-    $(document).ready(function() {
+    $(document).ready(function () {
         $('#example').DataTable();
         $(".chosen-select").chosen();
     });
 
-    $(document).on('click', '.add-invoice-btn', function() {
+    $(document).on('click', '.add-invoice-btn', function () {
         let id = $(this).data('id');
         let order = $(this).data('order');
         let invoice_amt = $(this).data('invoice_amt');
@@ -577,10 +584,10 @@ ORDER BY t.$tblpkey DESC
                 invoice_no: invoice,
                 invoice_amt: invoice_amt
             },
-            beforeSend: function() {
+            beforeSend: function () {
                 $('#invoiceModal .btn-primary').prop('disabled', true).text('Saving...');
             },
-            success: function(res) {
+            success: function (res) {
                 if (res == 1) {
 
                     $('#invoiceModal').modal('hide');
@@ -619,7 +626,7 @@ ORDER BY t.$tblpkey DESC
 
                 }
             },
-            complete: function() {
+            complete: function () {
                 $('#invoiceModal .btn-primary').prop('disabled', false).text('Save');
             }
         });
@@ -638,7 +645,7 @@ ORDER BY t.$tblpkey DESC
                 url: 'ajax/delete_order.php',
                 data: 'id=' + id + '&tblname=' + tblname + '&tblpkey=' + tblpkey + '&submodule=' + submodule + '&pagename=' + pagename + '&module=' + module + "&type=" + type + "&parent_transaction_id=" + parent_transaction_id,
                 dataType: 'html',
-                success: function(data) {
+                success: function (data) {
                     location = '<?php echo $pagename . "?action=3"; ?>' + '&search=search';
                 }
             }); //ajax close

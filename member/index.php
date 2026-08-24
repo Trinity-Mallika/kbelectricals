@@ -11,8 +11,13 @@ $msg = '';
 if (isset($_POST['password'])) {
 
 
-    $mobile = $obj->test_input($_POST['mobile']);
-    $password = $obj->test_input($_POST['password']);
+    $mobile = $obj->test_input(
+        trim($_POST['mobile'])
+    );
+
+    $password = $obj->test_input(
+        trim($_POST['password'])
+    );
 
     $query = "
         SELECT *
@@ -20,19 +25,26 @@ if (isset($_POST['password'])) {
         WHERE mobile = '$mobile'
         AND password = '$password'
         AND status = '1'
-        AND usertype = 'employee'
         LIMIT 1
     ";
 
     $result = $obj->executequery($query);
 
     if (!empty($result)) {
+        $_SESSION['member_id'] =
+            $result[0]['userid'];
 
-        $_SESSION['userid'] = $result[0]['userid'];
-        $_SESSION['fullname'] = $result[0]['fullname'];
-        $_SESSION['usertype'] = $result[0]['usertype'];
+        $_SESSION['member_name'] =
+            $result[0]['fullname'];
 
-        echo "<script>location='dashboard.php'</script>";
+        $_SESSION['chapter_id'] =
+            $result[0]['companyid'];
+
+
+        echo "
+        <script>
+            location='dashboard.php'
+        </script>";
         exit;
     } else {
         $msg = "Invalid mobile number or password";
@@ -175,7 +187,7 @@ if (isset($_POST['password'])) {
                         </div>
 
                         <h3 class="mt-3 mb-1">
-                            Login
+                            Employee Login
                         </h3>
 
                         <p class="mb-0 text-info">

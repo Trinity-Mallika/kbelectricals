@@ -94,9 +94,9 @@ AND p.type='payment'
     }
 
     usort($ledger_array, function ($a, $b) {
-        $t1 = strtotime($a['led_date'] . ' ' . $a['led_time']);
-        $t2 = strtotime($b['led_date'] . ' ' . $b['led_time']);
-        return $t2 <=> $t1;
+        $t1 = strtotime($a['led_date'] );
+        $t2 = strtotime($b['led_date'] );
+        return $t1 <=> $t2;
     });
 ?>
 

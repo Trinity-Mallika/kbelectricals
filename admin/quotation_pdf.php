@@ -309,7 +309,7 @@ WHERE td.transaction_id='$keyvalue' order by td.tran_detail_id ASC";
             </tr>
             <tr>
                 <td colspan="<?= $colspan ?>" class="right"><b>Grand Total(inc. GST)</b></td>
-                <td class="right"><b>Rs. <?= number_format($grand_total, 2); ?></b></td>
+                <td class="right"><b>Rs. <?= number_format(round($grand_total), 2); ?></b></td>
                 <td></td>
             </tr>
         <?php } ?>
